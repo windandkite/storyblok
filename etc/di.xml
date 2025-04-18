@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="WindAndKite\Storyblok\Api\StoryServiceInterface"
+                type="WindAndKite\Storyblok\Service\StoryService"/>
+    <preference for="WindAndKite\Storyblok\Api\MediaServiceInterface"
+                type="WindAndKite\Storyblok\Service\MediaService"/>
+    <preference for="WindAndKite\Storyblok\Api\StoryRepositoryInterface"
+                type="WindAndKite\Storyblok\Model\StoryRepository"/>
+    <preference for="WindAndKite\Storyblok\Api\FieldRendererInterface"
+                type="WindAndKite\Storyblok\Service\FieldRenderer"/>
+
+    <type name="Magento\Config\Model\Config\TypePool">
+        <arguments>
+            <argument name="sensitive" xsi:type="array">
+                <item name="storyblok/general/api_token" xsi:type="string">1</item>
+            </argument>
+        </arguments>
+    </type>
+</config>

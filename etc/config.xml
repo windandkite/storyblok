@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <storyblok>
+            <general>
+                <enabled>1</enabled>
+                <dev_mode>0</dev_mode>
+                <api_token backend_model="Magento\Config\Model\Config\Backend\Encrypted"></api_token>
+            </general>
+            <page_routing>
+                <enabled>1</enabled>
+            </page_routing>
+        </storyblok>
+    </default>
+</config>
