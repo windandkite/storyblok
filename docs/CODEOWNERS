@@ -1,0 +1,39 @@
+# These owners will be the default owners for everything in the repo.
+* @windandkite/wk-backend
+
+# Php files
+*.php @windandkite/wk-backend
+
+# configuration settings
+*.yaml @windandkite/wk-backend
+
+# all xmls
+*.xml @windandkite/wk-backend
+
+# frontend layout xmls
+**/layout/*.xml @windandkite/wk-frontend
+
+# all jsons
+*.json @windandkite/wk-backend
+
+# README.md
+README.md @windandkite/wk-techlead
+
+# modules README.md
+**/README.md @windandkite/wk-techlead
+
+# templates
+*.phtml @windandkite/wk-frontend
+*.html @windandkite/wk-frontend
+
+# javascript
+*.js @windandkite/wk-frontend
+
+# translations
+/i18n/* @windandkite/wk-frontend
+
+# composer
+/composer.json @windandkite/wk-backend
+
+# gitignore
+/.gitignore @windandkite/wk-backend

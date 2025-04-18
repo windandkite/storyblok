@@ -1,0 +1,23 @@
+{
+    "name": "windandkite/module-template",
+    "description": "A Manento 2 Module ...",
+    "type": "magento2-module",
+    "license": "GPL-3.0",
+    "authors": [
+        {
+            "name": "Mage2Gen",
+            "email": "info@mage2gen.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "WindAndKite\\Template\\": ""
+        }
+    }
+}
