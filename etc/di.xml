@@ -9,6 +9,9 @@
                 type="WindAndKite\Storyblok\Model\StoryRepository"/>
     <preference for="WindAndKite\Storyblok\Api\FieldRendererInterface"
                 type="WindAndKite\Storyblok\Service\FieldRenderer"/>
+    <preference for="WindAndKite\Storyblok\Api\Data\AssetInterface"
+                type="WindAndKite\Storyblok\Model\Asset"/>
+
 
     <type name="Magento\Config\Model\Config\TypePool">
         <arguments>

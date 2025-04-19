@@ -19,6 +19,7 @@ class Block extends Template
         Template\Context $context,
         private readonly BlockFactory $blockFactory,
         private readonly FieldRendererInterface $fieldRenderer,
+        private readonly \WindAndKite\StoryBlok\Model\AssetFactory $assetFactory,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -72,7 +73,7 @@ class Block extends Template
     }
 
     /**
-     * Magic method for accessing and rendering block data.
+     * Magic method for accessing and rendering block data and assets.
      *
      * @param string $method
      * @param array $args
@@ -86,6 +87,35 @@ class Block extends Template
 
             if (!in_array($fieldName, BlockInterface::UNRENDERABLE_FIELDS) && $this->getBlock()->hasData($fieldName)) {
                 return $this->renderField($fieldName);
+            }
+
+            throw new NoSuchEntityException(
+                __('Field "%1" does not exist on component "%2".', $fieldName, $this->getBlock()->getComponent())
+            );
+        }
+
+        if (str_starts_with($method, 'get') && str_ends_with($method, 'Asset')) {
+            $fieldName = $this->_underscore(substr($method, 0, -4));
+
+            if (
+                !in_array($fieldName, BlockInterface::UNRENDERABLE_FIELDS)
+                && $this->getBlock()->hasData($fieldName)
+                && ($this->getBlock()->getData($fieldName)['fieldtype'] ?? null) === 'asset'
+            ) {
+                $asset = $this->assetFactory->create();
+                $asset->setData($this->getBlock()->getData($fieldName));
+
+                return $asset;
+            }
+
+            if (
+                !in_array($fieldName, BlockInterface::UNRENDERABLE_FIELDS)
+                && $this->getBlock()->hasData($fieldName)
+                && ($this->getBlock()->getData($fieldName)['fieldtype'] ?? null) !== 'asset'
+            ) {
+                throw new \Magento\Framework\Exception\InvalidArgumentException(
+                    __('Field "%1" is not an asset component.', $fieldName)
+                )
             }
 
             throw new NoSuchEntityException(
