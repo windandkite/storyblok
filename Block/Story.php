@@ -14,6 +14,7 @@ class Story extends Template
     public function __construct(
         Template\Context $context,
         private readonly StoryRepository $storyRepository,
+        private readonly \WindAndKite\Storyblok\ViewModel\Asset $assetViewModel,
         array $data = [],
     ) {
         parent::__construct($context, $data);
@@ -49,7 +50,8 @@ class Story extends Template
             . md5(json_encode($this->getContent()->getData()));
         $block = $this->getLayout()
             ->createBlock(Block::class, $blockName)
-            ->setData('block', $this->getContent());
+            ->setData('block', $this->getContent())
+            ->setData('asset_view_model', $this->assetViewModel);
 
         return $block->toHtml();
     }

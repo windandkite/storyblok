@@ -11,6 +11,7 @@ use Tiptap\Editor;
 use WindAndKite\Storyblok\Model\BlockFactory;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
 use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\Storyblok\ViewModel\Asset;
 
 /**
  * Class StoryblokFieldRenderer
@@ -30,6 +31,7 @@ class FieldRenderer implements FieldRendererInterface
         private readonly LoggerInterface $logger,
         private readonly LayoutInterface $layout,
         private readonly BlockFactory $blockFactory,
+        private readonly Asset $assetViewModel,
     ) {}
 
     /**
@@ -38,23 +40,30 @@ class FieldRenderer implements FieldRendererInterface
      * @param mixed $fieldValue The value of the Storyblok field. Can be a single value or an array.
      * @return string The rendered output.
      */
-    public function renderField(
-        mixed $fieldValue
-    ): string {
+    public function renderField(mixed $fieldValue): string {
         if (empty($fieldValue)) {
             return '';
         }
 
-        $fieldValue = is_array($fieldValue) ? $fieldValue : [$fieldValue];
-        $renderedOutput = '';
-
-        foreach ($fieldValue as $value) {
-            if ($this->isBlock($value)) {
-                $renderedOutput .= $this->renderBlockField($value);
-            }
+        if (!is_array($fieldValue)) {
+            return ''; // Or handle non-array values differently (log, throw exception, etc.)
         }
 
-        return $renderedOutput;
+        if ($this->isRichText($fieldValue)) {
+            return $this->renderRichTextField($fieldValue);
+        }
+
+        if ($this->isBlock($fieldValue)) {
+            return $this->renderBlockField($fieldValue);
+        }
+
+        $result = '';
+
+        foreach ($fieldValue as $child) {
+            $result .= $this->renderField($child);
+        }
+
+        return $result;
     }
 
     /**
@@ -63,9 +72,16 @@ class FieldRenderer implements FieldRendererInterface
      * @param array $fieldValue The field value.
      * @return bool True if it's a block, false otherwise.
      */
-    private function isBlock(array $fieldValue): bool
-    {
+    private function isBlock(
+        array $fieldValue
+    ): bool {
         return isset($fieldValue['_uid']) && isset($fieldValue['_editable']);
+    }
+
+    private function isRichText(
+        array $fieldValue
+    ): bool {
+        return isset($fieldValue['type']) && $fieldValue['type'] === self::FIELD_TYPE_RICH_TEXT;
     }
 
     /**
@@ -116,6 +132,7 @@ class FieldRenderer implements FieldRendererInterface
 
         return $this->layout->createBlock(Block::class, $blockName)
             ->setData('block', $storyblokBlock)
+            ->setData('asset_view_model', $this->assetViewModel)
             ->toHtml();
     }
 }

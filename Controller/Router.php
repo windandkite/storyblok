@@ -99,7 +99,7 @@ class Router implements RouterInterface
                 return null;
             }
 
-            $request->setParams(['story' => $story]);
+            $request->setParams(['story' => $storyData]);
             $request->setModuleName('windandkite_storyblok')->setControllerName('page')->setActionName('view');
 
             try {

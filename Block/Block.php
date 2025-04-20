@@ -19,7 +19,6 @@ class Block extends Template
         Template\Context $context,
         private readonly BlockFactory $blockFactory,
         private readonly FieldRendererInterface $fieldRenderer,
-        private readonly \WindAndKite\StoryBlok\Model\AssetFactory $assetFactory,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -115,7 +114,7 @@ class Block extends Template
             ) {
                 throw new \Magento\Framework\Exception\InvalidArgumentException(
                     __('Field "%1" is not an asset component.', $fieldName)
-                )
+                );
             }
 
             throw new NoSuchEntityException(
