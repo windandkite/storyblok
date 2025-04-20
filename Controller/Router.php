@@ -15,7 +15,7 @@ use Magento\Store\Model\StoreManagerInterface;
 use Psr\Log\LoggerInterface;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
 use WindAndKite\Storyblok\Scope\Config;
-use WindAndKite\Storyblok\Model\StoryFactory; // Add this
+use WindAndKite\Storyblok\Model\StoryFactory;
 
 class Router implements RouterInterface
 {
@@ -29,7 +29,7 @@ class Router implements RouterInterface
      * @param SerializerInterface $jsonSerializer
      * @param LoggerInterface $logger
      * @param Config $config
-     * @param StoryFactory $storyFactory  // Add this
+     * @param StoryFactory $storyFactory
      */
     public function __construct(
         private readonly ActionFactory $actionFactory,
@@ -50,7 +50,7 @@ class Router implements RouterInterface
      * @return ActionInterface|null
      * @throws Exception
      */
-    public function match(RequestInterface $request): ?ActionInterface // Change return typehint
+    public function match(RequestInterface $request): ?ActionInterface
     {
         if (
             !$this->config->isModuleEnabled()
@@ -64,6 +64,14 @@ class Router implements RouterInterface
 
         if (empty($identifier)) {
             return null;
+        }
+
+        if ($this->config->isRestrictFolderEnabled()) {
+            $folderPath = $this->config->getFolderPath();
+
+            if ($folderPath) {
+                $identifier = $folderPath . $identifier;
+            }
         }
 
         try {

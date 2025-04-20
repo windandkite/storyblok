@@ -78,6 +78,18 @@
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to enable the routing of Storyblok pages to Magento URLs.</comment>
                 </field>
+                <field id="restrict_folder" translate="label" type="select" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Restrict to Folder</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to restrict routing to a specific Storyblok folder.</comment>
+                </field>
+                <field id="folder_path" translate="label" type="text" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Folder Path</label>
+                    <depends>
+                        <field id="restrict_folder">1</field>
+                    </depends>
+                    <comment>Enter the Storyblok folder path (e.g., 'blog') to restrict routing.</comment>
+                </field>
             </group>
         </section>
     </system>
