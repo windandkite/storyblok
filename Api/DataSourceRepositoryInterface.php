@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Api;
 
-interface StoryRepositoryInterface
+interface DataSourceRepositoryInterface
 {
     public function getBySlug(
         string $slug,
-    ): \WindAndKite\Storyblok\Api\Data\StoryInterface;
+    ): \WindAndKite\Storyblok\Api\Data\DataSourceInterface;
 
     public function getList(
-        \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria,
+        int $page = 1,
+        int $perPage = \Storyblok\Api\Request\DatasourcesRequest::PER_PAGE,
     ): \Magento\Framework\Api\SearchResultsInterface;
 }

@@ -1,17 +1,23 @@
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
-    <preference for="WindAndKite\Storyblok\Api\StoryServiceInterface"
-                type="WindAndKite\Storyblok\Service\StoryService"/>
-    <preference for="WindAndKite\Storyblok\Api\MediaServiceInterface"
-                type="WindAndKite\Storyblok\Service\MediaService"/>
-    <preference for="WindAndKite\Storyblok\Api\StoryRepositoryInterface"
-                type="WindAndKite\Storyblok\Model\StoryRepository"/>
+    <preference for="WindAndKite\Storyblok\Api\AssetRepositoryInterface"
+                type="WindAndKite\Storyblok\Model\AssetRepository"/>
+    <preference for="WindAndKite\Storyblok\Api\DataSourceRepositoryInterface"
+                type="WindAndKite\Storyblok\Model\DataSourceRepository"/>
     <preference for="WindAndKite\Storyblok\Api\FieldRendererInterface"
                 type="WindAndKite\Storyblok\Service\FieldRenderer"/>
+    <preference for="WindAndKite\Storyblok\Api\StoryRepositoryInterface"
+                type="WindAndKite\Storyblok\Model\StoryRepository"/>
+
     <preference for="WindAndKite\Storyblok\Api\Data\AssetInterface"
                 type="WindAndKite\Storyblok\Model\Asset"/>
-
+    <preference for="WindAndKite\Storyblok\Api\Data\BlockInterface"
+                type="WindAndKite\Storyblok\Model\Block"/>
+    <preference for="WindAndKite\Storyblok\Api\Data\DataSourceInterface"
+                type="WindAndKite\Storyblok\Model\DataSource"/>
+    <preference for="WindAndKite\Storyblok\Api\Data\StoryInterface"
+                type="WindAndKite\Storyblok\Model\Story"/>
 
     <type name="Magento\Config\Model\Config\TypePool">
         <arguments>

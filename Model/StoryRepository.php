@@ -9,7 +9,6 @@ use Magento\Framework\Api\Filter;
 use Magento\Framework\Api\SearchResultsInterface;
 use Storyblok\Api\Domain\Value\Field\FieldCollection;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
-use WindAndKite\Storyblok\Api\StoryServiceInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Psr\Log\LoggerInterface;
 use Magento\Framework\Api\SearchCriteriaInterface;
@@ -40,13 +39,13 @@ use Storyblok\Api\Domain\Value\Resolver\ResolveLinks;
 class StoryRepository implements StoryRepositoryInterface
 {
     /**
-     * @param StoryServiceInterface $storyService
+     * @param StoryblokClientWrapper $storyBlockClientWrapper
      * @param StoryFactory $storyFactory
      * @param LoggerInterface $logger
      * @param SearchResultsInterfaceFactory $searchResultsFactory
      */
     public function __construct(
-        private readonly StoryServiceInterface $storyService,
+        private readonly StoryblokClientWrapper $storyBlockClientWrapper,
         private readonly StoryFactory $storyFactory,
         private readonly LoggerInterface $logger,
         private readonly SearchResultsInterfaceFactory $searchResultsFactory
@@ -63,7 +62,7 @@ class StoryRepository implements StoryRepositoryInterface
     public function getBySlug(string $slug): Story
     {
         try {
-            $storyData = $this->storyService->getBySlug($slug)->story;
+            $storyData = $this->storyBlockClientWrapper->getStoriesApi()->bySlug($slug)->story;
             $story = $this->storyFactory->create();
             $story->setData($storyData);
 
@@ -86,7 +85,7 @@ class StoryRepository implements StoryRepositoryInterface
         SearchCriteriaInterface $searchCriteria,
     ): SearchResultsInterface {
         $storiesRequest = $this->convertSearchCriteriaToStoriesRequest($searchCriteria);
-        $storiesData = $this->storyService->getStories($storiesRequest);
+        $storiesData = $this->storyBlockClientWrapper->getStoriesApi()->all($storiesRequest);
         $stories = [];
 
         foreach ($storiesData as $storyData) {

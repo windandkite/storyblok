@@ -5,12 +5,8 @@ namespace WindAndKite\Storyblok\Model;
 use Exception;
 use Psr\Log\LoggerInterface;
 use Storyblok\Api\AssetsApi;
+use Storyblok\Api\DatasourcesApi;
 use Storyblok\Api\Domain\Value\Dto\Version;
-use Storyblok\Api\Request\StoriesRequest;
-use Storyblok\Api\Request\StoryRequest;
-use Storyblok\Api\Response\AssetResponse;
-use Storyblok\Api\Response\StoriesResponse;
-use Storyblok\Api\Response\StoryResponse;
 use Storyblok\Api\StoriesApi;
 use Storyblok\Api\StoryblokClient;
 use WindAndKite\Storyblok\Scope\Config;
@@ -20,6 +16,8 @@ class StoryblokClientWrapper
     private ?StoryblokClient $client = null;
     private ?StoriesApi $storiesApi = null;
     private ?AssetsApi $assetsApi = null;
+
+    private ?DatasourcesApi $dataSourceApi = null;
 
     /**
      * @param Config $config
@@ -48,7 +46,7 @@ class StoryblokClientWrapper
      * @return StoriesApi
      * @throws Exception
      */
-    private function getStoriesApi(): StoriesApi
+    public function getStoriesApi(): StoriesApi
     {
         if (!$this->client) {
             throw new Exception('Storyblok client is not initialized.');
@@ -67,7 +65,7 @@ class StoryblokClientWrapper
      * @return AssetsApi
      * @throws Exception
      */
-    private function getAssetsApi(): AssetsApi
+    public function getAssetsApi(): AssetsApi
     {
         if (!$this->client) {
             throw new Exception('Storyblok client is not initialized.');
@@ -80,47 +78,16 @@ class StoryblokClientWrapper
         return $this->assetsApi;
     }
 
-    /**
-     * Get a Storyblok story by its slug.
-     *
-     * @param string $slug
-     * @param StoryRequest|null $request
-     *
-     * @return StoryResponse
-     * @throws Exception
-     */
-    public function getStory(
-        string $slug,
-        ?StoryRequest $request = null,
-    ): StoryResponse {
-        return $this->getStoriesApi()->bySlug($slug, $request);
-    }
+    public function getDataSourceApi(): DatasourcesApi
+    {
+        if (!$this->client) {
+            throw new Exception('Storyblok client is not initialized.');
+        }
 
-    /**
-     * Get multiple Storyblok stories.
-     *
-     * @param StoriesRequest|null $request
-     *
-     * @return StoriesResponse
-     * @throws Exception
-     */
-    public function getStories(
-        ?StoriesRequest $request = null,
-    ): StoriesResponse {
-        return $this->getStoriesApi()->all($request);
-    }
+        if (!$this->dataSourceApi) {
+            $this->dataSourceApi = new DatasourcesApi($this->client);
+        }
 
-    /**
-     * Get details about a Storyblok asset by its filename.
-     *
-     * @param string $filename
-     *
-     * @return AssetResponse
-     * @throws Exception
-     */
-    public function getAssetByFilename(
-        string $filename
-    ): AssetResponse {
-        return $this->getAssetsApi()->get($filename);
+        return $this->dataSourceApi;
     }
 }

@@ -14,7 +14,6 @@ use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Psr\Log\LoggerInterface;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
-use WindAndKite\Storyblok\Api\StoryServiceInterface;
 use WindAndKite\Storyblok\Scope\Config;
 use WindAndKite\Storyblok\Model\StoryFactory; // Add this
 
