@@ -102,7 +102,17 @@ class FieldRenderer implements FieldRendererInterface
             return '';
         }
 
-        $editor = new Editor(['extensions' => [ new StoryblokTipTapExtension]]);
+        $editor = new Editor(
+            [
+                'extensions' => [
+                    new StoryblokTipTapExtension([
+                        'blokOptions' => [
+                            'renderer' => [$this, 'renderBlockField']
+                        ]
+                    ])
+                ]
+            ]
+        );
         $editor->setContent($fieldValue);
 
         return $editor->getHtml();
@@ -128,7 +138,7 @@ class FieldRenderer implements FieldRendererInterface
 
         $storyblokBlock = $this->blockFactory->create();
         $storyblokBlock->setData($fieldValue);
-        $blockName = 'block_' . $storyblokBlock->getComponent() . '-' . md5(json_encode($fieldValue));
+        $blockName = 'block_' . $storyblokBlock->getComponent() . '-' . $storyblokBlock->getUid() . '-' . uniqid();
 
         return $this->layout->createBlock(Block::class, $blockName)
             ->setData('block', $storyblokBlock)
