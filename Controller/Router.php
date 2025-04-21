@@ -74,8 +74,12 @@ class Router implements RouterInterface
             }
         }
 
+        $cacheKey = self::CACHE_IDENTIFIER . $identifier . '_' . $this->storeManager->getStore()->getId();
+
         try {
-            $cacheKey = self::CACHE_IDENTIFIER . $identifier . '_' . $this->storeManager->getStore()->getId();
+            if ($request->getParam('_storyblok')) {
+                throw new NoSuchEntityException(__('Bypass Cache Loading'));
+            }
             $cachedData = $this->cache->load($cacheKey);
 
             if ($cachedData) {
@@ -107,7 +111,7 @@ class Router implements RouterInterface
             }
 
             $request->setParams(['story' => $storyData]);
-            $request->setModuleName('windandkite_storyblok')->setControllerName('page')->setActionName('view');
+            $request->setModuleName('storyblok')->setControllerName('page')->setActionName('view');
 
             try {
                 $this->cache->save(
