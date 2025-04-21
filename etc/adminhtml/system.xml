@@ -46,7 +46,8 @@
                        showInWebsite="1"
                        showInStore="0">
                     <label>Webhook Secret</label>
-                    <comment>Used to verify incoming webhook requests from Storyblok.</comment>
+                    <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\System\Config\Form\Field\WebhookSecret</frontend_model>
+                    <comment>Used to verify incoming webhook requests from Storyblok. Click "Generate New Secret" to change it.</comment>
                 </field>
                 <field id="dev_mode"
                        translate="label"

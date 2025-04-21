@@ -8,13 +8,14 @@ use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\Story as StoryblokStory;
 use WindAndKite\Storyblok\Model\StoryRepository;
+use WindAndKite\Storyblok\ViewModel\Asset;
 
 class Story extends Template
 {
     public function __construct(
         Template\Context $context,
         private readonly StoryRepository $storyRepository,
-        private readonly \WindAndKite\Storyblok\ViewModel\Asset $assetViewModel,
+        private readonly Asset $assetViewModel,
         array $data = [],
     ) {
         parent::__construct($context, $data);
@@ -54,5 +55,16 @@ class Story extends Template
             ->setData('asset_view_model', $this->assetViewModel);
 
         return $block->toHtml();
+    }
+
+    public function getCacheKeyInfo(): array
+    {
+        return [
+            ...parent::getCacheKeyInfo(),
+            'storyblok_story',
+            'storyblok_cv_' . $this->getStory()->getCacheVersion(),
+            'storyblok_id_' . $this->getStory()->getId(),
+            'storyblok_slug_' . $this->getStory()->getSlug(),
+        ];
     }
 }

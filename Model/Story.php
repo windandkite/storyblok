@@ -250,4 +250,9 @@ class Story extends DataObject implements StoryInterface
     {
         return $this->getData(self::KEY_TAGS);
     }
+
+    public function getCacheVersion(): ?string
+    {
+        return $this->getData(self::KEY_CACHE_VERSION);
+    }
 }

@@ -43,6 +43,7 @@ interface StoryInterface
     // Metadata Constants
     public const KEY_META_DATA = 'meta_data';
     public const KEY_TAGS = 'tag_list';
+    public const KEY_CACHE_VERSION = 'cache_version';
 
     /**
      * Get ID.
@@ -204,4 +205,6 @@ interface StoryInterface
      * @return array|null
      */
     public function getTags(): ?array;
+
+    public function getCacheVersion(): ?string;
 }

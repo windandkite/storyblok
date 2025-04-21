@@ -8,6 +8,7 @@ class Config
 {
     private const XML_PATH_ENABLED = 'storyblok/general/enabled';
     private const XML_PATH_API_TOKEN = 'storyblok/general/api_token';
+    private const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
     private const XML_PATH_DEV_MODE = 'storyblok/general/dev_mode';
     private const XML_PATH_PAGE_ROUTING_ENABLED = 'storyblok/page_routing/enabled';
     private const XML_PATH_RESTRICT_FOLDER = 'storyblok/page_routing/restrict_folder';
@@ -38,6 +39,17 @@ class Config
     ): null|int|string {
         return $this->scopeConfig->getValue(
             self::XML_PATH_API_TOKEN,
+            $scopeType,
+            $scopeCode,
+        );
+    }
+
+    public function getWebhookSecret(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): ?string {
+        return $this->scopeConfig->getValue(
+            self::XML_PATH_WEBHOOK_SECRET,
             $scopeType,
             $scopeCode,
         );
