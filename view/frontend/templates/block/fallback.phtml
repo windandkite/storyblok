@@ -9,5 +9,5 @@ declare(strict_types=1);
     <?= $escaper->escapeHtml(__('Missing Template %1', $block->getBlockTemplate())) ?>
 </div>
 <pre>
-    <?= /** @noEscape */ json_encode($block->getBlock()->getData(), JSON_PRETTY_PRINT) ?>
+    <?= $escaper->escapeHtml(json_encode($block->getBlock()->getData(), JSON_PRETTY_PRINT)) ?>
 </pre>

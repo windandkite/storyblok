@@ -8,6 +8,7 @@ use Exception;
 use Laminas\Http\Request;
 use Magento\Framework\Api\Filter;
 use Magento\Framework\Api\SearchResultsInterface;
+use Storyblok\Api\Domain\Value\Dto\Version;
 use Storyblok\Api\Domain\Value\Field\FieldCollection;
 use Storyblok\Api\Domain\Value\Total;
 use Storyblok\Api\Response\StoriesResponse;
@@ -52,7 +53,8 @@ class StoryRepository implements StoryRepositoryInterface
         private readonly StoryblokClientWrapper $storyBlockClientWrapper,
         private readonly StoryFactory $storyFactory,
         private readonly LoggerInterface $logger,
-        private readonly SearchResultsInterfaceFactory $searchResultsFactory
+        private readonly SearchResultsInterfaceFactory $searchResultsFactory,
+        private readonly \WindAndKite\Storyblok\Scope\Config $scopeConfig,
     ) {}
 
     /**
@@ -95,6 +97,9 @@ class StoryRepository implements StoryRepositoryInterface
         if (!$additionalFilters) {
             $response = $this->storyBlockClientWrapper->getStoriesApi()->all($storiesRequest);
         } else {
+            $version = $storiesRequest->version
+                ?? ($this->scopeConfig->isDevModeEnabled() ? Version::Draft->value : Version::Published->value);
+
             $rawResponse = $this->storyBlockClientWrapper->request(
                 Request::METHOD_GET,
                 '/v2/cdn/stories',
@@ -102,7 +107,7 @@ class StoryRepository implements StoryRepositoryInterface
                     'query' => [
                         ...$storiesRequest->toArray(),
                         ...$additionalFilters,
-                        'version' => $storiesRequest->version,
+                        'version' => $version,
                     ],
                 ]
             );

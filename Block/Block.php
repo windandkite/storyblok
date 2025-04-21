@@ -25,6 +25,10 @@ class Block extends Template
     }
 
     public function getData($key = '', $index = null) {
+        if ($key === 'block') {
+            return parent::getData($key, $index);
+        }
+
         return parent::getData($key, $index) ?? $this->getBlock()->getData($key, $index);
     }
 

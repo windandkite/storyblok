@@ -17,6 +17,8 @@ class Config
     private const XML_PATH_SITEMAP_PRIORITY = 'storyblok/sitemap/priority';
     private const XML_PATH_SITEMAP_CHANGEFREQ = 'storyblok/sitemap/changefreq';
     private const XML_PATH_SITEMAP_EXCLUDE_FOLDERS = 'storyblok/sitemap/exclude_folders';
+    private const XML_PATH_ENABLE_STORY_LISTS = 'storyblok/story_lists/enable';
+    private const XML_PATH_STORIES_PER_PAGE = 'storyblok/story_lists/per_page';
 
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig,
@@ -149,5 +151,29 @@ class Config
         $excludedFolders = explode(",", $excludedFoldersString);
 
         return array_map('trim', $excludedFolders);
+    }
+
+    public function isStoryListsEnabled(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): bool {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_ENABLE_STORY_LISTS,
+            $scopeType,
+            $scopeCode,
+        );
+    }
+
+    public function getStoryListPerPage(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): ?int {
+        $value = $this->scopeConfig->getValue(
+            self::XML_PATH_STORIES_PER_PAGE,
+            $scopeType,
+            $scopeCode
+        );
+
+        return ($value === null)? null : (int)$value;
     }
 }

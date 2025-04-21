@@ -6,7 +6,7 @@
             <general>
                 <enabled>1</enabled>
                 <dev_mode>0</dev_mode>
-                <api_token backend_model="Magento\Config\Model\Config\Backend\Encrypted"></api_token>
+                <api_token backend_model="Magento\Config\Model\Config\Backend\Encrypted"/>
             </general>
             <page_routing>
                 <enabled>1</enabled>
@@ -18,6 +18,10 @@
                 <priority>0.5</priority>
                 <changefreq>weekly</changefreq>
             </sitemap>
+            <story_lists>
+                <enable>1</enable>
+                <per_page>25</per_page>
+            </story_lists>
         </storyblok>
     </default>
 </config>

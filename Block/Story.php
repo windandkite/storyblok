@@ -8,14 +8,19 @@ use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\Story as StoryblokStory;
 use WindAndKite\Storyblok\Model\StoryRepository;
+use WindAndKite\Storyblok\Scope\Config;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
 class Story extends Template
 {
+    protected string $templateSuffix = '';
+    protected string $templateDir = 'story';
+
     public function __construct(
         Template\Context $context,
         private readonly StoryRepository $storyRepository,
         private readonly Asset $assetViewModel,
+        protected readonly Config $scopeConfig,
         array $data = [],
     ) {
         parent::__construct($context, $data);
@@ -23,10 +28,14 @@ class Story extends Template
 
     public function getData($key = '', $index = null)
     {
-        return parent::getData($key, $index) ?? $this->getStory()->getData($key, $index);
+        if ($key === 'story') {
+            return parent::getData($key, $index);
+        }
+
+        return parent::getData($key, $index) ?? $this->getData('story')?->getData($key, $index);
     }
 
-    public function getStory(): StoryblokStory
+    public function getStory(): ?StoryblokStory
     {
         $story = $this->getData('story');
 
@@ -66,5 +75,38 @@ class Story extends Template
             'storyblok_id_' . $this->getStory()->getId(),
             'storyblok_slug_' . $this->getStory()->getSlug(),
         ];
+    }
+
+    public function getStoryTemplate(): string
+    {
+        $content = $this->getStory()->getContent();
+
+        if ($componentName = $content->getComponent()) {
+            $templateName = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $componentName));
+            $templateName = str_replace('-', '_', $templateName);
+
+            return sprintf(
+                'WindAndKite_Storyblok::%s/%s%s.phtml',
+                $this->templateDir,
+                $templateName,
+                $this->templateSuffix
+            );
+        }
+
+        return $this->_template;
+    }
+
+    public function getTemplateFile(
+        $template = null
+    ) {
+        $template ??= $this->getStoryTemplate();
+
+        $result = parent::getTemplateFile($template);
+
+        if (!$result) {
+            return parent::getTemplateFile();
+        }
+
+        return $result;
     }
 }

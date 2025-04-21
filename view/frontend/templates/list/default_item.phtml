@@ -1,0 +1,29 @@
+<?php
+/**
+ * This Template is not supposed to be used in a production environment,
+ * this is used as a fallback where the correct Story Item template is missing.
+ * This templates should be used as a guide to show what is achievable with the data at hand.
+ */
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\StoryItem;
+
+/** @var StoryItem $block */
+/** @var Escaper $escaper */
+
+$story = $block->getStory();
+
+if (!$story) {
+    return;
+}
+?>
+<div class="story_item">
+    <a href="<?= $escaper->escapeUrl($block->getUrl() . $story->getFullSlug()) ?>">
+        <h2>
+            <?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryTemplate())) ?>
+            <?= $escaper->escapeHtml($story->getName()) ?>
+        </h2>
+    </a>
+</div>

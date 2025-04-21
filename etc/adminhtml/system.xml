@@ -159,6 +159,19 @@
                     <comment>Enter folder paths to exclude from the sitemap, separated by commas.</comment>
                 </field>
             </group>
+            <group id="story_lists" translate="label" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
+                <label>Story List Settings</label>
+                <field id="enable" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Enable Story Lists</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to enable the display of Story Lists for Folder Root stories.</comment>
+                </field>
+                <field id="per_page" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Stories Per Page</label>
+                    <validate>validate-number validate-greater-than-0</validate>
+                    <comment>Number of stories to display per page. Leave empty to display all stories.</comment>
+                </field>
+            </group>
         </section>
     </system>
 </config>

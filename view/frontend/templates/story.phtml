@@ -1,4 +1,9 @@
 <?php
+/**
+ * This Template is not supposed to be used in a production environment,
+ * this is used as a fallback where the correct Story template is missing.
+ * This templates should be used as a guide to show what is achievable with the data at hand.
+ */
 
 declare(strict_types=1);
 
@@ -12,5 +17,6 @@ use WindAndKite\Storyblok\Controller\Page\View;
 /** @var array $story */
 $story = $block->getData(View::DATA_KEY_STORY);
 ?>
-
+<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryTemplate())) ?>
 <?= /** @noEscape */ $block->getContentHtml() ?>
+<?= /** @noEscape */ $block->getChildBlock('storyblok.list')->setStory($this->getStory())->toHtml() ?>
