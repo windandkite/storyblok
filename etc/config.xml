@@ -10,7 +10,14 @@
             </general>
             <page_routing>
                 <enabled>1</enabled>
+                <restrict_folder>0</restrict_folder>
+                <folder_path>pages</folder_path>
             </page_routing>
+            <sitemap>
+                <enabled>1</enabled>
+                <priority>0.5</priority>
+                <changefreq>weekly</changefreq>
+            </sitemap>
         </storyblok>
     </default>
 </config>

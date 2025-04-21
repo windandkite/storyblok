@@ -12,5 +12,6 @@ interface StoryRepositoryInterface
 
     public function getList(
         \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria,
+        array $additionalFilters = [],
     ): \Magento\Framework\Api\SearchResultsInterface;
 }

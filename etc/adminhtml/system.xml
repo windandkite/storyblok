@@ -78,17 +78,84 @@
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to enable the routing of Storyblok pages to Magento URLs.</comment>
                 </field>
-                <field id="restrict_folder" translate="label" type="select" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="0">
+                <field id="restrict_folder"
+                       translate="label"
+                       type="select"
+                       sortOrder="2"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
                     <label>Restrict to Folder</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to restrict routing to a specific Storyblok folder.</comment>
                 </field>
-                <field id="folder_path" translate="label" type="text" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="0">
+                <field id="folder_path"
+                       translate="label"
+                       type="text"
+                       sortOrder="3"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
                     <label>Folder Path</label>
                     <depends>
                         <field id="restrict_folder">1</field>
                     </depends>
                     <comment>Enter the Storyblok folder path (e.g., 'blog') to restrict routing.</comment>
+                </field>
+            </group>
+            <group id="sitemap" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
+                <label>Sitemap</label>
+                <field id="enabled"
+                       translate="label"
+                       type="select"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Add Stories to Sitemap</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to include Storyblok stories in the Magento sitemap.</comment>
+                </field>
+                <field id="priority"
+                       translate="label"
+                       type="text"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Priority</label>
+                    <backend_model>Magento\Sitemap\Model\Config\Backend\Priority</backend_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                    <comment>The priority of Storyblok pages in the sitemap (0.0 to 1.0).</comment>
+                </field>
+                <field id="changefreq"
+                       translate="label"
+                       type="select"
+                       sortOrder="30"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Change Frequency</label>
+                    <source_model>Magento\Sitemap\Model\Config\Source\Frequency</source_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                    <comment>How frequently Storyblok pages are likely to change.</comment>
+                </field>
+                <field id="exclude_folders"
+                       translate="label"
+                       type="text"
+                       sortOrder="40"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Exclude Folders</label>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                    <comment>Enter folder paths to exclude from the sitemap, separated by commas.</comment>
                 </field>
             </group>
         </section>

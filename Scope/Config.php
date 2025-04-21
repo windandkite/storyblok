@@ -12,6 +12,10 @@ class Config
     private const XML_PATH_PAGE_ROUTING_ENABLED = 'storyblok/page_routing/enabled';
     private const XML_PATH_RESTRICT_FOLDER = 'storyblok/page_routing/restrict_folder';
     private const XML_PATH_FOLDER_PATH = 'storyblok/page_routing/folder_path';
+    private const XML_PATH_SITEMAP_ENABLED = 'storyblok/sitemap/enabled';
+    private const XML_PATH_SITEMAP_PRIORITY = 'storyblok/sitemap/priority';
+    private const XML_PATH_SITEMAP_CHANGEFREQ = 'storyblok/sitemap/changefreq';
+    private const XML_PATH_SITEMAP_EXCLUDE_FOLDERS = 'storyblok/sitemap/exclude_folders';
 
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig,
@@ -19,7 +23,7 @@ class Config
 
     public function isModuleEnabled(
         string $scopeType = ScopeInterface::SCOPE_STORE,
-        ?string $scopeCode = null,
+        null|int|string $scopeCode = null,
     ): bool {
         return $this->scopeConfig->isSetFlag(
             self::XML_PATH_ENABLED,
@@ -30,8 +34,8 @@ class Config
 
     public function getApiToken(
         string $scopeType = ScopeInterface::SCOPE_STORE,
-        ?string $scopeCode = null,
-    ): ?string {
+        null|int|string $scopeCode = null,
+    ): null|int|string {
         return $this->scopeConfig->getValue(
             self::XML_PATH_API_TOKEN,
             $scopeType,
@@ -41,7 +45,7 @@ class Config
 
     public function isDevModeEnabled(
         string $scopeType = ScopeInterface::SCOPE_STORE,
-        ?string $scopeCode = null,
+        null|int|string $scopeCode = null,
     ): bool {
         return $this->scopeConfig->isSetFlag(
             self::XML_PATH_DEV_MODE,
@@ -52,7 +56,7 @@ class Config
 
     public function isPageRoutingEnabled(
         string $scopeType = ScopeInterface::SCOPE_STORE,
-        ?string $scopeCode = null,
+        null|int|string $scopeCode = null,
     ): bool {
         return $this->scopeConfig->isSetFlag(
             self::XML_PATH_PAGE_ROUTING_ENABLED,
@@ -63,7 +67,7 @@ class Config
 
     public function isRestrictFolderEnabled(
         string $scopeType = ScopeInterface::SCOPE_STORE,
-        ?string $scopeCode = null
+        null|int|string $scopeCode = null
     ): bool {
         return $this->scopeConfig->isSetFlag(
             self::XML_PATH_RESTRICT_FOLDER,
@@ -74,12 +78,64 @@ class Config
 
     public function getFolderPath(
         string $scopeType = ScopeInterface::SCOPE_STORE,
-        ?string $scopeCode = null
-    ): ?string {
+        null|int|string $scopeCode = null
+    ): null|int|string {
         return $this->scopeConfig->getValue(
             self::XML_PATH_FOLDER_PATH,
             $scopeType,
             $scopeCode
         );
+    }
+
+    public function isSitemapEnabled(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): bool {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_SITEMAP_ENABLED,
+            $scopeType,
+            $scopeCode
+        );
+    }
+
+    public function getSitemapPriority(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): string {
+        return $this->scopeConfig->getValue(
+             self::XML_PATH_SITEMAP_PRIORITY,
+            $scopeType,
+            $scopeCode
+        );
+    }
+
+    public function getSitemapChangefreq(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): string {
+        return $this->scopeConfig->getValue(
+            self::XML_PATH_SITEMAP_CHANGEFREQ,
+            $scopeType,
+            $scopeCode
+        );
+    }
+
+    public function getSitemapExcludeFolders(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): array {
+        $excludedFoldersString = $this->scopeConfig->getValue(
+            self::XML_PATH_SITEMAP_EXCLUDE_FOLDERS,
+            $scopeType,
+            $scopeCode
+        );
+
+        if (empty($excludedFoldersString)) {
+            return [];
+        }
+
+        $excludedFolders = explode(",", $excludedFoldersString);
+
+        return array_map('trim', $excludedFolders);
     }
 }

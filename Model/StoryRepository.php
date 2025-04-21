@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Model;
 
 use Exception;
+use Laminas\Http\Request;
 use Magento\Framework\Api\Filter;
 use Magento\Framework\Api\SearchResultsInterface;
 use Storyblok\Api\Domain\Value\Field\FieldCollection;
+use Storyblok\Api\Domain\Value\Total;
+use Storyblok\Api\Response\StoriesResponse;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Psr\Log\LoggerInterface;
@@ -83,12 +86,35 @@ class StoryRepository implements StoryRepositoryInterface
      */
     public function getList(
         SearchCriteriaInterface $searchCriteria,
+        array $additionalFilters = [],
     ): SearchResultsInterface {
         $storiesRequest = $this->convertSearchCriteriaToStoriesRequest($searchCriteria);
-        $storiesData = $this->storyBlockClientWrapper->getStoriesApi()->all($storiesRequest);
+        if (!$additionalFilters) {
+            $response = $this->storyBlockClientWrapper->getStoriesApi()->all($storiesRequest);
+        } else {
+            $rawResponse = $this->storyBlockClientWrapper->request(
+                Request::METHOD_GET,
+                '/v2/cdn/stories',
+                [
+                    'query' => [
+                        ...$storiesRequest->toArray(),
+                        ...$additionalFilters,
+                        'version' => $storiesRequest->version,
+                    ],
+                ]
+            );
+
+            $response = new StoriesResponse(
+                Total::fromHeaders($rawResponse->getHeaders()),
+                $storiesRequest->pagination,
+                $rawResponse->toArray(),
+            );
+        }
+
+
         $stories = [];
 
-        foreach ($storiesData as $storyData) {
+        foreach ($response->stories as $storyData) {
             $story = $this->storyFactory->create();
             $story->setData($storyData);
             $stories[] = $story;
@@ -97,7 +123,7 @@ class StoryRepository implements StoryRepositoryInterface
         /** @var SearchResultsInterface $searchResults */
         $searchResults = $this->searchResultsFactory->create();
         $searchResults->setItems($stories);
-        $searchResults->setTotalCount(count($stories));
+        $searchResults->setTotalCount($response->total->value);
         $searchResults->setSearchCriteria($searchCriteria);
 
         return $searchResults;
@@ -208,6 +234,8 @@ class StoryRepository implements StoryRepositoryInterface
             if (!empty($filters)) {
                 $args['filters'] = new FilterCollection($filters);
             }
+        } else {
+            $args['filters'] = new FilterCollection();
         }
     }
 

@@ -26,4 +26,12 @@
             </argument>
         </arguments>
     </type>
+
+    <type name="Magento\Sitemap\Model\ItemProvider\Composite">
+        <arguments>
+            <argument name="itemProviders" xsi:type="array">
+                <item name="storyProvider" xsi:type="object">WindAndKite\Storyblok\Model\Sitemap\StoryProvider</item>
+            </argument>
+        </arguments>
+    </type>
 </config>
