@@ -24,12 +24,12 @@ class Index implements HttpPostActionInterface
      * @param Request $request
      */
     public function __construct(
-        private readonly JsonFactory $resultJsonFactory,
-        private readonly LoggerInterface $logger,
-        private readonly CacheInterface $cache,
-        private readonly SerializerInterface $serializer,
-        private readonly Config $config,
-        private readonly Request $request,
+        private JsonFactory $resultJsonFactory,
+        private LoggerInterface $logger,
+        private CacheInterface $cache,
+        private SerializerInterface $serializer,
+        private Config $config,
+        private Request $request,
     ) {}
 
     /**

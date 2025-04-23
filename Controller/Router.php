@@ -32,14 +32,14 @@ class Router implements RouterInterface
      * @param StoryFactory $storyFactory
      */
     public function __construct(
-        private readonly ActionFactory $actionFactory,
-        private readonly StoryRepositoryInterface $storyRepository,
-        private readonly StoreManagerInterface $storeManager,
-        private readonly CacheInterface $cache,
-        private readonly SerializerInterface $jsonSerializer,
-        private readonly LoggerInterface $logger,
-        private readonly Config $config,
-        private readonly StoryFactory $storyFactory,
+        private ActionFactory $actionFactory,
+        private StoryRepositoryInterface $storyRepository,
+        private StoreManagerInterface $storeManager,
+        private CacheInterface $cache,
+        private SerializerInterface $jsonSerializer,
+        private LoggerInterface $logger,
+        private Config $config,
+        private StoryFactory $storyFactory,
     ) {}
 
     /**

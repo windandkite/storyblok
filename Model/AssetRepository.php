@@ -11,8 +11,8 @@ use WindAndKite\Storyblok\Api\Data\AssetInterface;
 class AssetRepository implements AssetRepositoryInterface
 {
     public function __construct(
-        private readonly StoryblokClientWrapper $storyBlockClientWrapper,
-        private readonly AssetFactory $assetFactory,
+        private StoryblokClientWrapper $storyBlockClientWrapper,
+        private AssetFactory $assetFactory,
     ) {}
 
     public function getByFilename(

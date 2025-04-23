@@ -28,10 +28,10 @@ class FieldRenderer implements FieldRendererInterface
      * @param BlockFactory $blockFactory
      */
     public function __construct(
-        private readonly LoggerInterface $logger,
-        private readonly LayoutInterface $layout,
-        private readonly BlockFactory $blockFactory,
-        private readonly Asset $assetViewModel,
+        private LoggerInterface $logger,
+        private LayoutInterface $layout,
+        private BlockFactory $blockFactory,
+        private Asset $assetViewModel,
     ) {}
 
     /**

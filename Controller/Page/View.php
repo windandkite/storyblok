@@ -10,7 +10,6 @@ use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Exception\NotFoundException;
 use Magento\Framework\View\Result\Page;
 use Magento\Framework\View\Result\PageFactory;
-use WindAndKite\Storyblok\ViewModel\PageRenderer;
 
 /**
  * Controller for the 'storyblok/page/view' URL route.
@@ -19,11 +18,10 @@ class View implements HttpGetActionInterface
 {
     public const BLOCK_NAME = 'storyblok.content';
     public const DATA_KEY_STORY = 'story';
-    public const DATA_KEY_PAGE_RENDERER = 'page_renderer';
 
     public function __construct(
-        private readonly PageFactory $pageFactory,
-        private readonly RequestInterface $request,
+        private PageFactory $pageFactory,
+        private RequestInterface $request,
     ) {}
 
     /**
@@ -40,10 +38,19 @@ class View implements HttpGetActionInterface
         }
 
         $page = $this->pageFactory->create();
+        $slug = trim($story->getFullSlug(), '/');
+        $slugParts = explode('/', $slug);
+        $slugPath = '';
+
+        foreach ($slugParts as $part) {
+            $processedPart = strtolower(str_replace('-', '_', $part));
+            $slugPath .= ($slugPath ? '_' : '') . $processedPart;
+            $page->addPageLayoutHandles(['slug' => $slugPath], null , false);
+        }
+
+        $page->addPageLayoutHandles(['id' => $story->getId()]);
+
         $page->getConfig()->getTitle()->set($story['name']);
-        $page->getLayout()
-            ->getBlock(self::BLOCK_NAME)
-            ->setData(self::DATA_KEY_STORY, $story);
 
         return $page;
     }

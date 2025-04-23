@@ -13,9 +13,9 @@ use WindAndKite\Storyblok\Api\DataSourceRepositoryInterface;
 class DataSourceRepository implements DataSourceRepositoryInterface
 {
     public function __construct(
-        private readonly StoryblokClientWrapper $storyBlockClientWrapper,
-        private readonly DataSourceFactory $dataSourceFactory,
-        private readonly SearchResultsInterfaceFactory $searchResultsFactory
+        private StoryblokClientWrapper $storyBlockClientWrapper,
+        private DataSourceFactory $dataSourceFactory,
+        private SearchResultsInterfaceFactory $searchResultsFactory
     ) {}
 
     public function getBySlug(

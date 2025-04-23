@@ -20,9 +20,9 @@ class RegenerateSecret extends Action
      */
     public function __construct(
         Context $context,
-        private readonly JsonFactory $resultJsonFactory,
-        private readonly WriterInterface $configWriter,
-        private readonly LoggerInterface $logger
+        private JsonFactory $resultJsonFactory,
+        private WriterInterface $configWriter,
+        private LoggerInterface $logger
     ) {
         parent::__construct($context);
     }

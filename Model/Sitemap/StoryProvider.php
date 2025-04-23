@@ -25,11 +25,11 @@ class StoryProvider implements ItemProviderInterface
      * @param SortOrderBuilder $sortOrderBuilder
      */
     public function __construct(
-        private readonly Config $config,
-        private readonly StoryRepositoryInterface $storyRepository,
-        private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
-        private readonly SitemapItemInterfaceFactory $sitemapItemFactory,
-        private readonly SortOrderBuilder $sortOrderBuilder,
+        private Config $config,
+        private StoryRepositoryInterface $storyRepository,
+        private SearchCriteriaBuilder $searchCriteriaBuilder,
+        private SitemapItemInterfaceFactory $sitemapItemFactory,
+        private SortOrderBuilder $sortOrderBuilder,
     ) {}
 
     /**

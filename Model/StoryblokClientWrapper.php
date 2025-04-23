@@ -32,8 +32,8 @@ class StoryblokClientWrapper
      * @param LoggerInterface $logger
      */
     public function __construct(
-        private readonly Config $config,
-        private readonly LoggerInterface $logger
+        private Config $config,
+        private LoggerInterface $logger
     ) {
         if (!$this->config->isModuleEnabled()) {
             return;

@@ -40,21 +40,25 @@ use Storyblok\Api\Domain\Value\Tag\TagCollection;
 use Storyblok\Api\Domain\Value\IdCollection;
 use Storyblok\Api\Domain\Value\Resolver\RelationCollection;
 use Storyblok\Api\Domain\Value\Resolver\ResolveLinks;
+use WindAndKite\Storyblok\Scope\Config;
 
 class StoryRepository implements StoryRepositoryInterface
 {
+    private array $storyFields = [];
+
     /**
      * @param StoryblokClientWrapper $storyBlockClientWrapper
      * @param StoryFactory $storyFactory
      * @param LoggerInterface $logger
      * @param SearchResultsInterfaceFactory $searchResultsFactory
+     * @param Config $scopeConfig
      */
     public function __construct(
-        private readonly StoryblokClientWrapper $storyBlockClientWrapper,
-        private readonly StoryFactory $storyFactory,
-        private readonly LoggerInterface $logger,
-        private readonly SearchResultsInterfaceFactory $searchResultsFactory,
-        private readonly \WindAndKite\Storyblok\Scope\Config $scopeConfig,
+        private StoryblokClientWrapper $storyBlockClientWrapper,
+        private StoryFactory $storyFactory,
+        private LoggerInterface $logger,
+        private SearchResultsInterfaceFactory $searchResultsFactory,
+        private Config $scopeConfig,
     ) {}
 
     /**
@@ -208,9 +212,15 @@ class StoryRepository implements StoryRepositoryInterface
         array &$args
     ): void {
         $sortOrders = $searchCriteria->getSortOrders();
+
         if ($sortOrders && count($sortOrders) > 0) {
             $sortOrder = reset($sortOrders);
             $field = $sortOrder->getField();
+
+            if (!in_array($field, $this->getStoryFields(), true)) {
+                $field = 'content.' . $field;
+            }
+
             $direction = $sortOrder->getDirection();
             $args['sortBy'] = new SortBy(
                 field: $field, direction: Direction::from(strtolower($direction))
@@ -229,12 +239,17 @@ class StoryRepository implements StoryRepositoryInterface
         array &$args
     ): void {
         $filterGroups = $searchCriteria->getFilterGroups();
+        $filters = [];
 
         if ($filterGroups) {
-            $filters = [];
-
             foreach ($filterGroups as $filterGroup) {
                 foreach ($filterGroup->getFilters() as $filter) {
+                    if ($filter->getField() === 'search_term') {
+                        $args['searchTerm'] = $filter->getValue();
+
+                        continue;
+                    }
+
                     $this->addFilter($filter, $filters);
                 }
             }
@@ -242,6 +257,10 @@ class StoryRepository implements StoryRepositoryInterface
             if (!empty($filters)) {
                 $args['filters'] = new FilterCollection($filters);
             }
+        }
+
+        if (!empty($filters)) {
+            $args['filters'] = new FilterCollection($filters);
         } else {
             $args['filters'] = new FilterCollection();
         }
@@ -358,5 +377,21 @@ class StoryRepository implements StoryRepositoryInterface
         }
 
         $filters[] = new LessThanDateFilter(field: $field, value: $value);
+    }
+
+    private function getStoryFields(): array
+    {
+        if (!$this->storyFields) {
+            $reflection = new \ReflectionClass(StoryInterface::class);
+            $this->storyFields = array_values(
+                array_filter(
+                    $reflection->getConstants(),
+                    fn($key) => str_starts_with($key, 'KEY_'),
+                    ARRAY_FILTER_USE_KEY
+                )
+            );
+        }
+
+        return $this->storyFields;
     }
 }

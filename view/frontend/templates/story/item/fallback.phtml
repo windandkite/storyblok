@@ -8,9 +8,9 @@
 declare(strict_types=1);
 
 use Magento\Framework\Escaper;
-use WindAndKite\Storyblok\Block\StoryItem;
+use WindAndKite\Storyblok\Block\Story;
 
-/** @var StoryItem $block */
+/** @var Story $block */
 /** @var Escaper $escaper */
 
 $story = $block->getStory();
@@ -19,11 +19,8 @@ if (!$story) {
     return;
 }
 ?>
+<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryblokTemplate())) ?>
 <div class="story_item">
-    <a href="<?= $escaper->escapeUrl($block->getUrl() . $story->getFullSlug()) ?>">
-        <h2>
-            <?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryTemplate())) ?>
-            <?= $escaper->escapeHtml($story->getName()) ?>
-        </h2>
-    </a>
+    <a href="<?= $escaper->escapeUrl($block->getStoryUrl()) ?>"><?= $escaper->escapeHtml($story->getName()) ?></a>
+    <?= /** @noEscape */ $block->getContentHtml(['template_suffix' => '_item']) ?>
 </div>

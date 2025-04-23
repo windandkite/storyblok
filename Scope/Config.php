@@ -21,7 +21,7 @@ class Config
     private const XML_PATH_STORIES_PER_PAGE = 'storyblok/story_lists/per_page';
 
     public function __construct(
-        private readonly ScopeConfigInterface $scopeConfig,
+        private ScopeConfigInterface $scopeConfig,
     ) {}
 
     public function isModuleEnabled(

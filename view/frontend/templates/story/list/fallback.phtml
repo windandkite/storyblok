@@ -15,16 +15,16 @@ use WindAndKite\Storyblok\Block\StoryList;
 
 $searchResults = $block->getStories();
 
-if (!$searchResults?->getTotalCount()) {
-    return;
-}
-
 $pageSize = $searchResults?->getSearchCriteria()->getPageSize();
 $currentPage = $searchResults?->getSearchCriteria()->getCurrentPage();
 $totalCount = $searchResults?->getTotalCount();
-$totalPages = ceil($totalCount / $pageSize);
+$totalPages = $totalCount ? ceil($totalCount / $pageSize) : 0;
 ?>
-<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryTemplate())) ?>
+<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryblokTemplate())) ?>
+<?php if (!$searchResults?->getTotalCount()): ?>
+    <span>No Results Found</span>
+    <?php return; ?>
+<?php endif ?>
 <ul class="storyblok_list">
     <?php foreach ($block->getStories()->getItems() as $story): ?>
         <li><?= $block->getChildBlock('storyblok.list.item')->setStory($story)->toHtml() ?></li>
@@ -33,9 +33,9 @@ $totalPages = ceil($totalCount / $pageSize);
 <?php if ($totalPages > 1): ?>
     <div class="pagination">
         <?php for ($page = 1; $page <= $totalPages; $page++): ?>
+            <?php $queryParams = $page === 1 ? [] : ['_query' => ['p' => $page]] ?>
             <?php if ($page !== $currentPage): ?>
-                <?php $url = $block->getUrl() . $block->getStory()->getFullSlug() . ($page > 1 ? '?p=' . (int)$page : ''); ?>
-                <a href="<?= $escaper->escapeUrl($url) ?>">
+                <a href="<?= $escaper->escapeUrl($block->getStoryUrl(params: $queryParams, retainsParams: true)) ?>">
                     <span><?= (int)$page ?></span>
                 </a>
             <?php else: ?>

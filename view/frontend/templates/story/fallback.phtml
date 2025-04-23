@@ -15,8 +15,10 @@ use WindAndKite\Storyblok\Controller\Page\View;
 /** @var Escaper $escaper */
 
 /** @var array $story */
-$story = $block->getData(View::DATA_KEY_STORY);
+$story = $block->getStory();
 ?>
-<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryTemplate())) ?>
+<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryblokTemplate())) ?>
 <?= /** @noEscape */ $block->getContentHtml() ?>
-<?= /** @noEscape */ $block->getChildBlock('storyblok.list')->setStory($this->getStory())->toHtml() ?>
+<?php if ($storyblokList = $block->getChildBlock('storyblok.list')): ?>
+    <?= /** @noEscape */ $storyblokList->setStory($this->getStory())->toHtml() ?>
+<?php endif ?>

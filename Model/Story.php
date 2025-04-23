@@ -12,7 +12,7 @@ class Story extends DataObject implements StoryInterface
      * @param array $data
      */
     public function __construct(
-        protected readonly BlockFactory $blockFactory,
+        protected BlockFactory $blockFactory,
         array $data = [],
     ) {
         parent::__construct($data);
