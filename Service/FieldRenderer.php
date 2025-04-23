@@ -11,7 +11,6 @@ use Tiptap\Editor;
 use WindAndKite\Storyblok\Model\BlockFactory;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
 use WindAndKite\Storyblok\Block\Block;
-use WindAndKite\Storyblok\ViewModel\Asset;
 
 /**
  * Class StoryblokFieldRenderer
@@ -31,7 +30,6 @@ class FieldRenderer implements FieldRendererInterface
         private LoggerInterface $logger,
         private LayoutInterface $layout,
         private BlockFactory $blockFactory,
-        private Asset $assetViewModel,
     ) {}
 
     /**
@@ -140,9 +138,9 @@ class FieldRenderer implements FieldRendererInterface
         $storyblokBlock->setData($fieldValue);
         $blockName = 'block_' . $storyblokBlock->getComponent() . '-' . $storyblokBlock->getUid() . '-' . uniqid();
 
-        return $this->layout->createBlock(Block::class, $blockName)
+        return $this->layout
+            ->createBlock(Block::class, $blockName)
             ->setData('block', $storyblokBlock)
-            ->setData('asset_view_model', $this->assetViewModel)
             ->toHtml();
     }
 }
