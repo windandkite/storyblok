@@ -72,9 +72,7 @@ class Block extends AbstractStoryblok
                 return $this->renderField($fieldName);
             }
 
-            throw new NoSuchEntityException(
-                __('Field "%1" does not exist on component "%2".', $fieldName, $this->getBlock()->getComponent())
-            );
+            return $this->getData($fieldName);
         }
 
         if (str_starts_with($method, 'get') && str_ends_with($method, 'Asset')) {
