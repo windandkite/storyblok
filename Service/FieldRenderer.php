@@ -73,7 +73,7 @@ class FieldRenderer implements FieldRendererInterface
     private function isBlock(
         array $fieldValue
     ): bool {
-        return isset($fieldValue['_uid']) && isset($fieldValue['_editable']);
+        return isset($fieldValue['_uid']) && isset($fieldValue['component']);
     }
 
     private function isRichText(
