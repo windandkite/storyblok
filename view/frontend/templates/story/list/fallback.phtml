@@ -35,7 +35,7 @@ $totalPages = $totalCount ? ceil($totalCount / $pageSize) : 0;
         <?php for ($page = 1; $page <= $totalPages; $page++): ?>
             <?php $queryParams = $page === 1 ? [] : ['_query' => ['p' => $page]] ?>
             <?php if ($page !== $currentPage): ?>
-                <a href="<?= $escaper->escapeUrl($block->getStoryUrl(params: $queryParams, retainsParams: true)) ?>">
+                <a href="<?= $escaper->escapeUrl($block->getStoryUrl(params: $queryParams)) ?>">
                     <span><?= (int)$page ?></span>
                 </a>
             <?php else: ?>
