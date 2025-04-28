@@ -76,12 +76,20 @@ abstract class AbstractStoryblok extends Template
     public function getStoryUrl(
         ?StoryblokStory $story = null,
         array $params = [],
-        bool $retainsParams = false,
+        array $retainParams = [],
     ): string {
         $story ??= $this->getStory();
 
-        if ($retainsParams) {
-            $params = array_merge($this->getRequest()->getParams(), $params);
+        if ($retainParams) {
+            $retainedParams = [];
+
+            foreach ($retainParams as $param) {
+                $retainedParams[$param] = $this->getRequest()->getParam($param, null);
+            }
+
+            $retainedParams = array_filter($retainedParams);
+
+            $params['_query'] = array_merge($retainedParams, $params['_query'] ?? []);
         }
 
         return $this->_urlBuilder->getDirectUrl(
