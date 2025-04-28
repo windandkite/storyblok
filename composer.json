@@ -15,7 +15,8 @@
         "php": "^8.0|^8.1|^8.2|^8.3",
         "magento/framework": "*",
         "storyblok/php-content-api-client": "^1.0",
-        "storyblok/php-tiptap-extension": "^1.0"
+        "storyblok/php-tiptap-extension": "^1.0",
+        "mixable/color-utils": "^1.0"
     },
     "autoload": {
         "files": [

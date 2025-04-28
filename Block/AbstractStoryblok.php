@@ -1,0 +1,110 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WindAndKite\Storyblok\Block;
+
+use Magento\Framework\View\Element\Template;
+use WindAndKite\Storyblok\Model\Story as StoryblokStory;
+use WindAndKite\Storyblok\Model\StoryRepository;
+use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\ViewModel\Asset;
+
+abstract class AbstractStoryblok extends Template
+{
+    protected const TEMPLATE_DIR = '';
+    protected const TEMPLATE_SUFFIX = '';
+
+    public function __construct(
+        protected StoryRepository $storyRepository,
+        private Asset $assetViewModel,
+        protected Config $scopeConfig,
+        Template\Context $context,
+        array $data = []
+    ) {
+        parent::__construct($context, $data);
+    }
+
+    public abstract function getComponent(): string;
+
+    public function getTemplateDir(): string
+    {
+        return $this->getData('template_dir') ?? static::TEMPLATE_DIR;
+    }
+
+    public function getTemplateSuffix(): string
+    {
+        return $this->getData('template_suffix') ?? static::TEMPLATE_SUFFIX;
+    }
+
+    public function getStoryblokTemplate(): string
+    {
+        $component = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $this->getComponent()));
+        $component = str_replace('-', '_', $component);
+
+        return sprintf(
+            'WindAndKite_Storyblok::%s/%s%s.phtml',
+            $this->getTemplateDir(),
+            $component,
+            $this->getTemplateSuffix()
+        );
+    }
+
+    public function getTemplateFile(
+        $template = null
+    ) {
+        $template ??= $this->getStoryblokTemplate();
+
+        $result = parent::getTemplateFile($template);
+
+        if (!$result) {
+            return parent::getTemplateFile();
+        }
+
+        return $result;
+    }
+
+    public function getTemplate()
+    {
+        return sprintf(
+            'WindAndKite_Storyblok::%s/fallback%s.phtml',
+            $this->getTemplateDir(),
+            $this->getTemplateSuffix()
+        );
+    }
+
+    public function getStoryUrl(
+        ?StoryblokStory $story = null,
+        array $params = [],
+        bool $retainsParams = false,
+    ): string {
+        $story ??= $this->getStory();
+
+        if ($retainsParams) {
+            $params = array_merge($this->getRequest()->getParams(), $params);
+        }
+
+        return $this->_urlBuilder->getDirectUrl(
+            $story->getFullSlug(),
+            $params
+        );
+    }
+
+    public function getStory(): ?StoryblokStory
+    {
+        if (!$this->getData('story')) {
+            if ($slug = $this->getSlug()) {
+                $this->setData('story', $this->storyRepository->getBySlug($slug));
+            } else {
+                $this->setData('story', $this->getRequest()->getParam('story'));
+            }
+        }
+
+        return $this->getData('story');
+    }
+
+    public function getAssetViewModel(): Asset
+    {
+        return $this->assetViewModel;
+    }
+}

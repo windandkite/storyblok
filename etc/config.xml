@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <storyblok>
+            <general>
+                <enabled>1</enabled>
+                <dev_mode>0</dev_mode>
+                <api_token backend_model="Magento\Config\Model\Config\Backend\Encrypted"/>
+            </general>
+            <page_routing>
+                <enabled>1</enabled>
+                <restrict_folder>0</restrict_folder>
+                <folder_path>pages</folder_path>
+            </page_routing>
+            <sitemap>
+                <enabled>1</enabled>
+                <priority>0.5</priority>
+                <changefreq>weekly</changefreq>
+            </sitemap>
+            <story_lists>
+                <enable>1</enable>
+                <per_page>25</per_page>
+            </story_lists>
+        </storyblok>
+    </default>
+</config>

@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+/** @var \WindAndKite\Storyblok\Block\Block $block */
+/** @var \Magento\Framework\Escaper $escaper */
+?>
+<div>
+    <?= $escaper->escapeHtml(__('Missing Template %1', $block->getStoryblokTemplate())) ?>
+</div>
+<pre>
+    <?= $escaper->escapeHtml(json_encode($block->getBlock()->getData(), JSON_PRETTY_PRINT)) ?>
+</pre>

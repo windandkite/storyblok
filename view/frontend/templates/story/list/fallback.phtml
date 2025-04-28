@@ -1,0 +1,46 @@
+<?php
+/**
+ * This Template is not supposed to be used in a production environment,
+ * this is used as a fallback where the correct Story List template is missing.
+ * This templates should be used as a guide to show what is achievable with the data at hand.
+ */
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\StoryList;
+
+/** @var StoryList $block */
+/** @var Escaper $escaper */
+
+$searchResults = $block->getStories();
+
+$pageSize = $searchResults?->getSearchCriteria()->getPageSize();
+$currentPage = $searchResults?->getSearchCriteria()->getCurrentPage();
+$totalCount = $searchResults?->getTotalCount();
+$totalPages = $totalCount ? ceil($totalCount / $pageSize) : 0;
+?>
+<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryblokTemplate())) ?>
+<?php if (!$searchResults?->getTotalCount()): ?>
+    <span>No Results Found</span>
+    <?php return; ?>
+<?php endif ?>
+<ul class="storyblok_list">
+    <?php foreach ($block->getStories()->getItems() as $story): ?>
+        <li><?= $block->getChildBlock('storyblok.list.item')->setStory($story)->toHtml() ?></li>
+    <?php endforeach ?>
+</ul>
+<?php if ($totalPages > 1): ?>
+    <div class="pagination">
+        <?php for ($page = 1; $page <= $totalPages; $page++): ?>
+            <?php $queryParams = $page === 1 ? [] : ['_query' => ['p' => $page]] ?>
+            <?php if ($page !== $currentPage): ?>
+                <a href="<?= $escaper->escapeUrl($block->getStoryUrl(params: $queryParams, retainsParams: true)) ?>">
+                    <span><?= (int)$page ?></span>
+                </a>
+            <?php else: ?>
+                <span style="font-weight: bold"><?= (int)$page ?></span>
+            <?php endif ?>
+        <?php endfor ?>
+    </div>
+<?php endif ?>

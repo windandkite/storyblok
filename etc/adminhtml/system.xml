@@ -1,0 +1,177 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="storyblok" translate="label" sortOrder="10">
+            <label>Storyblok</label>
+        </tab>
+        <section id="storyblok"
+                 translate="label"
+                 sortOrder="10"
+                 showInDefault="1"
+                 showInWebsite="1"
+                 showInStore="1">
+            <class>separator-top</class>
+            <label>Storyblok Integration</label>
+            <tab>storyblok</tab>
+            <resource>WindAndKite_Storyblok::config</resource>
+            <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
+                <label>General Settings</label>
+                <field id="enabled"
+                       translate="label"
+                       type="select"
+                       sortOrder="1"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Module Enabled</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to enable the Storyblok integration module.</comment>
+                </field>
+                <field id="api_token"
+                       translate="label"
+                       type="obscure"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>API Token</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                </field>
+                <field id="webhook_secret"
+                       translate="label"
+                       type="text"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Webhook Secret</label>
+                    <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\System\Config\Form\Field\WebhookSecret</frontend_model>
+                    <comment>Used to verify incoming webhook requests from Storyblok. Click "Generate New Secret" to change it.</comment>
+                </field>
+                <field id="dev_mode"
+                       translate="label"
+                       type="select"
+                       sortOrder="30"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Developer Mode</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>If set to "Yes", the latest draft version of content will be fetched.</comment>
+                </field>
+            </group>
+            <group id="page_routing"
+                   translate="label"
+                   sortOrder="20"
+                   showInDefault="1"
+                   showInWebsite="1"
+                   showInStore="0">
+                <label>Page Routing</label>
+                <field id="enabled"
+                       translate="label"
+                       type="select"
+                       sortOrder="1"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Enable Page Routing</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to enable the routing of Storyblok pages to Magento URLs.</comment>
+                </field>
+                <field id="restrict_folder"
+                       translate="label"
+                       type="select"
+                       sortOrder="2"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Restrict to Folder</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to restrict routing to a specific Storyblok folder.</comment>
+                </field>
+                <field id="folder_path"
+                       translate="label"
+                       type="text"
+                       sortOrder="3"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Folder Path</label>
+                    <depends>
+                        <field id="restrict_folder">1</field>
+                    </depends>
+                    <comment>Enter the Storyblok folder path (e.g., 'blog') to restrict routing.</comment>
+                </field>
+            </group>
+            <group id="sitemap" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
+                <label>Sitemap</label>
+                <field id="enabled"
+                       translate="label"
+                       type="select"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Add Stories to Sitemap</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to include Storyblok stories in the Magento sitemap.</comment>
+                </field>
+                <field id="priority"
+                       translate="label"
+                       type="text"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Priority</label>
+                    <backend_model>Magento\Sitemap\Model\Config\Backend\Priority</backend_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                    <comment>The priority of Storyblok pages in the sitemap (0.0 to 1.0).</comment>
+                </field>
+                <field id="changefreq"
+                       translate="label"
+                       type="select"
+                       sortOrder="30"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Change Frequency</label>
+                    <source_model>Magento\Sitemap\Model\Config\Source\Frequency</source_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                    <comment>How frequently Storyblok pages are likely to change.</comment>
+                </field>
+                <field id="exclude_folders"
+                       translate="label"
+                       type="text"
+                       sortOrder="40"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Exclude Folders</label>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                    <comment>Enter folder paths to exclude from the sitemap, separated by commas.</comment>
+                </field>
+            </group>
+            <group id="story_lists" translate="label" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
+                <label>Story List Settings</label>
+                <field id="enable" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Enable Story Lists</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to enable the display of Story Lists for Folder Root stories.</comment>
+                </field>
+                <field id="per_page" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Stories Per Page</label>
+                    <validate>validate-number validate-greater-than-0</validate>
+                    <comment>Number of stories to display per page. Leave empty to display all stories.</comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>
