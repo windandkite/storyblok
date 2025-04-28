@@ -98,6 +98,19 @@ abstract class AbstractStoryblok extends Template
         );
     }
 
+    public function getStory(): ?StoryblokStory
+    {
+        if (!$this->getData('story')) {
+            if ($slug = $this->getSlug()) {
+                $this->setData('story', $this->storyRepository->getBySlug($slug));
+            } else {
+                $this->setData('story', $this->getRequest()->getParam('story'));
+            }
+        }
+
+        return $this->getData('story');
+    }
+
     public function getAssetViewModel(): Asset
     {
         return $this->assetViewModel;
