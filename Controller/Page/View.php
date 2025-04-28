@@ -52,6 +52,14 @@ class View implements HttpGetActionInterface
 
         $page->getConfig()->getTitle()->set($story['name']);
 
+
+        $slugPath = '';
+        foreach ($slugParts as $part) {
+            $processedPart = strtolower(str_replace('-', '_', $part));
+            $slugPath .= ($slugPath ? '_' : '') . $processedPart;
+            $page->getConfig()->addBodyClass('storyblok-' . $slugPath);
+        }
+
         return $page;
     }
 }
