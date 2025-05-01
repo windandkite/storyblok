@@ -7,19 +7,6 @@
             <block name="storyblok.content"
                    class="WindAndKite\Storyblok\Block\Story"
                    template="WindAndKite_Storyblock::story/page.phtml">
-                <block name="storyblok.list"
-                       class="WindAndKite\Storyblok\Block\StoryList">
-                    <arguments>
-                        <argument name="template_dir" xsi:type="string">story/list</argument>
-                    </arguments>
-
-                    <block name="storyblok.list.item"
-                           class="WindAndKite\Storyblok\Block\Story">
-                        <arguments>
-                            <argument name="template_dir" xsi:type="string">story/item</argument>
-                        </arguments>
-                    </block>
-                </block>
             </block>
         </referenceContainer>
     </body>
