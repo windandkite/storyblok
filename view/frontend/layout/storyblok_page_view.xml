@@ -5,7 +5,8 @@
     <body>
         <referenceContainer name="content">
             <block name="storyblok.content"
-                   class="WindAndKite\Storyblok\Block\Story">
+                   class="WindAndKite\Storyblok\Block\Story"
+                   template="WindAndKite_Storyblock::story/page.phtml">
                 <block name="storyblok.list"
                        class="WindAndKite\Storyblok\Block\StoryList">
                     <arguments>

@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Story;
+use WindAndKite\Storyblok\Controller\Page\View;
+
+/** @var Story $block */
+/** @var Escaper $escaper */
+
+/** @var array $story */
+$story = $block->getStory();
+?>
+<?= /** @noEscape */ $block->getContentHtml() ?>
+<?php if ($storyblokList = $block->getChildBlock('storyblok.list')): ?>
+    <?= /** @noEscape */ $storyblokList->setStory($this->getStory())->toHtml() ?>
+<?php endif ?>
