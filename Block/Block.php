@@ -115,11 +115,7 @@ class Block extends AbstractStoryblok
 
     protected function _toHtml(): string
     {
-        $editable = '';
-
-        if ($this->_request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
-            $editable = $this->getData('_editable') ?? '';
-        }
+        $editable = $this->getData('_editable') ?? '';
 
         return $editable . parent::_toHtml();
     }

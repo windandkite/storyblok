@@ -76,7 +76,7 @@ class StoryRepository implements StoryRepositoryInterface
         ?StoryRequest $request = null,
     ): Story {
         try {
-            $response = $this->storyBlockClientWrapper->getStoriesApi()->bySlug($slug);
+            $response = $this->storyBlockClientWrapper->getStoriesApi()->bySlug($slug, $request);
             $storyData = $response->story;
             $storyData[StoryInterface::KEY_CACHE_VERSION] = $response->cv;
             $story = $this->storyFactory->create();
