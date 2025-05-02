@@ -80,7 +80,7 @@ class Router implements RouterInterface
 
         $storyRequest = null;
 
-        if ($request->getParam(self::STORYBLOK_EDITOR_KEY)) {
+        if ($request->getParam(self::STORYBLOK_EDITOR_KEY) || $this->config->isDevModeEnabled()) {
             $storyRequest = new StoryRequest(version: Version::Draft);
         }
 
