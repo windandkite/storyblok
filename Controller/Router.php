@@ -13,6 +13,8 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Psr\Log\LoggerInterface;
+use Storyblok\Api\Domain\Value\Dto\Version;
+use Storyblok\Api\Request\StoryRequest;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
 use WindAndKite\Storyblok\Scope\Config;
 use WindAndKite\Storyblok\Model\StoryFactory;
@@ -20,6 +22,8 @@ use WindAndKite\Storyblok\Model\StoryFactory;
 class Router implements RouterInterface
 {
     private const CACHE_IDENTIFIER = 'windandkite_storyblok_route_';
+
+    public const STORYBLOK_EDITOR_KEY = '_storyblok';
 
     /**
      * @param ActionFactory $actionFactory
@@ -74,12 +78,20 @@ class Router implements RouterInterface
             }
         }
 
+        $storyRequest = null;
+
+        if ($request->getParam(self::STORYBLOK_EDITOR_KEY)) {
+            $storyRequest = new StoryRequest(version: Version::Draft);
+        }
+
+
         $cacheKey = self::CACHE_IDENTIFIER . $identifier . '_' . $this->storeManager->getStore()->getId();
 
         try {
-            if ($request->getParam('_storyblok')) {
+            if ($storyRequest) {
                 throw new NoSuchEntityException(__('Bypass Cache Loading'));
             }
+
             $cachedData = $this->cache->load($cacheKey);
 
             if ($cachedData) {
@@ -104,7 +116,7 @@ class Router implements RouterInterface
         }
 
         try {
-            $storyData = $this->storyRepository->getBySlug($identifier);
+            $storyData = $this->storyRepository->getBySlug($identifier, $storyRequest);
 
             if (!$storyData->getId()) {
                 return null;

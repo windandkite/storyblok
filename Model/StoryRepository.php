@@ -11,6 +11,7 @@ use Magento\Framework\Api\SearchResultsInterface;
 use Storyblok\Api\Domain\Value\Dto\Version;
 use Storyblok\Api\Domain\Value\Field\FieldCollection;
 use Storyblok\Api\Domain\Value\Total;
+use Storyblok\Api\Request\StoryRequest;
 use Storyblok\Api\Response\StoriesResponse;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
@@ -65,12 +66,15 @@ class StoryRepository implements StoryRepositoryInterface
      * Retrieve Story by slug.
      *
      * @param string $slug
+     * @param StoryRequest|null $request
      *
      * @return Story
      * @throws NoSuchEntityException
      */
-    public function getBySlug(string $slug): Story
-    {
+    public function getBySlug(
+        string $slug,
+        ?StoryRequest $request = null,
+    ): Story {
         try {
             $response = $this->storyBlockClientWrapper->getStoriesApi()->bySlug($slug);
             $storyData = $response->story;

@@ -9,6 +9,7 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Api\Data\BlockInterface;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
+use WindAndKite\Storyblok\Controller\Router;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\BlockFactory;
 use WindAndKite\Storyblok\Model\StoryRepository;
@@ -110,5 +111,16 @@ class Block extends AbstractStoryblok
     public function getComponent(): string
     {
         return $this->getBlock()->getComponent();
+    }
+
+    protected function _toHtml(): string
+    {
+        $editable = '';
+
+        if ($this->_request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
+            $editable = $this->getData('_editable') ?? '';
+        }
+
+        return $editable . parent::_toHtml();
     }
 }

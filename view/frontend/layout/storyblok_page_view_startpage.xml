@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      layout="1column"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="content">
+            <referenceBlock name="storyblok.content">
+                <block name="storyblok.list"
+                       class="WindAndKite\Storyblok\Block\StoryList">
+                    <arguments>
+                        <argument name="template_dir" xsi:type="string">story/list</argument>
+                    </arguments>
+
+                    <block name="storyblok.list.item"
+                           class="WindAndKite\Storyblok\Block\Story">
+                        <arguments>
+                            <argument name="template_dir" xsi:type="string">story/item</argument>
+                        </arguments>
+                    </block>
+                </block>
+            </referenceBlock>
+        </referenceContainer>
+    </body>
+</page>
