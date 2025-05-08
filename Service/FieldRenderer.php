@@ -44,7 +44,7 @@ class FieldRenderer implements FieldRendererInterface
         }
 
         if (!is_array($fieldValue)) {
-            return ''; // Or handle non-array values differently (log, throw exception, etc.)
+            return '';
         }
 
         if ($this->isRichText($fieldValue)) {

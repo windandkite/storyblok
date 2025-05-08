@@ -45,6 +45,9 @@ interface StoryInterface
     public const KEY_TAGS = 'tag_list';
     public const KEY_CACHE_VERSION = 'cache_version';
 
+    // Relations
+    public const KEY_RELS = 'rels';
+
     /**
      * Get ID.
      *
@@ -206,5 +209,24 @@ interface StoryInterface
      */
     public function getTags(): ?array;
 
+    /**
+     * Get Cache Version
+     *
+     * @return string|null
+     */
     public function getCacheVersion(): ?string;
+
+    /**
+     * Get Story Relations
+     *
+     * @return array|null
+     */
+    public function getRelatedStories(): ?array;
+
+    /**
+     * Render Story Html
+     *
+     * @return string
+     */
+    public function toHtml(): string;
 }

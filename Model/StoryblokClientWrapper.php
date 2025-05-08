@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace WindAndKite\Storyblok\Model;
 
 use Exception;
@@ -13,6 +15,7 @@ use Storyblok\Api\SpacesApi;
 use Storyblok\Api\StoriesApi;
 use Storyblok\Api\StoryblokClient;
 use Storyblok\Api\TagsApi;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use WindAndKite\Storyblok\Scope\Config;
 
@@ -50,6 +53,11 @@ class StoryblokClientWrapper
         $this->client = new StoryblokClient('https://api.storyblok.com', $apiToken);
     }
 
+    /**
+     * @return StoryblokClient
+     *
+     * @throws Exception
+     */
     private function getClient(): StoryblokClient
     {
         if (!$this->client) {
@@ -61,6 +69,7 @@ class StoryblokClientWrapper
 
     /**
      * @return StoriesApi
+     *
      * @throws Exception
      */
     public function getStoriesApi(): StoriesApi
@@ -76,6 +85,7 @@ class StoryblokClientWrapper
 
     /**
      * @return AssetsApi
+     *
      * @throws Exception
      */
     public function getAssetsApi(): AssetsApi
@@ -87,6 +97,11 @@ class StoryblokClientWrapper
         return $this->assetsApi;
     }
 
+    /**
+     * @return DatasourcesApi
+     *
+     * @throws Exception
+     */
     public function getDataSourceApi(): DatasourcesApi
     {
         if (!$this->dataSourceApi) {
@@ -96,6 +111,11 @@ class StoryblokClientWrapper
         return $this->dataSourceApi;
     }
 
+    /**
+     * @return DataSourceEntriesApi
+     *
+     * @throws Exception
+     */
     public function getDataSourceEntriesApi(): DataSourceEntriesApi
     {
         if (!$this->dataSourceEntriesApi) {
@@ -105,6 +125,11 @@ class StoryblokClientWrapper
         return $this->dataSourceEntriesApi;
     }
 
+    /**
+     * @return LinksApi
+     *
+     * @throws Exception
+     */
     public function getLinksApi(): LinksApi
     {
         if (!$this->linksApi) {
@@ -115,6 +140,11 @@ class StoryblokClientWrapper
         return $this->linksApi;
     }
 
+    /**
+     * @return SpacesApi
+     *
+     * @throws Exception
+     */
     public function getSpacesApi(): SpacesApi
     {
         if (!$this->spacesApi) {
@@ -124,6 +154,11 @@ class StoryblokClientWrapper
         return $this->spacesApi;
     }
 
+    /**
+     * @return TagsApi
+     *
+     * @throws Exception
+     */
     public function getTagsApi(): TagsApi
     {
         if (!$this->tagsApi) {
@@ -133,6 +168,15 @@ class StoryblokClientWrapper
         return $this->tagsApi;
     }
 
+    /**
+     * @param string $method
+     * @param string $endpoint
+     * @param array $options
+     *
+     * @return ResponseInterface
+     *
+     * @throws TransportExceptionInterface
+     */
     public function request(
         string $method,
         string $endpoint,
