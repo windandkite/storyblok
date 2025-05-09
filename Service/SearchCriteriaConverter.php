@@ -154,7 +154,7 @@ class SearchCriteriaConverter
                 if (in_array($filter->getField(), array_keys(self::FILTER_MAPPING))) {
                     [$param, $value] = $this->processFilter($filter);
 
-                    if ($param && $value) {
+                    if ($param && isset($value)) {
                         $specialParams[$param] = $value;
                     }
                 } else {

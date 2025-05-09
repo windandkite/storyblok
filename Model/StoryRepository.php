@@ -64,7 +64,6 @@ class StoryRepository implements StoryRepositoryInterface
      * @param StoryFactory $storyFactory
      * @param LoggerInterface $logger
      * @param SearchResultsInterfaceFactory $searchResultsFactory
-     * @param Config $scopeConfig
      * @param SearchCriteriaConverter $searchCriteriaConverter
      */
     public function __construct(
@@ -72,7 +71,6 @@ class StoryRepository implements StoryRepositoryInterface
         private StoryFactory $storyFactory,
         private LoggerInterface $logger,
         private SearchResultsInterfaceFactory $searchResultsFactory,
-        private Config $scopeConfig,
         private SearchCriteriaConverter $searchCriteriaConverter,
     ) {}
 
