@@ -4,24 +4,27 @@ namespace WindAndKite\Storyblok\Model;
 
 use Magento\Framework\DataObject;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
+use WindAndKite\Storyblok\Service\StoryRenderer;
 
 class Story extends DataObject implements StoryInterface
 {
     /**
      * @param BlockFactory $blockFactory
+     * @param StoryFactory $storyFactory
+     * @param StoryRenderer $storyRenderer
      * @param array $data
      */
     public function __construct(
         protected BlockFactory $blockFactory,
+        protected StoryFactory $storyFactory,
+        private StoryRenderer $storyRenderer,
         array $data = [],
     ) {
         parent::__construct($data);
     }
 
     /**
-     * Get ID.
-     *
-     * @return int|null
+     * @inheritDoc
      */
     public function getId(): ?int
     {
@@ -29,9 +32,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get UUID.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getUuid(): ?string
     {
@@ -39,9 +40,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get Parent ID.
-     *
-     * @return int|null
+     * @inheritDoc
      */
     public function getParentId(): ?int
     {
@@ -49,9 +48,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get Group ID.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getGroupId(): ?string
     {
@@ -59,9 +56,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get Release ID.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getReleaseId(): ?string
     {
@@ -69,9 +64,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get content.
-     *
-     * @return Block
+     * @inheritDoc
      */
     public function getContent(): Block
     {
@@ -82,9 +75,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get name.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getName(): ?string
     {
@@ -92,9 +83,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get slug.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getSlug(): ?string
     {
@@ -102,9 +91,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get full slug.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getFullSlug(): ?string
     {
@@ -112,9 +99,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get default full slug.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getDefaultFullSlug(): ?string
     {
@@ -122,9 +107,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get path.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getPath(): ?string
     {
@@ -132,9 +115,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get created at.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getCreatedAt(): ?string
     {
@@ -142,9 +123,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get published at.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getPublishedAt(): ?string
     {
@@ -152,9 +131,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get first published at.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getFirstPublishedAt(): ?string
     {
@@ -162,9 +139,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get updated at.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getUpdatedAt(): ?string
     {
@@ -172,9 +147,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get sort by date.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getSortByDate(): ?string
     {
@@ -182,9 +155,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get position.
-     *
-     * @return int|null
+     * @inheritDoc
      */
     public function getPosition(): ?int
     {
@@ -192,9 +163,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get is startpage.
-     *
-     * @return bool|null
+     * @inheritDoc
      */
     public function getIsStartpage(): ?bool
     {
@@ -202,9 +171,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get language.
-     *
-     * @return string|null
+     * @inheritDoc
      */
     public function getLang(): ?string
     {
@@ -212,9 +179,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get alternatives.
-     *
-     * @return array|null
+     * @inheritDoc
      */
     public function getAlternatives(): ?array
     {
@@ -222,9 +187,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get translated slugs.
-     *
-     * @return array|null
+     * @inheritDoc
      */
     public function getTranslatedSlugs(): ?array
     {
@@ -232,9 +195,7 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get meta data.
-     *
-     * @return array|null
+     * @inheritDoc
      */
     public function getMetaData(): ?array
     {
@@ -242,17 +203,46 @@ class Story extends DataObject implements StoryInterface
     }
 
     /**
-     * Get tags.
-     *
-     * @return array|null
+     * @inheritDoc
      */
     public function getTags(): ?array
     {
         return $this->getData(self::KEY_TAGS);
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getCacheVersion(): ?string
     {
         return $this->getData(self::KEY_CACHE_VERSION);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getRelatedStories(): ?array
+    {
+        if (!$this->hasData(self::KEY_RELATED_STORIES)) {
+            $stories = [];
+
+            foreach ($this->getData(self::KEY_RELS) ?? [] as $relation) {
+                $story = $this->storyFactory->create();
+                $story->setData($relation);
+                $stories[] = $story;
+            }
+
+            $this->setData(self::KEY_RELATED_STORIES, $stories);
+        }
+
+        return $this->getData(self::KEY_RELATED_STORIES);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function toHtml(): string
+    {
+        return $this->storyRenderer->renderStory($this);
     }
 }

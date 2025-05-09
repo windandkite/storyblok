@@ -8,6 +8,7 @@ use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\ResponseInterface;
 use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Exception\NotFoundException;
+use Magento\Framework\UrlInterface;
 use Magento\Framework\View\Result\Page;
 use Magento\Framework\View\Result\PageFactory;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
@@ -23,6 +24,7 @@ class View implements HttpGetActionInterface
     public function __construct(
         private PageFactory $pageFactory,
         private RequestInterface $request,
+        private UrlInterface $urlBuilder,
     ) {}
 
     /**
@@ -43,6 +45,7 @@ class View implements HttpGetActionInterface
         $this->addPageHandles($page, $story);
         $this->addPageMeta($page, $story);
         $this->addBodyClasses($page, $story);
+        $this->setBreadcrumbs($page, $story);
 
         return $page;
     }
@@ -94,5 +97,44 @@ class View implements HttpGetActionInterface
         $fullSlugProcessed = strtolower(str_replace(['_', '/'], '-', $slug));
 
         $page->getConfig()->addBodyClass('storyblok-' . $fullSlugProcessed);
+    }
+
+    public function setBreadcrumbs(
+        Page $page,
+        StoryInterface $story,
+    ): void {
+        $slug = rtrim($story->getFullSlug(), '/');
+        $paths = explode('/', $slug);
+
+        $breadcrumbsBlock = $page->getLayout()->getBlock('breadcrumbs');
+
+        if (!$breadcrumbsBlock) {
+            return;
+        }
+
+        $breadcrumbsBlock->addCrumb(
+            'home',
+            [
+                'label' => __('Home'),
+                'title' => __('Home'),
+                'link'  => $this->urlBuilder->getUrl('')
+            ]
+        );
+
+        $cumulativePath = '';
+
+        foreach ($paths as $path) {
+            $cumulativePath .= ($cumulativePath ? '/' : '') . $path;
+            $url = $path == end($paths) ? null : $this->urlBuilder->getUrl($cumulativePath);
+            $label = ucwords(str_replace('-', ' ', $path));
+            $breadcrumbsBlock->addCrumb(
+                $path,
+                [
+                    'label' => __($label),
+                    'title' => __($label),
+                    'link'  => $url
+                ]
+            );
+        }
     }
 }

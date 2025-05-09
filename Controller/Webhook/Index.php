@@ -3,22 +3,24 @@
 namespace WindAndKite\Storyblok\Controller\Webhook;
 
 use Magento\Framework\App\Action\HttpPostActionInterface;
-use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Webapi\Exception as WebapiException;
 use Psr\Log\LoggerInterface;
-use Magento\Framework\App\CacheInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Framework\Webapi\Rest\Request;
 use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\StoryblokCacheService;
 
-class Index implements HttpPostActionInterface
+class Index implements CsrfAwareActionInterface, HttpPostActionInterface
 {
 
     /**
      * @param JsonFactory $resultJsonFactory
      * @param LoggerInterface $logger
-     * @param CacheInterface $cache
+     * @param StoryblokCacheService $cacheService
      * @param SerializerInterface $serializer
      * @param Config $config
      * @param Request $request
@@ -26,7 +28,7 @@ class Index implements HttpPostActionInterface
     public function __construct(
         private JsonFactory $resultJsonFactory,
         private LoggerInterface $logger,
-        private CacheInterface $cache,
+        private StoryblokCacheService $cacheService,
         private SerializerInterface $serializer,
         private Config $config,
         private Request $request,
@@ -85,7 +87,7 @@ class Index implements HttpPostActionInterface
         $payload = $this->request->getContent();
         $secret = $this->config->getWebhookSecret();
 
-        $calculatedSignature = 'sha1=' . hash_hmac('sha1', $payload, $secret);
+        $calculatedSignature = hash_hmac('sha1', $payload, $secret);
 
         return hash_equals($signatureHeader, $calculatedSignature);
     }
@@ -107,27 +109,40 @@ class Index implements HttpPostActionInterface
 
             if (!$storyId) {
                 $this->logger->warning('Webhook payload missing story_id.');
+
                 return;
             }
 
             // Invalidate cache tags based on story_id
-            $cacheTags = ['storyblok_story_' . $storyId];
-            $this->cache->clean(\Zend_Cache::CLEANING_MODE_MATCHING_TAG, $cacheTags);
+            $cacheTags = ['storyblok_story_id_' . $storyId];
+
 
             // If cv is present, invalidate cache based on cv
             if ($cv) {
                 $cacheTags[] = 'storyblok_cv_' . $cv;
-                $this->cache->clean(\Zend_Cache::CLEANING_MODE_MATCHING_TAG, $cacheTags);
             }
 
             // If slug is present, invalidate cache based on slug pattern (more complex)
             if ($slug) {
-                $cacheTags[] = 'storyblok_slug_' . $slug;
-                $this->cache->clean(\Zend_Cache::CLEANING_MODE_MATCHING_TAG, $cacheTags);
+                $cacheTags[] = 'storyblok_story_slug_' . $slug;
             }
+
+            $this->cacheService->cleanCacheByTags($cacheTags);
 
         } catch (\Exception $e) {
             $this->logger->error('Error processing webhook: ' . $e->getMessage());
         }
+    }
+
+    public function createCsrfValidationException(
+        RequestInterface $request
+    ): ?InvalidRequestException {
+        return null;
+    }
+
+    public function validateForCsrf(
+        RequestInterface $request
+    ): ?bool {
+        return true;
     }
 }

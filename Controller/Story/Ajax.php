@@ -15,6 +15,8 @@ use Magento\Framework\Controller\Result\Json;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Serialize\SerializerInterface;
+use Magento\Framework\View\LayoutInterface;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Block\Story;
 use WindAndKite\Storyblok\Model\StoryFactory;
 
@@ -38,13 +40,22 @@ class Ajax extends Action implements CsrfAwareActionInterface, HttpPostActionInt
         $layout = $this->_view->getLayout();
         $result = $this->resultJsonFactory->create();
 
-        $layout->getUpdate()->addHandle('storyblok_index_ajax');
         $story = $this->storyFactory->create();
         $story->setData($storyData);
+
+        $this->addLayoutHandles($story, $layout);
 
         $block = $layout->createBlock(Story::class)->setStory($story);
 
         return $result->setData([$story['content']['_uid'] => $block->toHtml()]);
+    }
+
+    public function addLayoutHandles(
+        StoryInterface $story,
+        LayoutInterface $layout
+    ): void {
+        $layout->getUpdate()->addHandle('default');
+        $layout->getUpdate()->addHandle('storyblok_index_ajax');
     }
 
     public function createCsrfValidationException(

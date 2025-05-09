@@ -14,6 +14,7 @@ use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\BlockFactory;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
 class Block extends AbstractStoryblok
@@ -27,9 +28,10 @@ class Block extends AbstractStoryblok
         Template\Context $context,
         private BlockFactory $blockFactory,
         private FieldRendererInterface $fieldRenderer,
+        StoryRequestService $storyRequestService,
         array $data = []
     ) {
-        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $context, $data);
+        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $context, $storyRequestService, $data);
     }
 
     public function getData($key = '', $index = null) {

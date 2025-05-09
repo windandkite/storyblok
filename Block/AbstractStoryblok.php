@@ -8,6 +8,7 @@ use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Model\Story as StoryblokStory;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
 abstract class AbstractStoryblok extends Template
@@ -20,6 +21,7 @@ abstract class AbstractStoryblok extends Template
         private Asset $assetViewModel,
         protected Config $scopeConfig,
         Template\Context $context,
+        protected StoryRequestService $storyRequestService,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -66,7 +68,7 @@ abstract class AbstractStoryblok extends Template
 
     public function getTemplate()
     {
-        return sprintf(
+        return $this->_template ?? sprintf(
             'WindAndKite_Storyblok::%s/fallback%s.phtml',
             $this->getTemplateDir(),
             $this->getTemplateSuffix()
@@ -101,10 +103,12 @@ abstract class AbstractStoryblok extends Template
     public function getStory(): ?StoryblokStory
     {
         if (!$this->getData('story')) {
+            $storyRequest = $this->storyRequestService->getStoryRequest($this->getData());
+
             if ($slug = $this->getSlug()) {
-                $this->setData('story', $this->storyRepository->getBySlug($slug));
+                $this->setData('story', $this->storyRepository->getBySlug($slug, $storyRequest));
             } else {
-                $this->setData('story', $this->getRequest()->getParam('story'));
+                $this->setData('story', $this->getRequest()->getParam('story', $storyRequest));
             }
         }
 

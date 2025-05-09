@@ -11,8 +11,30 @@ interface StoryRepositoryInterface
         ?\Storyblok\Api\Request\StoryRequest $request = null,
     ): \WindAndKite\Storyblok\Api\Data\StoryInterface;
 
+    public function getById(
+        int $id,
+        ?\Storyblok\Api\Request\StoryRequest $request = null,
+    ): \WindAndKite\Storyblok\Api\Data\StoryInterface;
+
+    public function getByUuid(
+        string $uuid,
+        ?\Storyblok\Api\Request\StoryRequest $request = null,
+    ): \WindAndKite\Storyblok\Api\Data\StoryInterface;
+
     public function getList(
-        \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria,
-        array $additionalFilters = [],
+        \WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface $searchCriteria,
     ): \Magento\Framework\Api\SearchResultsInterface;
+
+    public function getListByContentType(
+        string $contentType,
+        \WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface $searchCriteria,
+    ): \Magento\Framework\Api\SearchResultsInterface;
+
+    public function getListByUuids(
+        array $uuids,
+        \WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface $searchCriteria,
+        bool $keepOrder = true,
+    ): \Magento\Framework\Api\SearchResultsInterface;
+
+
 }

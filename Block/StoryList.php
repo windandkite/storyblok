@@ -9,8 +9,10 @@ use Magento\Framework\Api\SearchResultsInterface;
 use Magento\Framework\Phrase;
 use Magento\Framework\View\Element\Template;
 use Storyblok\Api\Request\StoriesRequest;
+use WindAndKite\Storyblok\Api\StoriesSearchCriteriaBuilder;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
 class StoryList extends Story
@@ -22,10 +24,11 @@ class StoryList extends Story
         Asset $assetViewModel,
         Config $scopeConfig,
         Template\Context $context,
-        protected SearchCriteriaBuilder $searchCriteriaBuilder,
+        StoryRequestService $storyRequestService,
+        protected StoriesSearchCriteriaBuilder $searchCriteriaBuilder,
         array $data = []
     ) {
-        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $context, $data);
+        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $context, $storyRequestService, $data);
     }
 
     public function getStories(): ?SearchResultsInterface
@@ -44,15 +47,15 @@ class StoryList extends Story
             $currentPage = (int)$this->getRequest()->getParam('p', 1);
             $pageSize = $this->scopeConfig->getStoryListPerPage() ?? StoriesRequest::PER_PAGE;
 
-            $this->searchCriteriaBuilder->setCurrentPage($currentPage)->setPageSize($pageSize);
-            $additionalFilters = [
-                'starts_with' => rtrim($parent->getFullSlug(), '/') . '/',
-                'is_startpage' => 'false',
-            ];
+            $this->searchCriteriaBuilder
+                ->setCurrentPage($currentPage)
+                ->setPageSize($pageSize)
+                ->addFilter('starts_with', rtrim($parent->getFullSlug(), '/') . '/')
+                ->addFilter('is_startpage', false);
 
             $this->setData(
                 'stories',
-                $this->storyRepository->getList($this->searchCriteriaBuilder->create(), $additionalFilters)
+                $this->storyRepository->getList($this->searchCriteriaBuilder->create())
             );
         }
 
