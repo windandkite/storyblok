@@ -54,6 +54,7 @@ use Storyblok\Api\Domain\Value\Resolver\RelationCollection;
 use Storyblok\Api\Domain\Value\Resolver\ResolveLinks;
 use WindAndKite\Storyblok\Scope\Config;
 use WindAndKite\Storyblok\Service\SearchCriteriaConverter;
+use WindAndKite\Storyblok\Service\StoryblokCacheService;
 
 class StoryRepository implements StoryRepositoryInterface
 {
@@ -72,6 +73,7 @@ class StoryRepository implements StoryRepositoryInterface
         private LoggerInterface $logger,
         private SearchResultsInterfaceFactory $searchResultsFactory,
         private SearchCriteriaConverter $searchCriteriaConverter,
+        private StoryblokCacheService $cacheService,
     ) {}
 
     private function rawRequest(
@@ -143,7 +145,14 @@ class StoryRepository implements StoryRepositoryInterface
         ?StoryRequest $request = null,
     ): StoryInterface {
         try {
+            $cacheKey = $this->cacheService->generateStoryCacheKey($slug, $request);
+
+            if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
+                return $this->convertStoryResponse($cachedStory);
+            }
+
             $response = $this->storyBlockClientWrapper->getStoriesApi()->bySlug($slug, $request);
+            $this->cacheService->saveStoryResponse($cacheKey, $response);
 
             return $this->convertStoryResponse($response);
         } catch (Exception $e) {
@@ -165,8 +174,15 @@ class StoryRepository implements StoryRepositoryInterface
         ?StoryRequest $request = null,
     ): StoryInterface {
         try {
+            $cacheKey = $this->cacheService->generateStoryCacheKey((string)$id, $request);
+
+            if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
+                return $this->convertStoryResponse($cachedStory);
+            }
+
             $storyId = new Id($id);
             $response = $this->storyBlockClientWrapper->getStoriesApi()->byId($storyId, $request);
+            $this->cacheService->saveStoryResponse($cacheKey, $response);
 
             return $this->convertStoryResponse($response);
         } catch (Exception $e) {
@@ -204,12 +220,19 @@ class StoryRepository implements StoryRepositoryInterface
         StoriesSearchCriteriaInterface $searchCriteria,
     ): SearchResultsInterface {
         [$storiesRequest, $additionalFilters] = $this->searchCriteriaConverter->convert($searchCriteria);
+        $cacheKey = $this->cacheService->generateStoryListCacheKey($searchCriteria);
+
+        if ($cachedResponse = $this->cacheService->loadStoriesResponse($cacheKey)) {
+            return $this->convertStoriesResponse($cachedResponse, $searchCriteria);
+        }
 
         if (!$additionalFilters) {
             $response = $this->storyBlockClientWrapper->getStoriesApi()->all($storiesRequest);
         } else {
             $response = $this->rawRequest($storiesRequest, $additionalFilters);
         }
+
+        $this->cacheService->saveStoriesResponse($cacheKey, $response);
 
         return $this->convertStoriesResponse($response, $searchCriteria);
     }
@@ -219,6 +242,11 @@ class StoryRepository implements StoryRepositoryInterface
         StoriesSearchCriteriaInterface $searchCriteria,
     ): SearchResultsInterface {
         [$storiesRequest, $additionalFilters] = $this->searchCriteriaConverter->convert($searchCriteria);
+        $cacheKey = $this->cacheService->generateStoryListCacheKey($searchCriteria, $contentType);
+
+        if ($cachedResponse = $this->cacheService->loadStoriesResponse($cacheKey)) {
+            return $this->convertStoriesResponse($cachedResponse, $searchCriteria);
+        }
 
         if (!$additionalFilters) {
             $response = $this->storyBlockClientWrapper->getStoriesApi()->allByContentType($contentType, $storiesRequest);
@@ -226,6 +254,8 @@ class StoryRepository implements StoryRepositoryInterface
             $additionalFilters['content_type'] = $contentType;
             $response = $this->rawRequest($storiesRequest, $additionalFilters);
         }
+
+        $this->cacheService->saveStoriesResponse($cacheKey, $response);
 
         return $this->convertStoriesResponse($response, $searchCriteria);
     }
@@ -236,6 +266,11 @@ class StoryRepository implements StoryRepositoryInterface
         bool $keepOrder = true,
     ): SearchResultsInterface {
         [$storiesRequest, $additionalFilters] = $this->searchCriteriaConverter->convert($searchCriteria);
+        $cacheKey = $this->cacheService->generateStoryListCacheKey($searchCriteria, $uuids);
+
+        if ($cachedResponse = $this->cacheService->loadStoriesResponse($cacheKey)) {
+            return $this->convertStoriesResponse($cachedResponse, $searchCriteria);
+        }
 
         if (!$additionalFilters) {
             $response = $this->storyBlockClientWrapper
@@ -245,6 +280,8 @@ class StoryRepository implements StoryRepositoryInterface
             $additionalFilters[$keepOrder ? 'by_uuids' : 'by_uuids_ordered'] = $uuids;
             $response = $this->rawRequest($storiesRequest, $additionalFilters);
         }
+
+        $this->cacheService->saveStoriesResponse($cacheKey, $response);
 
         return $this->convertStoriesResponse($response, $searchCriteria);
     }
