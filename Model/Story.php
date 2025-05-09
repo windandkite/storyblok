@@ -223,15 +223,19 @@ class Story extends DataObject implements StoryInterface
      */
     public function getRelatedStories(): ?array
     {
-        $stories = [];
+        if (!$this->hasData(self::KEY_RELATED_STORIES)) {
+            $stories = [];
 
-        foreach ($this->getData(self::KEY_RELS) ?? [] as $relation) {
-            $story = $this->storyFactory->create();
-            $story->setData($relation);
-            $stories[$story->getId()] = $story;
+            foreach ($this->getData(self::KEY_RELS) ?? [] as $relation) {
+                $story = $this->storyFactory->create();
+                $story->setData($relation);
+                $stories[] = $story;
+            }
+
+            $this->setData(self::KEY_RELATED_STORIES, $stories);
         }
 
-        return $stories;
+        return $this->getData(self::KEY_RELATED_STORIES);
     }
 
     /**
