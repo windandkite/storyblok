@@ -68,7 +68,7 @@ abstract class AbstractStoryblok extends Template
 
     public function getTemplate()
     {
-        return sprintf(
+        return $this->_template ?? sprintf(
             'WindAndKite_Storyblok::%s/fallback%s.phtml',
             $this->getTemplateDir(),
             $this->getTemplateSuffix()

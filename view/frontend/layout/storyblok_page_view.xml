@@ -6,7 +6,7 @@
         <referenceContainer name="content">
             <block name="storyblok.content"
                    class="WindAndKite\Storyblok\Block\Story"
-                   template="WindAndKite_Storyblock::story/page.phtml">
+                   template="WindAndKite_Storyblok::story/page.phtml">
             </block>
         </referenceContainer>
     </body>
