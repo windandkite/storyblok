@@ -24,7 +24,7 @@ class StoryRenderer
     ): string {
         $block = $this->layout->createBlock(
             Story::class,
-            ($story->getUuid() ?: '') . '-' . uniqid(),
+            $story->getUuid(),
             [
                 'data' => [
                     'story' => $story,

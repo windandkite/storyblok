@@ -30,9 +30,7 @@ class Story extends AbstractStoryblok
         $blockName = 'content-'
             . $this->getContent()->getComponent()
             . '-'
-            . md5(json_encode($this->getContent()->getData()))
-            . '-'
-            . uniqid();
+            . md5(json_encode($this->getContent()->getData()));
 
         $data['block'] = $this->getContent();
         $data['story'] = $this->getStory();
