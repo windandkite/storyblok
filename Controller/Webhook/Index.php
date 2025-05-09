@@ -4,6 +4,9 @@ namespace WindAndKite\Storyblok\Controller\Webhook;
 
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Webapi\Exception as WebapiException;
 use Psr\Log\LoggerInterface;
@@ -12,7 +15,7 @@ use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Framework\Webapi\Rest\Request;
 use WindAndKite\Storyblok\Scope\Config;
 
-class Index implements HttpPostActionInterface
+class Index implements CsrfAwareActionInterface, HttpPostActionInterface
 {
 
     /**
@@ -85,7 +88,7 @@ class Index implements HttpPostActionInterface
         $payload = $this->request->getContent();
         $secret = $this->config->getWebhookSecret();
 
-        $calculatedSignature = 'sha1=' . hash_hmac('sha1', $payload, $secret);
+        $calculatedSignature = hash_hmac('sha1', $payload, $secret);
 
         return hash_equals($signatureHeader, $calculatedSignature);
     }
@@ -129,5 +132,17 @@ class Index implements HttpPostActionInterface
         } catch (\Exception $e) {
             $this->logger->error('Error processing webhook: ' . $e->getMessage());
         }
+    }
+
+    public function createCsrfValidationException(
+        RequestInterface $request
+    ): ?InvalidRequestException {
+        return null;
+    }
+
+    public function validateForCsrf(
+        RequestInterface $request
+    ): ?bool {
+        return true;
     }
 }
