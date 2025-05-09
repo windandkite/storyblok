@@ -107,6 +107,11 @@ class View implements HttpGetActionInterface
         $paths = explode('/', $slug);
 
         $breadcrumbsBlock = $page->getLayout()->getBlock('breadcrumbs');
+
+        if (!$breadcrumbsBlock) {
+            return;
+        }
+
         $breadcrumbsBlock->addCrumb(
             'home',
             [
