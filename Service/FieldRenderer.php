@@ -8,6 +8,7 @@ use Magento\Framework\View\LayoutInterface;
 use Psr\Log\LoggerInterface;
 use Storyblok\Tiptap\Extension\Storyblok as StoryblokTipTapExtension;
 use Tiptap\Editor;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Model\BlockFactory;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
 use WindAndKite\Storyblok\Block\Block;
@@ -38,7 +39,10 @@ class FieldRenderer implements FieldRendererInterface
      * @param mixed $fieldValue The value of the Storyblok field. Can be a single value or an array.
      * @return string The rendered output.
      */
-    public function renderField(mixed $fieldValue): string {
+    public function renderField(
+        mixed $fieldValue,
+        ?StoryInterface $story = null,
+    ): string {
         if (empty($fieldValue)) {
             return '';
         }
@@ -52,13 +56,13 @@ class FieldRenderer implements FieldRendererInterface
         }
 
         if ($this->isBlock($fieldValue)) {
-            return $this->renderBlockField($fieldValue);
+            return $this->renderBlockField($fieldValue, $story);
         }
 
         $result = '';
 
         foreach ($fieldValue as $child) {
-            $result .= $this->renderField($child);
+            $result .= $this->renderField($child, $story);
         }
 
         return $result;
@@ -124,6 +128,7 @@ class FieldRenderer implements FieldRendererInterface
      */
     public function renderBlockField(
         array $fieldValue,
+        ?StoryInterface $story = null,
     ): string {
         if (!$this->isBlock($fieldValue)) {
             $this->logger->warning(
@@ -141,6 +146,7 @@ class FieldRenderer implements FieldRendererInterface
         return $this->layout
             ->createBlock(Block::class, $blockName)
             ->setData('block', $storyblokBlock)
+            ->setData('story', $story)
             ->toHtml();
     }
 }

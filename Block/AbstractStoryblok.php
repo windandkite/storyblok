@@ -27,7 +27,7 @@ abstract class AbstractStoryblok extends Template
         parent::__construct($context, $data);
     }
 
-    public abstract function getComponent(): string;
+    public abstract function getComponent(): ?string;
 
     public function getTemplateDir(): string
     {

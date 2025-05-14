@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Api;
 
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
+
 /**
  * Interface StoryblokFieldRendererInterface
  *
@@ -24,5 +26,6 @@ interface FieldRendererInterface
      */
     public function renderField(
         mixed $fieldValue,
+        ?StoryInterface $story = null,
     ): string;
 }

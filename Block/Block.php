@@ -49,7 +49,10 @@ class Block extends AbstractStoryblok
 
     public function renderField(string $fieldName): string
     {
-        return $this->fieldRenderer->renderField($this->getBlock()->getData($fieldName));
+        return $this->fieldRenderer->renderField(
+            $this->getBlock()->getData($fieldName),
+            $this->getStory()
+        );
     }
 
     public function renderRichTextField(
@@ -110,9 +113,9 @@ class Block extends AbstractStoryblok
         return parent::__call($method, $args);
     }
 
-    public function getComponent(): string
+    public function getComponent(): ?string
     {
-        return $this->getBlock()->getComponent();
+        return $this->getBlock()->getComponent() ?? $this->getData('component');
     }
 
     protected function _toHtml(): string
