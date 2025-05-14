@@ -113,9 +113,9 @@ class Block extends AbstractStoryblok
         return parent::__call($method, $args);
     }
 
-    public function getComponent(): string
+    public function getComponent(): ?string
     {
-        return $this->getBlock()->getComponent();
+        return $this->getBlock()->getComponent() ?? $this->getData('component');
     }
 
     protected function _toHtml(): string
