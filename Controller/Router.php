@@ -47,7 +47,7 @@ class Router implements RouterInterface
             return null;
         }
 
-        $identifier = trim($request->getPathInfo(), '/');
+        $identifier = $this->getIdentifier($request);
 
         if (empty($identifier)) {
             return null;
@@ -61,11 +61,7 @@ class Router implements RouterInterface
             }
         }
 
-        $storyRequest = null;
-
-        if ($request->getParam(self::STORYBLOK_EDITOR_KEY) || $this->config->isDevModeEnabled()) {
-            $storyRequest = new StoryRequest(version: Version::Draft);
-        }
+        $storyRequest = $this->getStoryRequest($request);
 
         try {
             $storyData = $this->storyRepository->getBySlug($identifier, $storyRequest);
@@ -81,5 +77,23 @@ class Router implements RouterInterface
         } catch (NoSuchEntityException $e) {
             return null;
         }
+    }
+
+    public function getIdentifier(
+        RequestInterface $request
+    ): string {
+        return trim($request->getPathInfo(), '/');
+    }
+
+    public function getStoryRequest(
+        RequestInterface $request,
+    ): ?StoryRequest {
+        $storyRequest = null;
+
+        if ($request->getParam(self::STORYBLOK_EDITOR_KEY) || $this->config->isDevModeEnabled()) {
+            $storyRequest = new StoryRequest(version: Version::Draft);
+        }
+
+        return $storyRequest;
     }
 }
