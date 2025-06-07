@@ -107,8 +107,8 @@ abstract class AbstractStoryblok extends Template
 
             if ($slug = $this->getSlug()) {
                 $this->setData('story', $this->storyRepository->getBySlug($slug, $storyRequest));
-            } else {
-                $this->setData('story', $this->getRequest()->getParam('story', $storyRequest));
+            } elseif ($this->getRequest()->getParam('story')) {
+                $this->setData('story', $this->getRequest()->getParam('story'));
             }
         }
 

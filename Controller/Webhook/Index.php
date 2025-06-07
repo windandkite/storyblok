@@ -79,6 +79,16 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
     private function isValidRequest(array $data): bool
     {
         $signatureHeader = $this->request->getHeader('webhook-signature');
+        $developerValidationKeyHeader = $this->request->getHeader('developer-validation-key');
+
+        if ($developerValidationKeyHeader) {
+            $developerSecret = $this->config->getDeveloperWebhookSecret();
+
+            if ($developerSecret && hash_equals($developerValidationKeyHeader, $developerSecret)) {
+                $this->logger->info('Webhook validated via developer key.');
+                return true;
+            }
+        }
 
         if (!$signatureHeader) {
             return false;

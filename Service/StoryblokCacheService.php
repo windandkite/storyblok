@@ -26,6 +26,7 @@ class StoryblokCacheService
         private StoreManagerInterface $storeManager,
         private RequestInterface $request,
         private Config $scopeConfig,
+        private \Magento\PageCache\Model\Cache\Type $fpc,
     ) {}
 
     private function getStoreId(): int
@@ -68,7 +69,6 @@ class StoryblokCacheService
 
         if ($cachedData) {
             return new StoryResponse($this->serializer->unserialize($cachedData));
-
         }
 
         return null;
@@ -156,10 +156,15 @@ class StoryblokCacheService
         $cacheTags = ['storyblok_cv_' . $response->cv];
 
         foreach ($response->stories as $story) {
-            $cacheTags[] = 'storyblok_story_id' . $story['id'];
-            $cacheTags[] = 'storyblok_story_slug' . $story['slug'];
+            $cacheTags[] = 'storyblok_story_id_' . $story['id'];
+            $cacheTags[] = 'storyblok_story_slug_' . $story['slug'];
             $this->generateStoryCacheKey($story['slug']);
-            $storyResponse = new StoryResponse(['stroy' => $story, 'cv' => $response->cv]);
+            $storyResponse = new StoryResponse([
+                'story' => $story,
+                'cv' => $response->cv ?? 0,
+                'rels' => $response->rels ?? [],
+                'links' => $response->links ?? [],
+            ]);
             $this->saveStoryResponse($cacheKey, $storyResponse);
         }
 
@@ -183,6 +188,8 @@ class StoryblokCacheService
     public function cleanCacheByTags(
         array $tags = [],
     ): void {
+        $this->fpc->clean(\Zend_Cache::CLEANING_MODE_MATCHING_ANY_TAG, $tags);
+
         foreach ($tags as $tag) {
             $this->cache->clean($tag);
         }
