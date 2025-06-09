@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Block;
 
+use Magento\Framework\DataObject\IdentityInterface;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 
-class Story extends AbstractStoryblok
+class Story extends AbstractStoryblok implements IdentityInterface
 {
     protected const TEMPLATE_DIR = 'story';
 
@@ -42,13 +43,16 @@ class Story extends AbstractStoryblok
         return $block->toHtml();
     }
 
-    public function getCacheKeyInfo(): array
+    public function getIdentities(): array
     {
+        if (!$this->getStory()) {
+            return [];
+        }
+
         return [
-            ...parent::getCacheKeyInfo(),
             'storyblok_story',
             'storyblok_cv_' . $this->getStory()->getCacheVersion(),
-            'storyblok_id_' . $this->getStory()->getId(),
+            'storyblok_story_id_' . $this->getStory()->getId(),
             'storyblok_slug_' . $this->getStory()->getSlug(),
         ];
     }

@@ -20,6 +20,13 @@ class Config
     private const XML_PATH_ENABLE_STORY_LISTS = 'storyblok/story_lists/enable';
     private const XML_PATH_STORIES_PER_PAGE = 'storyblok/story_lists/per_page';
 
+    /**
+     * There is and never will be an admin config field for this, to set this up please use
+     * bin/magento config:set storyblok/dev/webhook_secret <your-secret>
+     * You can also use -le or -lc to lock this value to your env.php or config.php file
+     */
+    private const XML_PATH_DEV_WEBHOOK_SECRET = 'storyblok/dev/webhook_secret';
+
     public function __construct(
         private ScopeConfigInterface $scopeConfig,
     ) {}
@@ -175,5 +182,16 @@ class Config
         );
 
         return ($value === null)? null : (int)$value;
+    }
+
+    public function getDeveloperWebhookSecret(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): ?string {
+        return $this->scopeConfig->getValue(
+            self::XML_PATH_DEV_WEBHOOK_SECRET,
+            $scopeType,
+            $scopeCode
+        );
     }
 }
