@@ -39,9 +39,15 @@ abstract class AbstractStoryblok extends Template
         return $this->getData('template_suffix') ?? static::TEMPLATE_SUFFIX;
     }
 
-    public function getStoryblokTemplate(): string
+    public function getStoryblokTemplate(): ?string
     {
-        $component = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $this->getComponent()));
+        $component = $this->getComponent();
+
+        if (!$component) {
+            return null;
+        }
+
+        $component = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $component));
         $component = str_replace('-', '_', $component);
 
         return sprintf(
@@ -82,6 +88,10 @@ abstract class AbstractStoryblok extends Template
     ): string {
         $story ??= $this->getStory();
 
+        if (!$story) {
+            return '';
+        }
+
         if ($retainParams) {
             $retainedParams = [];
 
@@ -105,10 +115,14 @@ abstract class AbstractStoryblok extends Template
         if (!$this->getData('story')) {
             $storyRequest = $this->storyRequestService->getStoryRequest($this->getData());
 
-            if ($slug = $this->getSlug()) {
-                $this->setData('story', $this->storyRepository->getBySlug($slug, $storyRequest));
-            } elseif ($this->getRequest()->getParam('story')) {
-                $this->setData('story', $this->getRequest()->getParam('story'));
+            try {
+                if ($slug = $this->getSlug()) {
+                    $this->setData('story', $this->storyRepository->getBySlug($slug, $storyRequest));
+                } elseif ($this->getRequest()->getParam('story')) {
+                    $this->setData('story', $this->getRequest()->getParam('story'));
+                }
+            } catch (\Exception $e) {
+                $this->setData('story', null);
             }
         }
 

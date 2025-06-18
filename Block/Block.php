@@ -47,11 +47,17 @@ class Block extends AbstractStoryblok
         return $this->getData('block') ?? $this->blockFactory->create();
     }
 
-    public function renderField(string $fieldName): string
+    public function renderField(string $fieldName): ?string
     {
+        $story = $this->getStory();
+
+        if (!$story) {
+            return null;
+        }
+
         return $this->fieldRenderer->renderField(
             $this->getBlock()->getData($fieldName),
-            $this->getStory()
+            $story
         );
     }
 

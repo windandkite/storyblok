@@ -39,7 +39,7 @@ class StoryList extends Story
 
         $parent = $this->getStory();
 
-        if (!$this->scopeConfig->isStoryListsEnabled() || !$parent->getIsStartpage()) {
+        if (!$parent || !$this->scopeConfig->isStoryListsEnabled() || !$parent->getIsStartpage()) {
             return null;
         }
 
@@ -84,7 +84,7 @@ class StoryList extends Story
 
     public function toHtml()
     {
-        if ($this->getStory()->getIsStartpage()) {
+        if ($this->getStory()?->getIsStartpage()) {
             return parent::toHtml();
         }
 

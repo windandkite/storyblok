@@ -20,21 +20,28 @@ class Story extends AbstractStoryblok implements IdentityInterface
         return parent::getData($key, $index) ?? $this->getData('story')?->getData($key, $index);
     }
 
-    public function getContent(): StoryblokBlock
+    public function getContent(): ?StoryblokBlock
     {
-        return $this->getStory()->getContent();
+        return $this->getStory()?->getContent();
     }
 
     public function getContentHtml(
         array $data = [],
     ): string {
+        $story = $this->getStory();
+        $content = $this->getContent();
+
+        if (!$story || !$content) {
+            return '';
+        }
+
         $blockName = 'content-'
             . $this->getContent()->getComponent()
             . '-'
-            . md5(json_encode($this->getStory()->getData()));
+            . md5(json_encode($story->getData()));
 
-        $data['block'] = $this->getContent();
-        $data['story'] = $this->getStory();
+        $data['block'] = $content;
+        $data['story'] = $story;
 
         $block = $this->getLayout()
             ->createBlock(Block::class, $blockName)
@@ -71,8 +78,8 @@ class Story extends AbstractStoryblok implements IdentityInterface
         return $result;
     }
 
-    public function getComponent(): string
+    public function getComponent(): ?string
     {
-        return $this->getContent()->getComponent();
+        return $this->getContent()?->getComponent();
     }
 }
