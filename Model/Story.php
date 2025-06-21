@@ -248,8 +248,8 @@ class Story extends DataObject implements StoryInterface
 
     public function getMetaTags(
         ?string $key = null,
-    ): ? string {
-        $seoPluginData = $this->getContent()?->getMetatags();
+    ): ?string {
+        $seoPluginData = $this->getContent()?->getMetatags() ?? [];
 
         if ($key) {
             return $seoPluginData[$key] ?? null;
