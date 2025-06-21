@@ -2,6 +2,7 @@
 namespace WindAndKite\Storyblok\Scope;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Store\Model\ScopeInterface;
 
 class Config
@@ -13,6 +14,8 @@ class Config
     private const XML_PATH_PAGE_ROUTING_ENABLED = 'storyblok/page_routing/enabled';
     private const XML_PATH_RESTRICT_FOLDER = 'storyblok/page_routing/restrict_folder';
     private const XML_PATH_FOLDER_PATH = 'storyblok/page_routing/folder_path';
+    private const XML_PATH_RESTRICT_CONTENT_TYPES = 'storyblok/page_routing/restrict_content_types';
+    private const XML_PATH_ALLOWED_FULL_PAGE_CONTENT_TYPES = 'storyblok/page_routing/allowed_full_page_content_types';
     private const XML_PATH_SITEMAP_ENABLED = 'storyblok/sitemap/enabled';
     private const XML_PATH_SITEMAP_PRIORITY = 'storyblok/sitemap/priority';
     private const XML_PATH_SITEMAP_CHANGEFREQ = 'storyblok/sitemap/changefreq';
@@ -29,6 +32,7 @@ class Config
 
     public function __construct(
         private ScopeConfigInterface $scopeConfig,
+        private SerializerInterface $serializer,
     ) {}
 
     public function isModuleEnabled(
@@ -106,6 +110,30 @@ class Config
             $scopeType,
             $scopeCode
         );
+    }
+
+    public function isRestrictContentTypesEnabled(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): bool {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_RESTRICT_CONTENT_TYPES,
+            $scopeType,
+            $scopeCode
+        );
+    }
+
+    public function getAllowedFullPageContentTypes(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): array {
+        $contentTypesString = $this->scopeConfig->getValue(
+            self::XML_PATH_ALLOWED_FULL_PAGE_CONTENT_TYPES,
+            $scopeType,
+            $scopeCode
+        );
+
+        return $this->serializer->unserialize($contentTypesString ?? '[]');
     }
 
     public function isSitemapEnabled(

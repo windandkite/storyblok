@@ -65,8 +65,16 @@ class Router implements RouterInterface
 
         try {
             $storyData = $this->storyRepository->getBySlug($identifier, $storyRequest);
+            $allowedContentTypes = $this->config->getAllowedFullPageContentTypes();
 
             if (!$storyData->getId()) {
+                return null;
+            }
+
+            if (
+                $this->config->isRestrictContentTypesEnabled()
+                && !array_search(['type' => $storyData->getContent()->getComponent()], $allowedContentTypes, true)
+            ) {
                 return null;
             }
 
