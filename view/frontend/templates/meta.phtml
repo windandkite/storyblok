@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+/** @var \WindAndKite\Storyblok\Block\Story $block */
+/** @var \Magento\Framework\Escaper $escaper */
+
+$metaData = $block->getStory()->getContent()->getMetatags();
+
+if (empty($metaData)) {
+    return;
+}
+
+$filteredMetaData = array_filter($metaData, function ($value, $key) {
+    return !empty($value) && !in_array($key, ['title', 'description', '_uid', 'plugin']);
+}, ARRAY_FILTER_USE_BOTH);
+?>
+<?php foreach ($filteredMetaData as $metaKey => $metaValue): ?>
+    <meta name="<?= $escaper->escapeHtmlAttr(str_replace('_', ':', $metaKey)) ?>"
+          content="<?= $escaper->escapeHtmlAttr($metaValue) ?>">
+<?php endforeach ?>

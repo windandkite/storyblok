@@ -245,4 +245,26 @@ class Story extends DataObject implements StoryInterface
     {
         return $this->storyRenderer->renderStory($this);
     }
+
+    public function getMetaTags(
+        ?string $key = null,
+    ): ? string {
+        $seoPluginData = $this->getContent()?->getMetatags();
+
+        if ($key) {
+            return $seoPluginData[$key] ?? null;
+        }
+
+        return $seoPluginData;
+    }
+
+    public function getMetaTitle(): ?string
+    {
+        return $this->getMetaTags('title') ?? $this->getData('meta_title') ?? $this->getName();
+    }
+
+    public function getMetaDescription(): ?string
+    {
+        return $this->getMetaTags('description') ?? $this->getData('meta_description');
+    }
 }
