@@ -41,8 +41,8 @@ abstract class AbstractStoryblok extends Template
 
     public function getStoryblokTemplate(): ?string
     {
-        if ($this->getTemplate()) {
-            return $this->getTemplate();
+        if ($this->_template) {
+            return $this->_template;
         }
 
         $component = $this->getComponent();
