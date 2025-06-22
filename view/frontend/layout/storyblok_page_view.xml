@@ -6,7 +6,13 @@
         <referenceContainer name="head.additional">
             <block class="WindAndKite\Storyblok\Block\Story"
                    name="storyblok.head"
-                   template="WindAndKite_Storyblok::meta.phtml"/>
+                   template="WindAndKite_Storyblok::meta.phtml">
+                <arguments>
+                    <argument name="seo_meta_data_view_model" xsi:type="object">
+                        WindAndKite\Storyblok\ViewModel\SeoMetaData
+                    </argument>
+                </arguments>
+            </block>
         </referenceContainer>
         <referenceContainer name="content">
             <block name="storyblok.content"
