@@ -3,6 +3,17 @@
       layout="1column"
       xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
     <body>
+        <referenceContainer name="head.additional">
+            <block class="WindAndKite\Storyblok\Block\Story"
+                   name="storyblok.head"
+                   template="WindAndKite_Storyblok::meta.phtml">
+                <arguments>
+                    <argument name="seo_meta_data_view_model" xsi:type="object">
+                        WindAndKite\Storyblok\ViewModel\SeoMetaData
+                    </argument>
+                </arguments>
+            </block>
+        </referenceContainer>
         <referenceContainer name="content">
             <block name="storyblok.content"
                    class="WindAndKite\Storyblok\Block\Story"

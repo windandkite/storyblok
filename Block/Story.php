@@ -64,20 +64,6 @@ class Story extends AbstractStoryblok implements IdentityInterface
         ];
     }
 
-    public function getTemplateFile(
-        $template = null
-    ) {
-        $template ??= $this->getStoryblokTemplate();
-
-        $result = parent::getTemplateFile($template);
-
-        if (!$result) {
-            return parent::getTemplateFile();
-        }
-
-        return $result;
-    }
-
     public function getComponent(): ?string
     {
         return $this->getContent()?->getComponent();

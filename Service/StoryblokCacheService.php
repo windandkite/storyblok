@@ -5,6 +5,7 @@ namespace WindAndKite\Storyblok\Service;
 use Magento\Framework\App\CacheInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Serialize\SerializerInterface;
+use Magento\PageCache\Model\Cache\Type;
 use Magento\Store\Model\StoreManagerInterface;
 use Storyblok\Api\Domain\Value\Dto\Pagination;
 use Storyblok\Api\Domain\Value\Total;
@@ -13,6 +14,7 @@ use Storyblok\Api\Response\StoriesResponse;
 use Storyblok\Api\Response\StoryResponse;
 use WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface;
 use WindAndKite\Storyblok\Scope\Config;
+use Zend_Cache;
 
 class StoryblokCacheService
 {
@@ -26,7 +28,8 @@ class StoryblokCacheService
         private StoreManagerInterface $storeManager,
         private RequestInterface $request,
         private Config $scopeConfig,
-        private \Magento\PageCache\Model\Cache\Type $fpc,
+        private Type $fpc,
+        private SearchCriteriaConverter $searchCriteriaConverter
     ) {}
 
     private function getStoreId(): int
@@ -49,11 +52,14 @@ class StoryblokCacheService
         StoriesSearchCriteriaInterface $searchCriteria,
         $identifier = ''
     ): string {
+        [$storiesRequest, $additionalFilters] = $this->searchCriteriaConverter->convert($searchCriteria);
+        $storiesData = array_merge($storiesRequest->toArray(), $additionalFilters);
+
         if (is_array($identifier)) {
             $identifier = md5($this->serializer->serialize($identifier));
         }
 
-        $listIdentifier = $identifier . md5($this->serializer->serialize((array)$searchCriteria));
+        $listIdentifier = $identifier . md5($this->serializer->serialize($storiesData));
 
         return self::CACHE_IDENTIFIER . self::STORY_LIST_CACHE_PREFIX . $listIdentifier . '_' . $this->getStoreId();
     }
@@ -188,7 +194,7 @@ class StoryblokCacheService
     public function cleanCacheByTags(
         array $tags = [],
     ): void {
-        $this->fpc->clean(\Zend_Cache::CLEANING_MODE_MATCHING_ANY_TAG, $tags);
+        $this->fpc->clean(Zend_Cache::CLEANING_MODE_MATCHING_ANY_TAG, $tags);
 
         foreach ($tags as $tag) {
             $this->cache->clean($tag);

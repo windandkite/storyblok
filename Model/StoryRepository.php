@@ -66,6 +66,7 @@ class StoryRepository implements StoryRepositoryInterface
      * @param LoggerInterface $logger
      * @param SearchResultsInterfaceFactory $searchResultsFactory
      * @param SearchCriteriaConverter $searchCriteriaConverter
+     * @param StoryblokCacheService $cacheService
      */
     public function __construct(
         private StoryblokClientWrapper $storyBlockClientWrapper,

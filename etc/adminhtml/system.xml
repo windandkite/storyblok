@@ -103,6 +103,32 @@
                     </depends>
                     <comment>Enter the Storyblok folder path (e.g., 'blog') to restrict routing.</comment>
                 </field>
+                <field id="restrict_content_types"
+                       translate="label"
+                       type="select"
+                       sortOrder="2"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Restrict Content Types</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to restrict routing to a specific Storyblok Content Types.</comment>
+                </field>
+                <field id="allowed_full_page_content_types"
+                       translate="label comment"
+                       type="text" sortOrder="4"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Allowed Full Page Content Types</label>
+                    <depends>
+                        <field id="restrict_content_types">1</field>
+                    </depends>
+                    <comment><![CDATA[Add Storyblok component slugs (e.g., 'page', 'blog_post') that are allowed to be rendered as full pages.]]></comment>
+                    <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>
+                    <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\Form\Field\AllowedContentTypes</frontend_model>
+                    <tooltip>Only stories with these component slugs will be processed by the custom router for full page rendering.</tooltip>
+                </field>
             </group>
             <group id="sitemap" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
                 <label>Sitemap</label>

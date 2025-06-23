@@ -79,10 +79,8 @@ class View implements HttpGetActionInterface
         Page $page,
         StoryInterface $story,
     ): void {
-        $title = $story->getMetaTitle() ?? $story->getName();
-        $metaDescription = $story->getMetaDescription() ?? null;
-
-        $page->getConfig()->getTitle()->set($title);
+        $page->getConfig()->getTitle()->set($story->getMetaTitle());
+        $metaDescription = $story->getMetaDescription();
 
         if ($metaDescription) {
             $page->getConfig()->setDescription($metaDescription);

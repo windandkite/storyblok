@@ -230,4 +230,18 @@ interface StoryInterface
      * @return string
      */
     public function toHtml(): string;
+
+    /**
+     * Get Meta Title
+     *
+     * @return string|null
+     */
+    public function getMetaTitle(): ?string;
+
+    /**
+     * Get Meta Description
+     *
+     * @return string|null
+     */
+    public function getMetaDescription(): ?string;
 }

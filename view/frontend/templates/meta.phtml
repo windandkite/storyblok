@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+/** @var \WindAndKite\Storyblok\Block\Story $block */
+/** @var \Magento\Framework\Escaper $escaper */
+/** @var \WindAndKite\Storyblok\ViewModel\SeoMetaData $seoViewModel */
+
+$seoViewModel = $block->getData('seo_meta_data_view_model');
+$rawStoryblokMetaData = $block->getStory()->getContent()->getMetatags();
+$preparedMetaData = $seoViewModel->getPreparedMetatags($rawStoryblokMetaData);
+
+if (empty($preparedMetaData)) {
+    return;
+}
+?>
+<?php foreach ($preparedMetaData as $metaKey => $metaValue): ?>
+    <meta name="<?= $escaper->escapeHtmlAttr($metaKey) ?>"
+          content="<?= $escaper->escapeHtmlAttr($metaValue) ?>">
+<?php endforeach ?>
