@@ -27,12 +27,12 @@ class SeoMetaData implements ArgumentInterface
     /**
      * Prepares and returns a filtered list of meta tags for HTML output.
      *
-     * @param array $storyblokMetatags The raw metaData array from Storyblok content.
+     * @param array|null $storyblokMetatags The raw metaData array from Storyblok content.
      *
      * @return array Associative array of ['meta_name' => 'meta_value'] suitable for direct output.
      */
     public function getPreparedMetatags(
-        array $storyblokMetatags
+        ?array $storyblokMetatags = []
     ): array {
         if (empty($storyblokMetatags)) {
             return [];
