@@ -73,6 +73,7 @@ class Router implements RouterInterface
 
             if (
                 $this->config->isRestrictContentTypesEnabled()
+                && !$request->getParam('_storyblok')
                 && !array_search(['type' => $storyData->getContent()->getComponent()], $allowedContentTypes, true)
             ) {
                 return null;
