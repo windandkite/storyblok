@@ -1,0 +1,58 @@
+<?php
+
+use Magento\Framework\View\Element\Template;
+use WindAndKite\Storyblok\Controller\Router;
+
+/** @var Template $block */
+
+$request = $block->getRequest();
+
+if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
+    return;
+}
+?>
+<script async="async" src="//unpkg.com/axe-core@4.10.3/axe.min.js"></script>
+<script type="text/javascript">
+    window.addEventListener('storyblok:input', (event) {
+        axe.run(event.detail.element, {
+            runOnly: {
+                type: 'tag',
+                values: ['wcag2a', 'wcag2aa']
+            }
+        }, (err, results) => {
+            if (err) throw err;
+
+            if (results.violations.length > 0) {
+                console.warn('Accessibility violations found:', results.violations);
+
+                results.violations.forEach(violation => {
+                    violation.nodes.forEach(node => {
+                        const element = document.querySelector(node.target[0]);
+
+                        if (element) {
+                            let borderStyle = '2px dashed ';
+
+                            switch (violation.impact) {
+                                case 'critical':
+                                    borderStyle += 'red';
+                                    break;
+                                case 'serious':
+                                    borderStyle += 'orange';
+                                    break;
+                                case 'moderate':
+                                    borderStyle += 'yellow';
+                                    break;
+                                case 'minor':
+                                    borderStyle += 'blue';
+                                    break;
+                            }
+
+                            element.style.border = borderStyle;
+                            element.title = violation.description;
+                        }
+                    });
+                });
+            }
+        });
+    });
+</script>

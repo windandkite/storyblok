@@ -78,7 +78,12 @@ $ajaxUrl = $block->getUrl('storyblok/story/ajax', ['_query' => ['_storyblock' =>
                 const blockId = Object.keys(response)[0];
                 const comments = parseStoryblokComments();
 
-                comments[blockId].element.outerHTML = response[blockId];
+                const storyElement = comments[blockId].element;
+                storyElement.outerHTML = response[blockId];
+
+                window.dispatchEvent(new CustomEvent('storyblok:input', {
+                    detail: { element: storyElement }
+                }));
 
                 storyblokInstance.enterEditmode();
             } catch (err) {

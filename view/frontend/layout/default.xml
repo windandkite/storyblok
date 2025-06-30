@@ -3,6 +3,7 @@
     <body>
         <referenceContainer name="head.additional">
             <block name="storyblok_bridge" template="WindAndKite_Storyblok::bridge.phtml"/>
+            <block name="storyblok_axe" template="WindAndKite_Storyblok::axe-core.phtml"/>
         </referenceContainer>
     </body>
 </page>
