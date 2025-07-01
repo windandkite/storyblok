@@ -3,21 +3,27 @@
 use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Controller\Router;
 
-/** @var Template $block */
-
 $request = $block->getRequest();
 
 if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
     return;
 }
 ?>
+<script src="//unpkg.com/axe-core@4.10.3/axe.min.js"></script>
+
 <script type="text/javascript">
     let axeMessageContainer;
+    let axeTriggerButton;
     let axeViolations = [];
     let currentViolationIndex = -1;
     let successMessageTimeoutId;
 
-    function getOrCreateAxeMessageContainer() {
+    // Store full Axe results for CSV export
+    let fullAxeResults = null;
+    let downloadReportButton; // Element for downloading CSV (now truly separate)
+
+    function setupAxeUIElements() {
+        // Setup the message container (modal)
         if (!axeMessageContainer) {
             axeMessageContainer = document.getElementById('axeAccessibilityMessage');
 
@@ -39,6 +45,18 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                 });
 
                 axeMessageContainer.innerHTML = `
+                    <button id="axeCloseButton" style="
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        background: none;
+                        border: none;
+                        font-size: 1.2em;
+                        cursor: pointer;
+                        line-height: 1;
+                        padding: 0;
+                        color: #555;
+                    ">&times;</button>
                     <div id="axeMessageText"></div>
                     <div id="axeNavigation" style="margin-top: 8px; display: none; justify-content: space-between; align-items: center;">
                         <button id="axePrevButton" style="
@@ -60,15 +78,135 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                         " disabled>Next &rarr;</button>
                     </div>
                 `;
-
                 document.body.appendChild(axeMessageContainer);
 
                 document.getElementById('axePrevButton').addEventListener('click', () => navigateViolation(-1));
                 document.getElementById('axeNextButton').addEventListener('click', () => navigateViolation(1));
+                document.getElementById('axeCloseButton').addEventListener('click', dismissAxeModal);
             }
         }
-        return axeMessageContainer;
+
+        // --- NEW: Separate downloadReportButton setup ---
+        if (!downloadReportButton) { // Ensure button is created only once
+            downloadReportButton = document.getElementById('axeDownloadReportButton');
+            if (!downloadReportButton) {
+                downloadReportButton = document.createElement('button');
+                downloadReportButton.id = 'axeDownloadReportButton';
+                Object.assign(downloadReportButton.style, {
+                    position: 'fixed',
+                    bottom: '20px',
+                    left: '20px', // Position on the left side
+                    padding: '10px 15px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.9em',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                    zIndex: '99998', // Same as trigger button
+                    display: 'none', // Initially hidden
+                });
+                downloadReportButton.textContent = 'Download Axe Report (CSV)';
+                document.body.appendChild(downloadReportButton);
+                console.log('Download button created and appended to body.'); // Debug log
+            }
+            downloadReportButton.addEventListener('click', exportAxeResultsAsCsv);
+            console.log('Download button click listener attached.'); // Debug log
+        }
+        // --- END NEW downloadReportButton setup ---
+
+
+        // Setup the trigger button (floating icon)
+        if (!axeTriggerButton) {
+            axeTriggerButton = document.getElementById('axeTriggerButton');
+            if (!axeTriggerButton) {
+                axeTriggerButton = document.createElement('div');
+                axeTriggerButton.id = 'axeTriggerButton';
+                Object.assign(axeTriggerButton.style, {
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    backgroundColor: '#6200EE',
+                    color: 'white',
+                    display: 'none',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '2em',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                    zIndex: '99998',
+                    userSelect: 'none'
+                });
+                axeTriggerButton.innerHTML = `
+                    <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.88" fill="currentColor" width="100%" height="100%">
+                        <title>accessibility</title>
+                        <path d="M61.44,0A61.46,61.46,0,1,1,18,18,61.21,61.21,0,0,1,61.44,0Zm-.39,74.18L52.1,98.91a4.94,4.94,0,0,1-2.58,2.83A5,5,0,0,1,42.7,95.5l6.24-17.28a26.3,26.3,0,0,0,1.17-4,40.64,40.64,0,0,0,.54-4.18c.24-2.53.41-5.27.54-7.9s.22-5.18.29-7.29c.09-2.63-.62-2.8-2.73-3.3l-.44-.1-18-3.39A5,5,0,0,1,27.08,46a5,5,0,0,1,5.05-7.74l19.34,3.63c.77.07,1.52.16,2.31.25a57.64,57.64,0,0,0,7.18.53A81.13,81.13,0,0,0,69.9,42c.9-.1,1.75-.21,2.6-.29l18.25-3.42A5,5,0,0,1,94.5,39a5,5,0,0,1,1.3,7,5,5,0,0,1-3.21,2.09L75.15,51.37c-.58.13-1.1.22-1.56.29-1.82.31-2.72.47-2.61,3.06.08,1.89.31,4.15.61,6.51.35,2.77.81,5.71,1.29,8.4.31,1.77.6,3.19,1,4.55s.79,2.75,1.39,4.42l6.11,16.9a5,5,0,0,1-6.82,6.24,4.94,4.94,0,0,1-2.58-2.83L63,74.23,62,72.4l-1,1.78Zm-.39-53.52a8.83,8.83,0,1,1-6.24,2.59,8.79,8.79,0,0,1,6.24-2.59Zm36.35,4.43a51.42,51.42,0,1,0,15,36.35,51.27,51.27,0,0,0-15-36.35Z"/>
+                    </svg>
+                `;
+                document.body.appendChild(axeTriggerButton);
+            }
+            axeTriggerButton.addEventListener('click', () => runAxeScan());
+        }
     }
+
+    function clearAllScanHighlightsAndMarkers() {
+        document.querySelectorAll('[data-axe-violation-marker]').forEach(el => {
+            el.style.outline = '';
+            el.style.outlineOffset = '';
+            el.removeAttribute('title');
+            el.removeAttribute('data-axe-violation-marker');
+            el.classList.remove('axe-active-violation');
+        });
+    }
+
+    function clearCurrentActiveHighlight() {
+        const activeEl = document.querySelector('.axe-active-violation');
+        if (activeEl) {
+            activeEl.style.outline = '';
+            activeEl.style.outlineOffset = '';
+            activeEl.classList.remove('axe-active-violation');
+        }
+    }
+
+    function dismissAxeModal() {
+        const messageContainer = axeMessageContainer || setupAxeUIElements();
+        const messageText = document.getElementById('axeMessageText');
+
+        if (successMessageTimeoutId) {
+            clearTimeout(successMessageTimeoutId);
+            successMessageTimeoutId = null;
+        }
+
+        messageContainer.style.display = 'none';
+        messageText.innerHTML = '';
+        messageContainer.style.backgroundColor = '';
+        messageContainer.style.color = '';
+        messageContainer.style.borderColor = '';
+
+        // Hide download button when modal is dismissed
+        if (downloadReportButton) {
+            downloadReportButton.style.display = 'none';
+            console.log('Download button hidden by dismissAxeModal.'); // Debug log
+        }
+        fullAxeResults = null; // Clear stored results
+        console.log('fullAxeResults cleared to null by dismissAxeModal.'); // Debug log
+
+        clearAllScanHighlightsAndMarkers();
+
+        axeViolations = [];
+        currentViolationIndex = -1;
+        updateNavigationUI();
+
+        const triggerButton = axeTriggerButton || document.getElementById('axeTriggerButton');
+        if (triggerButton) {
+            triggerButton.style.display = 'flex';
+        }
+    }
+
 
     function updateNavigationUI() {
         const prevButton = document.getElementById('axePrevButton');
@@ -89,24 +227,10 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
         }
     }
 
-    function clearPreviousActiveHighlight() {
-        document.querySelectorAll('[data-axe-violation-marker].axe-active-violation').forEach(el => {
-            const originalImpact = el.getAttribute('data-axe-violation-marker');
-            let originalColor;
-            switch (originalImpact) {
-                case 'critical': originalColor = 'red'; break;
-                case 'serious': originalColor = 'orange'; break;
-                case 'moderate': originalColor = 'yellow'; break;
-                case 'minor': originalColor = '#87CEEB'; break;
-                default: originalColor = 'grey'; break;
-            }
-            el.style.border = `2px dashed ${originalColor}`;
-            el.classList.remove('axe-active-violation');
-        });
-    }
-
     function navigateViolation(direction) {
-        clearPreviousActiveHighlight();
+        const messageText = document.getElementById('axeMessageText');
+
+        clearCurrentActiveHighlight();
 
         currentViolationIndex += direction;
 
@@ -116,39 +240,93 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
             currentViolationIndex = axeViolations.length - 1;
         }
 
-        const targetElement = axeViolations[currentViolationIndex];
-        if (targetElement) {
+        const currentNodeViolations = axeViolations[currentViolationIndex];
+        if (currentNodeViolations && currentNodeViolations.element) {
+            let targetElement = currentNodeViolations.element;
+            const violationsForNode = currentNodeViolations.violations;
+
+            // If the target element is an <img> and it's inside a <picture> element,
+            // apply the highlight to the <picture> instead.
+            if (targetElement.tagName === 'IMG' && targetElement.parentNode && targetElement.parentNode.tagName === 'PICTURE') {
+                targetElement = targetElement.parentNode;
+            }
+
             targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            targetElement.style.border = '3px solid #6200EE';
+            targetElement.style.outline = '3px solid #6200EE';
+            targetElement.style.outlineOffset = '2px';
             targetElement.classList.add('axe-active-violation');
+
+            let nodeMessage = `<strong>Violations on this element (${violationsForNode.length}):</strong><br>`;
+            const impactsOrder = ['critical', 'serious', 'moderate', 'minor'];
+            let mostSevereImpact = 'minor';
+
+            violationsForNode.forEach((violation, index) => {
+                const impact = violation.impact.charAt(0).toUpperCase() + violation.impact.slice(1);
+                nodeMessage += `&bullet; ${impact}: ${violation.description}`;
+                if (violation.helpUrl) {
+                    nodeMessage += ` <a href="${violation.helpUrl}" target="_blank" style="color: inherit; text-decoration: underline; white-space: nowrap;">Learn More</a>`;
+                }
+                if (index < violationsForNode.length - 1) {
+                    nodeMessage += '<br>';
+                }
+
+                const vioImpactIndex = impactsOrder.indexOf(violation.impact);
+                if (vioImpactIndex !== -1 && vioImpactIndex < impactsOrder.indexOf(mostSevereImpact)) {
+                    mostSevereImpact = violation.impact;
+                }
+            });
+
+            messageText.innerHTML = `⚠️ ${nodeMessage}`;
+
+            let bgColor, textColor, borderColor;
+            switch (mostSevereImpact) {
+                case 'critical':
+                    bgColor = '#f8d7da'; textColor = '#721c24'; borderColor = '#f5c6cb'; break;
+                case 'serious':
+                    bgColor = '#fff3cd'; textColor = '#856404'; borderColor = '#ffeeba'; break;
+                case 'moderate':
+                    bgColor = '#fff8e1'; textColor = '#9c8400'; borderColor = '#ffecb3'; break;
+                case 'minor':
+                    bgColor = '#e7f3ff'; textColor = '#004085'; borderColor = '#b8daff'; break;
+                default:
+                    bgColor = '#e2e3e5'; textColor = '#383d41'; borderColor = '#d6d8db'; break;
+            }
+            axeMessageContainer.style.backgroundColor = bgColor;
+            axeMessageContainer.style.color = textColor;
+            axeMessageContainer.style.borderColor = borderColor;
         }
         updateNavigationUI();
     }
 
-    // New function to encapsulate the axe scanning logic
     function runAxeScan() {
-        const messageContainer = getOrCreateAxeMessageContainer();
+        const triggerButton = axeTriggerButton || document.getElementById('axeTriggerButton');
+        if (triggerButton) {
+            triggerButton.style.display = 'none';
+        }
+
+        const messageContainer = axeMessageContainer || setupAxeUIElements();
         const messageText = document.getElementById('axeMessageText');
         const axeNavigation = document.getElementById('axeNavigation');
+
+        if (document.querySelectorAll('.storyblok__outline').length === 0) {
+            dismissAxeModal();
+            console.log('No .storyblok__outline elements found, skipping axe scan.');
+            return;
+        }
 
         if (successMessageTimeoutId) {
             clearTimeout(successMessageTimeoutId);
             successMessageTimeoutId = null;
         }
 
-        document.querySelectorAll('[data-axe-violation-marker]').forEach(el => {
-            el.style.border = '';
-            el.removeAttribute('title');
-            el.removeAttribute('data-axe-violation-marker');
-            el.classList.remove('axe-active-violation');
-        });
+        clearAllScanHighlightsAndMarkers();
 
         axeViolations = [];
         currentViolationIndex = -1;
         updateNavigationUI();
 
         if (messageContainer) {
-            messageContainer.style.display = 'none';
+            messageContainer.style.display = 'block';
             messageContainer.style.backgroundColor = '';
             messageContainer.style.color = '';
             messageContainer.style.borderColor = '';
@@ -159,7 +337,8 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
             runOnly: {
                 type: 'tag',
                 values: ['wcag2a', 'wcag2aa', 'wcag22aa', 'best-practice']
-            }
+            },
+            resultTypes: ['violations', 'passes', 'incomplete', 'inapplicable']
         }, (err, results) => {
             if (err) {
                 console.error('Axe-core error:', err);
@@ -171,17 +350,52 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                     messageText.innerHTML = 'Error running accessibility scan. Check console for details.';
                     axeNavigation.style.display = 'none';
                 }
+                if (triggerButton) {
+                    triggerButton.style.display = 'flex';
+                }
+                // Hide download button on error
+                if (downloadReportButton) {
+                    downloadReportButton.style.display = 'none';
+                    console.log('Download button hidden due to axe-core error.'); // Debug log
+                }
+                fullAxeResults = null;
                 return;
             }
+
+            // Store full results for CSV export
+            fullAxeResults = results;
+            console.log('Axe scan completed. fullAxeResults populated:', fullAxeResults); // Debug log
+
+            const nodesWithViolationsMap = new Map();
 
             results.violations.forEach(violation => {
                 violation.nodes.forEach(node => {
                     const element = document.querySelector(node.target[0]);
-                    if (element && !axeViolations.includes(element)) {
-                        axeViolations.push(element);
+                    if (element) {
+                        if (!nodesWithViolationsMap.has(element)) {
+                            nodesWithViolationsMap.set(element, []);
+                        }
+                        nodesWithViolationsMap.get(element).push(violation);
                     }
                 });
             });
+
+            axeViolations = Array.from(nodesWithViolationsMap.entries()).map(([element, violations]) => ({
+                element: element,
+                violations: violations
+            }));
+
+            axeViolations.sort((a, b) => {
+                const position = a.element.compareDocumentPosition(b.element);
+                if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+                    return -1;
+                }
+                if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+                    return 1;
+                }
+                return 0;
+            });
+
 
             if (axeViolations.length === 0) {
                 console.log('No accessibility violations found.');
@@ -193,8 +407,7 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                     messageText.innerHTML = '✅ All good! No accessibility violations found.';
                     axeNavigation.style.display = 'none';
                     successMessageTimeoutId = setTimeout(() => {
-                        messageContainer.style.display = 'none';
-                        messageText.innerHTML = '';
+                        dismissAxeModal();
                     }, 5000);
                 }
             } else {
@@ -204,50 +417,40 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                     const seriousCount = results.violations.filter(v => v.impact === 'serious').length;
                     const moderateCount = results.violations.filter(v => v.impact === 'moderate').length;
                     const minorCount = results.violations.filter(v => v.impact === 'minor').length;
+                    const totalViolations = results.violations.length;
 
-                    let message = `⚠️ Accessibility violations found: ${axeViolations.length} total elements.`;
-                    if (criticalCount > 0) message += ` ${criticalCount} Critical.`;
-                    if (seriousCount > 0) message += ` ${seriousCount} Serious.`;
-                    if (moderateCount > 0) message += ` ${moderateCount} Moderate.`;
-                    if (minorCount > 0) message += ` ${minorCount} Minor.`;
+                    let summaryMessage = `⚠️ Accessibility Issues: <strong>${totalViolations} violations</strong> found.`;
+                    const impactSummaries = [];
+                    if (criticalCount > 0) impactSummaries.push(`${criticalCount} Critical`);
+                    if (seriousCount > 0) impactSummaries.push(`${seriousCount} Serious`);
+                    if (moderateCount > 0) impactSummaries.push(`${moderateCount} Moderate`);
+                    if (minorCount > 0) impactSummaries.push(`${minorCount} Minor`);
+
+                    if (impactSummaries.length > 0) {
+                        summaryMessage += `<br>(${impactSummaries.join(', ')})`;
+                    }
 
                     messageContainer.style.display = 'block';
                     messageContainer.style.backgroundColor = '#fff3cd';
                     messageContainer.style.color = '#856404';
                     messageContainer.style.borderColor = '#ffeeba';
-                    messageText.innerHTML = message;
+                    messageText.innerHTML = summaryMessage;
                     axeNavigation.style.display = 'flex';
                 }
 
-                results.violations.forEach(violation => {
-                    violation.nodes.forEach(node => {
-                        const element = document.querySelector(node.target[0]);
+                nodesWithViolationsMap.forEach((violations, element) => {
+                    const impactsOrder = ['critical', 'serious', 'moderate', 'minor'];
+                    let mostSevereImpactForNode = 'minor';
 
-                        if (element) {
-                            let borderStyle = '2px dashed ';
-                            let highlightColor;
-
-                            switch (violation.impact) {
-                                case 'critical':
-                                    highlightColor = 'red';
-                                    break;
-                                case 'serious':
-                                    highlightColor = 'orange';
-                                    break;
-                                case 'moderate':
-                                    highlightColor = 'yellow';
-                                    break;
-                                case 'minor':
-                                    highlightColor = '#87CEEB';
-                                    break;
-                                default:
-                                    highlightColor = 'grey';
-                            }
-                            element.style.border = borderStyle + highlightColor;
-                            element.title = `${violation.impact.charAt(0).toUpperCase() + violation.impact.slice(1)}: ${violation.description}`;
-                            element.setAttribute('data-axe-violation-marker', violation.impact);
+                    violations.forEach(violation => {
+                        const vioImpactIndex = impactsOrder.indexOf(violation.impact);
+                        if (vioImpactIndex !== -1 && vioImpactIndex < impactsOrder.indexOf(mostSevereImpactForNode)) {
+                            mostSevereImpactForNode = violation.impact;
                         }
                     });
+
+                    element.setAttribute('data-axe-violation-marker', mostSevereImpactForNode);
+                    element.title = `Violations: ${violations.map(v => v.description).join('; ')}`;
                 });
 
                 if (axeViolations.length > 0) {
@@ -255,10 +458,151 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                     navigateViolation(0);
                 }
             }
+            if (axeViolations.length > 0 && triggerButton) {
+                triggerButton.style.display = 'none';
+            }
+
+            // Always show the download button after a successful scan (even if no violations or if there are violations)
+            if (downloadReportButton) {
+                downloadReportButton.style.display = 'block';
+                downloadReportButton.textContent = 'Download Axe Report (CSV)'; // Reset text
+                console.log('Download button should now be visible on the page.'); // Debug log
+            }
         });
     }
 
-    window.addEventListener('storyblok:input', runAxeScan);
-</script>
-<script async="async" src="//unpkg.com/axe-core@4.10.3/axe.min.js" onload="runAxeScan()"></script>
+    // Function to export Axe results as CSV
+    function exportAxeResultsAsCsv() {
+        console.log('Download button clicked! Inside exportAxeResultsAsCsv.'); // Debug log
+        console.log('Current fullAxeResults state:', fullAxeResults); // Debug log
 
+        if (!fullAxeResults) {
+            alert('No accessibility scan results available to export. Please run a scan first.');
+            console.warn('Export prevented: fullAxeResults is null.'); // Debug log
+            return;
+        }
+
+        const dataRows = [];
+        const headers = [
+            "Rule ID", "Status", "Impact", "Description", "Help URL",
+            "Violating Nodes (CSS Selector)", "HTML of Violating Node", "Messages (Actual & Expected)"
+        ];
+        dataRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(',')); // Add headers, handling commas and quotes
+
+        // Helper to escape CSV values
+        const escapeCsv = (value) => {
+            if (value === null || value === undefined) return '';
+            let stringValue = String(value);
+            // Replace double quotes with two double quotes, then wrap in double quotes
+            return `"${stringValue.replace(/"/g, '""')}"`;
+        };
+
+        // 1. Violations
+        fullAxeResults.violations.forEach(violation => {
+            if (violation.nodes && violation.nodes.length > 0) {
+                violation.nodes.forEach(node => {
+                    dataRows.push([
+                        escapeCsv(violation.id),
+                        escapeCsv("Violation"),
+                        escapeCsv(violation.impact || 'N/A'),
+                        escapeCsv(violation.description),
+                        escapeCsv(violation.helpUrl || 'N/A'),
+                        escapeCsv(node.target ? node.target.join(' ') : 'N/A'),
+                        escapeCsv(node.html || 'N/A'),
+                        escapeCsv(`Actual: ${node.failureSummary || 'N/A'}; Expected: ${node.any.map(check => check.message).join('; ') || 'N/A'}`)
+                    ].join(','));
+                });
+            } else {
+                // Handle violations that don't have specific nodes (e.g., page-level issues if any)
+                dataRows.push([
+                    escapeCsv(violation.id),
+                    escapeCsv("Violation"),
+                    escapeCsv(violation.impact || 'N/A'),
+                    escapeCsv(violation.description),
+                    escapeCsv(violation.helpUrl || 'N/A'),
+                    escapeCsv('N/A - Page Level'),
+                    escapeCsv('N/A'),
+                    escapeCsv('N/A')
+                ].join(','));
+            }
+        });
+
+        // 2. Passes
+        fullAxeResults.passes.forEach(pass => {
+            dataRows.push([
+                escapeCsv(pass.id),
+                escapeCsv("Pass"),
+                escapeCsv('N/A'), // No impact for passes
+                escapeCsv(pass.description),
+                escapeCsv(pass.helpUrl || 'N/A'),
+                escapeCsv('N/A - Rule Passed'), // No specific violating node
+                escapeCsv('N/A'),
+                escapeCsv('N/A')
+            ].join(','));
+        });
+
+        // 3. Incomplete (Optional - include if you want them in the report)
+        fullAxeResults.incomplete.forEach(incomplete => {
+            dataRows.push([
+                escapeCsv(incomplete.id),
+                escapeCsv("Incomplete"),
+                escapeCsv(incomplete.impact || 'N/A'),
+                escapeCsv(incomplete.description),
+                escapeCsv(incomplete.helpUrl || 'N/A'),
+                escapeCsv('N/A'),
+                escapeCsv('N/A'),
+                escapeCsv(`Needs review: ${incomplete.help || 'N/A'}`)
+            ].join(','));
+        });
+
+        // 4. Inapplicable (Optional - include if you want them in the report)
+        fullAxeResults.inapplicable.forEach(inapplicable => {
+            dataRows.push([
+                escapeCsv(inapplicable.id),
+                escapeCsv("Inapplicable"),
+                escapeCsv('N/A'),
+                escapeCsv(inapplicable.description),
+                escapeCsv(inapplicable.helpUrl || 'N/A'),
+                escapeCsv('N/A - Rule Inapplicable'),
+                escapeCsv('N/A'),
+                escapeCsv('N/A')
+            ].join(','));
+        });
+
+
+        const csvContent = dataRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        // Create a download link and trigger click
+        const filename = `axe_report_${new Date().toISOString().slice(0, 10)}.csv`;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link); // Append to body is required for Firefox
+        link.click();
+        document.body.removeChild(link); // Clean up
+        console.log('CSV download triggered.'); // Debug log
+
+        if (downloadReportButton) {
+            downloadReportButton.textContent = 'Report Downloaded!';
+            setTimeout(() => {
+                downloadReportButton.textContent = 'Download Axe Report (CSV)';
+            }, 3000);
+        }
+    }
+
+
+    window.addEventListener('DOMContentLoaded', () => {
+        setupAxeUIElements();
+        const triggerButton = axeTriggerButton || document.getElementById('axeTriggerButton');
+        if (triggerButton) {
+            triggerButton.style.display = 'flex';
+        }
+        // Ensure download button is hidden on initial load
+        if (downloadReportButton) {
+            downloadReportButton.style.display = 'none';
+            console.log('Download button hidden on initial DOMContentLoaded.'); // Debug log
+        }
+        window.addEventListener('storyblok:input', runAxeScan);
+    });
+</script>
