@@ -220,7 +220,9 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
 
             currentNodeViolations.violations.forEach((violation, index) => {
                 const impact = violation.impact.charAt(0).toUpperCase() + violation.impact.slice(1);
-                nodeMessage += `&bullet; ${impact}: ${violation.description}`;
+                const safeViolation = document.createElement('div').appendChild(document.createTextNode(violation.description)).parentNode.innerHTML;
+                nodeMessage += `&bullet; ${impact}: ${safeViolation}`;
+
                 if (violation.helpUrl) {
                     nodeMessage += ` <a href="${violation.helpUrl}" target="_blank" style="color: inherit; text-decoration: underline; white-space: nowrap;">Learn More</a>`;
                 }
