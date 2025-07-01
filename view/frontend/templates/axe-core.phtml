@@ -441,7 +441,15 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
                     });
 
                     element.setAttribute('data-axe-violation-marker', mostSevereImpactForNode);
-                    element.title = `Violations: ${violations.map(v => v.description).join('; ')}`;
+                    // Create a safe title by escaping HTML entities
+                    const safeDescriptions = violations.map(v => {
+                        return v.description.replace(/&/g, '&amp;')
+                                           .replace(/</g, '&lt;')
+                                           .replace(/>/g, '&gt;')
+                                           .replace(/"/g, '&quot;')
+                                           .replace(/'/g, '&#39;');
+                    });
+                    element.title = `Violations: ${safeDescriptions.join('; ')}`;
                 });
 
                 if (axeViolations.length > 0) {
