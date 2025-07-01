@@ -17,7 +17,6 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
 
 $ajaxUrl = $block->getUrl('storyblok/story/ajax', ['_query' => ['_storyblock' => true]]);
 ?>
-<script async="async" src="//app.storyblok.com/f/storyblok-v2-latest.js" onload="initStoryblok()"></script>
 <script type="text/javascript">
     const initStoryblok = () => {
         let controller = { abort: () => {} };
@@ -78,17 +77,15 @@ $ajaxUrl = $block->getUrl('storyblok/story/ajax', ['_query' => ['_storyblock' =>
                 const blockId = Object.keys(response)[0];
                 const comments = parseStoryblokComments();
 
-                const storyElement = comments[blockId].element;
-                storyElement.outerHTML = response[blockId];
-
-                window.dispatchEvent(new CustomEvent('storyblok:input', {
-                    detail: { element: storyElement }
-                }));
+                comments[blockId].element.outerHTML = response[blockId];
 
                 storyblokInstance.enterEditmode();
+
+                window.dispatchEvent(new CustomEvent('storyblok:input'));
             } catch (err) {
                 return;
             }
         });
     };
 </script>
+<script async="async" src="//app.storyblok.com/f/storyblok-v2-latest.js" onload="initStoryblok()"></script>

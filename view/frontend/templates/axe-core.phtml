@@ -11,19 +11,213 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
     return;
 }
 ?>
-<script async="async" src="//unpkg.com/axe-core@4.10.3/axe.min.js"></script>
 <script type="text/javascript">
-    window.addEventListener('storyblok:input', (event) {
-        axe.run(event.detail.element, {
+    let axeMessageContainer;
+    let axeViolations = [];
+    let currentViolationIndex = -1;
+    let successMessageTimeoutId;
+
+    function getOrCreateAxeMessageContainer() {
+        if (!axeMessageContainer) {
+            axeMessageContainer = document.getElementById('axeAccessibilityMessage');
+
+            if (!axeMessageContainer) {
+                axeMessageContainer = document.createElement('div');
+                axeMessageContainer.id = 'axeAccessibilityMessage';
+                Object.assign(axeMessageContainer.style, {
+                    position: 'fixed',
+                    top: '10px',
+                    right: '10px',
+                    padding: '10px 15px',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    zIndex: '99999',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                    display: 'none',
+                    fontFamily: 'sans-serif',
+                    maxWidth: '350px'
+                });
+
+                axeMessageContainer.innerHTML = `
+                    <div id="axeMessageText"></div>
+                    <div id="axeNavigation" style="margin-top: 8px; display: none; justify-content: space-between; align-items: center;">
+                        <button id="axePrevButton" style="
+                            padding: 5px 10px;
+                            background-color: #f0f0f0;
+                            border: 1px solid #ccc;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 0.8em;
+                        " disabled>&larr; Prev</button>
+                        <span id="axeCounter" style="font-size: 0.9em; color: #555;"></span>
+                        <button id="axeNextButton" style="
+                            padding: 5px 10px;
+                            background-color: #f0f0f0;
+                            border: 1px solid #ccc;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 0.8em;
+                        " disabled>Next &rarr;</button>
+                    </div>
+                `;
+
+                document.body.appendChild(axeMessageContainer);
+
+                document.getElementById('axePrevButton').addEventListener('click', () => navigateViolation(-1));
+                document.getElementById('axeNextButton').addEventListener('click', () => navigateViolation(1));
+            }
+        }
+        return axeMessageContainer;
+    }
+
+    function updateNavigationUI() {
+        const prevButton = document.getElementById('axePrevButton');
+        const nextButton = document.getElementById('axeNextButton');
+        const counterSpan = document.getElementById('axeCounter');
+        const axeNavigationDiv = document.getElementById('axeNavigation');
+
+        if (axeViolations.length > 0) {
+            axeNavigationDiv.style.display = 'flex';
+            counterSpan.textContent = `${currentViolationIndex + 1} of ${axeViolations.length}`;
+            prevButton.disabled = currentViolationIndex <= 0;
+            nextButton.disabled = currentViolationIndex >= axeViolations.length - 1;
+        } else {
+            axeNavigationDiv.style.display = 'none';
+            counterSpan.textContent = '';
+            prevButton.disabled = true;
+            nextButton.disabled = true;
+        }
+    }
+
+    function clearPreviousActiveHighlight() {
+        document.querySelectorAll('[data-axe-violation-marker].axe-active-violation').forEach(el => {
+            const originalImpact = el.getAttribute('data-axe-violation-marker');
+            let originalColor;
+            switch (originalImpact) {
+                case 'critical': originalColor = 'red'; break;
+                case 'serious': originalColor = 'orange'; break;
+                case 'moderate': originalColor = 'yellow'; break;
+                case 'minor': originalColor = '#87CEEB'; break;
+                default: originalColor = 'grey'; break;
+            }
+            el.style.border = `2px dashed ${originalColor}`;
+            el.classList.remove('axe-active-violation');
+        });
+    }
+
+    function navigateViolation(direction) {
+        clearPreviousActiveHighlight();
+
+        currentViolationIndex += direction;
+
+        if (currentViolationIndex < 0) {
+            currentViolationIndex = 0;
+        } else if (currentViolationIndex >= axeViolations.length) {
+            currentViolationIndex = axeViolations.length - 1;
+        }
+
+        const targetElement = axeViolations[currentViolationIndex];
+        if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetElement.style.border = '3px solid #6200EE';
+            targetElement.classList.add('axe-active-violation');
+        }
+        updateNavigationUI();
+    }
+
+    // New function to encapsulate the axe scanning logic
+    function runAxeScan() {
+        const messageContainer = getOrCreateAxeMessageContainer();
+        const messageText = document.getElementById('axeMessageText');
+        const axeNavigation = document.getElementById('axeNavigation');
+
+        if (successMessageTimeoutId) {
+            clearTimeout(successMessageTimeoutId);
+            successMessageTimeoutId = null;
+        }
+
+        document.querySelectorAll('[data-axe-violation-marker]').forEach(el => {
+            el.style.border = '';
+            el.removeAttribute('title');
+            el.removeAttribute('data-axe-violation-marker');
+            el.classList.remove('axe-active-violation');
+        });
+
+        axeViolations = [];
+        currentViolationIndex = -1;
+        updateNavigationUI();
+
+        if (messageContainer) {
+            messageContainer.style.display = 'none';
+            messageContainer.style.backgroundColor = '';
+            messageContainer.style.color = '';
+            messageContainer.style.borderColor = '';
+            messageText.innerHTML = '';
+        }
+
+        axe.run('.storyblok__outline', {
             runOnly: {
                 type: 'tag',
-                values: ['wcag2a', 'wcag2aa']
+                values: ['wcag2a', 'wcag2aa', 'wcag22aa', 'best-practice']
             }
         }, (err, results) => {
-            if (err) throw err;
+            if (err) {
+                console.error('Axe-core error:', err);
+                if (messageContainer) {
+                    messageContainer.style.display = 'block';
+                    messageContainer.style.backgroundColor = '#f8d7da';
+                    messageContainer.style.color = '#721c24';
+                    messageContainer.style.borderColor = '#f5c6cb';
+                    messageText.innerHTML = 'Error running accessibility scan. Check console for details.';
+                    axeNavigation.style.display = 'none';
+                }
+                return;
+            }
 
-            if (results.violations.length > 0) {
+            results.violations.forEach(violation => {
+                violation.nodes.forEach(node => {
+                    const element = document.querySelector(node.target[0]);
+                    if (element && !axeViolations.includes(element)) {
+                        axeViolations.push(element);
+                    }
+                });
+            });
+
+            if (axeViolations.length === 0) {
+                console.log('No accessibility violations found.');
+                if (messageContainer) {
+                    messageContainer.style.display = 'block';
+                    messageContainer.style.backgroundColor = '#d4edda';
+                    messageContainer.style.color = '#155724';
+                    messageContainer.style.borderColor = '#c3e6cb';
+                    messageText.innerHTML = '✅ All good! No accessibility violations found.';
+                    axeNavigation.style.display = 'none';
+                    successMessageTimeoutId = setTimeout(() => {
+                        messageContainer.style.display = 'none';
+                        messageText.innerHTML = '';
+                    }, 5000);
+                }
+            } else {
                 console.warn('Accessibility violations found:', results.violations);
+                if (messageContainer) {
+                    const criticalCount = results.violations.filter(v => v.impact === 'critical').length;
+                    const seriousCount = results.violations.filter(v => v.impact === 'serious').length;
+                    const moderateCount = results.violations.filter(v => v.impact === 'moderate').length;
+                    const minorCount = results.violations.filter(v => v.impact === 'minor').length;
+
+                    let message = `⚠️ Accessibility violations found: ${axeViolations.length} total elements.`;
+                    if (criticalCount > 0) message += ` ${criticalCount} Critical.`;
+                    if (seriousCount > 0) message += ` ${seriousCount} Serious.`;
+                    if (moderateCount > 0) message += ` ${moderateCount} Moderate.`;
+                    if (minorCount > 0) message += ` ${minorCount} Minor.`;
+
+                    messageContainer.style.display = 'block';
+                    messageContainer.style.backgroundColor = '#fff3cd';
+                    messageContainer.style.color = '#856404';
+                    messageContainer.style.borderColor = '#ffeeba';
+                    messageText.innerHTML = message;
+                    axeNavigation.style.display = 'flex';
+                }
 
                 results.violations.forEach(violation => {
                     violation.nodes.forEach(node => {
@@ -31,28 +225,40 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
 
                         if (element) {
                             let borderStyle = '2px dashed ';
+                            let highlightColor;
 
                             switch (violation.impact) {
                                 case 'critical':
-                                    borderStyle += 'red';
+                                    highlightColor = 'red';
                                     break;
                                 case 'serious':
-                                    borderStyle += 'orange';
+                                    highlightColor = 'orange';
                                     break;
                                 case 'moderate':
-                                    borderStyle += 'yellow';
+                                    highlightColor = 'yellow';
                                     break;
                                 case 'minor':
-                                    borderStyle += 'blue';
+                                    highlightColor = '#87CEEB';
                                     break;
+                                default:
+                                    highlightColor = 'grey';
                             }
-
-                            element.style.border = borderStyle;
-                            element.title = violation.description;
+                            element.style.border = borderStyle + highlightColor;
+                            element.title = `${violation.impact.charAt(0).toUpperCase() + violation.impact.slice(1)}: ${violation.description}`;
+                            element.setAttribute('data-axe-violation-marker', violation.impact);
                         }
                     });
                 });
+
+                if (axeViolations.length > 0) {
+                    currentViolationIndex = 0;
+                    navigateViolation(0);
+                }
             }
         });
-    });
+    }
+
+    window.addEventListener('storyblok:input', runAxeScan);
 </script>
+<script async="async" src="//unpkg.com/axe-core@4.10.3/axe.min.js" onload="runAxeScan()"></script>
+
