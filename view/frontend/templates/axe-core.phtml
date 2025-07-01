@@ -2,12 +2,18 @@
 
 use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Controller\Router;
+use Magento\Framework\Escaper;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
 
 $request = $block->getRequest();
 
 if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
     return;
 }
+
+$statusUpdateUrl = $block->getUrl('storyblok-status/update');
 ?>
 <script src="//unpkg.com/axe-core@4.10.3/axe.min.js"></script>
 
@@ -17,13 +23,9 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
     let axeViolations = [];
     let currentViolationIndex = -1;
     let successMessageTimeoutId;
-
-    // Store full Axe results for CSV export
-    let fullAxeResults = null;
-    let downloadReportButton; // Element for downloading CSV (now truly separate)
+    let currentStoryId = null;
 
     function setupAxeUIElements() {
-        // Setup the message container (modal)
         if (!axeMessageContainer) {
             axeMessageContainer = document.getElementById('axeAccessibilityMessage');
 
@@ -86,38 +88,6 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
             }
         }
 
-        // --- NEW: Separate downloadReportButton setup ---
-        if (!downloadReportButton) { // Ensure button is created only once
-            downloadReportButton = document.getElementById('axeDownloadReportButton');
-            if (!downloadReportButton) {
-                downloadReportButton = document.createElement('button');
-                downloadReportButton.id = 'axeDownloadReportButton';
-                Object.assign(downloadReportButton.style, {
-                    position: 'fixed',
-                    bottom: '20px',
-                    left: '20px', // Position on the left side
-                    padding: '10px 15px',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9em',
-                    boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
-                    zIndex: '99998', // Same as trigger button
-                    display: 'none', // Initially hidden
-                });
-                downloadReportButton.textContent = 'Download Axe Report (CSV)';
-                document.body.appendChild(downloadReportButton);
-                console.log('Download button created and appended to body.'); // Debug log
-            }
-            downloadReportButton.addEventListener('click', exportAxeResultsAsCsv);
-            console.log('Download button click listener attached.'); // Debug log
-        }
-        // --- END NEW downloadReportButton setup ---
-
-
-        // Setup the trigger button (floating icon)
         if (!axeTriggerButton) {
             axeTriggerButton = document.getElementById('axeTriggerButton');
             if (!axeTriggerButton) {
@@ -149,7 +119,7 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                 `;
                 document.body.appendChild(axeTriggerButton);
             }
-            axeTriggerButton.addEventListener('click', () => runAxeScan());
+            axeTriggerButton.addEventListener('click', () => runAxeScan(currentStoryId)); // Use currentStoryId on manual trigger
         }
     }
 
@@ -187,14 +157,6 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
         messageContainer.style.color = '';
         messageContainer.style.borderColor = '';
 
-        // Hide download button when modal is dismissed
-        if (downloadReportButton) {
-            downloadReportButton.style.display = 'none';
-            console.log('Download button hidden by dismissAxeModal.'); // Debug log
-        }
-        fullAxeResults = null; // Clear stored results
-        console.log('fullAxeResults cleared to null by dismissAxeModal.'); // Debug log
-
         clearAllScanHighlightsAndMarkers();
 
         axeViolations = [];
@@ -206,7 +168,6 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
             triggerButton.style.display = 'flex';
         }
     }
-
 
     function updateNavigationUI() {
         const prevButton = document.getElementById('axePrevButton');
@@ -243,10 +204,7 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
         const currentNodeViolations = axeViolations[currentViolationIndex];
         if (currentNodeViolations && currentNodeViolations.element) {
             let targetElement = currentNodeViolations.element;
-            const violationsForNode = currentNodeViolations.violations;
 
-            // If the target element is an <img> and it's inside a <picture> element,
-            // apply the highlight to the <picture> instead.
             if (targetElement.tagName === 'IMG' && targetElement.parentNode && targetElement.parentNode.tagName === 'PICTURE') {
                 targetElement = targetElement.parentNode;
             }
@@ -256,17 +214,17 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
             targetElement.style.outlineOffset = '2px';
             targetElement.classList.add('axe-active-violation');
 
-            let nodeMessage = `<strong>Violations on this element (${violationsForNode.length}):</strong><br>`;
+            let nodeMessage = `<strong>Violations on this element (${currentNodeViolations.violations.length}):</strong><br>`;
             const impactsOrder = ['critical', 'serious', 'moderate', 'minor'];
             let mostSevereImpact = 'minor';
 
-            violationsForNode.forEach((violation, index) => {
+            currentNodeViolations.violations.forEach((violation, index) => {
                 const impact = violation.impact.charAt(0).toUpperCase() + violation.impact.slice(1);
                 nodeMessage += `&bullet; ${impact}: ${violation.description}`;
                 if (violation.helpUrl) {
                     nodeMessage += ` <a href="${violation.helpUrl}" target="_blank" style="color: inherit; text-decoration: underline; white-space: nowrap;">Learn More</a>`;
                 }
-                if (index < violationsForNode.length - 1) {
+                if (index < currentNodeViolations.violations.length - 1) {
                     nodeMessage += '<br>';
                 }
 
@@ -298,7 +256,40 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
         updateNavigationUI();
     }
 
-    function runAxeScan() {
+    function sendAxeStatus(storyId, passed) {
+        if (!storyId) {
+            console.warn('Story ID not available to send Axe status.');
+            return;
+        }
+
+        fetch('<?= $escaper->escapeUrl($statusUpdateUrl) ?>', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                storyblok_id: storyId,
+                passed: passed
+            })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Axe status updated successfully:', data);
+            })
+            .catch(error => {
+                console.error('Error sending Axe status:', error);
+            });
+    }
+
+    // runAxeScan now accepts the storyId directly
+    function runAxeScan(storyId) {
+        currentStoryId = storyId; // Store the storyId for potential manual triggers
+
         const triggerButton = axeTriggerButton || document.getElementById('axeTriggerButton');
         if (triggerButton) {
             triggerButton.style.display = 'none';
@@ -311,6 +302,10 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
         if (document.querySelectorAll('.storyblok__outline').length === 0) {
             dismissAxeModal();
             console.log('No .storyblok__outline elements found, skipping axe scan.');
+            // Send a "passed" status if no outlines exist, implying nothing to scan.
+            if (currentStoryId) {
+                sendAxeStatus(currentStoryId, true);
+            }
             return;
         }
 
@@ -340,6 +335,8 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
             },
             resultTypes: ['violations', 'passes', 'incomplete', 'inapplicable']
         }, (err, results) => {
+            let scanPassed = false;
+
             if (err) {
                 console.error('Axe-core error:', err);
                 if (messageContainer) {
@@ -353,18 +350,11 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                 if (triggerButton) {
                     triggerButton.style.display = 'flex';
                 }
-                // Hide download button on error
-                if (downloadReportButton) {
-                    downloadReportButton.style.display = 'none';
-                    console.log('Download button hidden due to axe-core error.'); // Debug log
+                if (currentStoryId) {
+                    sendAxeStatus(currentStoryId, false); // Send failed status due to error
                 }
-                fullAxeResults = null;
                 return;
             }
-
-            // Store full results for CSV export
-            fullAxeResults = results;
-            console.log('Axe scan completed. fullAxeResults populated:', fullAxeResults); // Debug log
 
             const nodesWithViolationsMap = new Map();
 
@@ -396,9 +386,9 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                 return 0;
             });
 
-
             if (axeViolations.length === 0) {
                 console.log('No accessibility violations found.');
+                scanPassed = true;
                 if (messageContainer) {
                     messageContainer.style.display = 'block';
                     messageContainer.style.backgroundColor = '#d4edda';
@@ -412,6 +402,7 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                 }
             } else {
                 console.warn('Accessibility violations found:', results.violations);
+                scanPassed = false;
                 if (messageContainer) {
                     const criticalCount = results.violations.filter(v => v.impact === 'critical').length;
                     const seriousCount = results.violations.filter(v => v.impact === 'serious').length;
@@ -458,151 +449,26 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
                     navigateViolation(0);
                 }
             }
+
             if (axeViolations.length > 0 && triggerButton) {
                 triggerButton.style.display = 'none';
             }
 
-            // Always show the download button after a successful scan (even if no violations or if there are violations)
-            if (downloadReportButton) {
-                downloadReportButton.style.display = 'block';
-                downloadReportButton.textContent = 'Download Axe Report (CSV)'; // Reset text
-                console.log('Download button should now be visible on the page.'); // Debug log
+            if (currentStoryId) {
+                sendAxeStatus(currentStoryId, scanPassed);
             }
         });
     }
-
-    // Function to export Axe results as CSV
-    function exportAxeResultsAsCsv() {
-        console.log('Download button clicked! Inside exportAxeResultsAsCsv.'); // Debug log
-        console.log('Current fullAxeResults state:', fullAxeResults); // Debug log
-
-        if (!fullAxeResults) {
-            alert('No accessibility scan results available to export. Please run a scan first.');
-            console.warn('Export prevented: fullAxeResults is null.'); // Debug log
-            return;
-        }
-
-        const dataRows = [];
-        const headers = [
-            "Rule ID", "Status", "Impact", "Description", "Help URL",
-            "Violating Nodes (CSS Selector)", "HTML of Violating Node", "Messages (Actual & Expected)"
-        ];
-        dataRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(',')); // Add headers, handling commas and quotes
-
-        // Helper to escape CSV values
-        const escapeCsv = (value) => {
-            if (value === null || value === undefined) return '';
-            let stringValue = String(value);
-            // Replace double quotes with two double quotes, then wrap in double quotes
-            return `"${stringValue.replace(/"/g, '""')}"`;
-        };
-
-        // 1. Violations
-        fullAxeResults.violations.forEach(violation => {
-            if (violation.nodes && violation.nodes.length > 0) {
-                violation.nodes.forEach(node => {
-                    dataRows.push([
-                        escapeCsv(violation.id),
-                        escapeCsv("Violation"),
-                        escapeCsv(violation.impact || 'N/A'),
-                        escapeCsv(violation.description),
-                        escapeCsv(violation.helpUrl || 'N/A'),
-                        escapeCsv(node.target ? node.target.join(' ') : 'N/A'),
-                        escapeCsv(node.html || 'N/A'),
-                        escapeCsv(`Actual: ${node.failureSummary || 'N/A'}; Expected: ${node.any.map(check => check.message).join('; ') || 'N/A'}`)
-                    ].join(','));
-                });
-            } else {
-                // Handle violations that don't have specific nodes (e.g., page-level issues if any)
-                dataRows.push([
-                    escapeCsv(violation.id),
-                    escapeCsv("Violation"),
-                    escapeCsv(violation.impact || 'N/A'),
-                    escapeCsv(violation.description),
-                    escapeCsv(violation.helpUrl || 'N/A'),
-                    escapeCsv('N/A - Page Level'),
-                    escapeCsv('N/A'),
-                    escapeCsv('N/A')
-                ].join(','));
-            }
-        });
-
-        // 2. Passes
-        fullAxeResults.passes.forEach(pass => {
-            dataRows.push([
-                escapeCsv(pass.id),
-                escapeCsv("Pass"),
-                escapeCsv('N/A'), // No impact for passes
-                escapeCsv(pass.description),
-                escapeCsv(pass.helpUrl || 'N/A'),
-                escapeCsv('N/A - Rule Passed'), // No specific violating node
-                escapeCsv('N/A'),
-                escapeCsv('N/A')
-            ].join(','));
-        });
-
-        // 3. Incomplete (Optional - include if you want them in the report)
-        fullAxeResults.incomplete.forEach(incomplete => {
-            dataRows.push([
-                escapeCsv(incomplete.id),
-                escapeCsv("Incomplete"),
-                escapeCsv(incomplete.impact || 'N/A'),
-                escapeCsv(incomplete.description),
-                escapeCsv(incomplete.helpUrl || 'N/A'),
-                escapeCsv('N/A'),
-                escapeCsv('N/A'),
-                escapeCsv(`Needs review: ${incomplete.help || 'N/A'}`)
-            ].join(','));
-        });
-
-        // 4. Inapplicable (Optional - include if you want them in the report)
-        fullAxeResults.inapplicable.forEach(inapplicable => {
-            dataRows.push([
-                escapeCsv(inapplicable.id),
-                escapeCsv("Inapplicable"),
-                escapeCsv('N/A'),
-                escapeCsv(inapplicable.description),
-                escapeCsv(inapplicable.helpUrl || 'N/A'),
-                escapeCsv('N/A - Rule Inapplicable'),
-                escapeCsv('N/A'),
-                escapeCsv('N/A')
-            ].join(','));
-        });
-
-
-        const csvContent = dataRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
-        // Create a download link and trigger click
-        const filename = `axe_report_${new Date().toISOString().slice(0, 10)}.csv`;
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', filename);
-        document.body.appendChild(link); // Append to body is required for Firefox
-        link.click();
-        document.body.removeChild(link); // Clean up
-        console.log('CSV download triggered.'); // Debug log
-
-        if (downloadReportButton) {
-            downloadReportButton.textContent = 'Report Downloaded!';
-            setTimeout(() => {
-                downloadReportButton.textContent = 'Download Axe Report (CSV)';
-            }, 3000);
-        }
-    }
-
 
     window.addEventListener('DOMContentLoaded', () => {
         setupAxeUIElements();
+
         const triggerButton = axeTriggerButton || document.getElementById('axeTriggerButton');
+
         if (triggerButton) {
             triggerButton.style.display = 'flex';
         }
-        // Ensure download button is hidden on initial load
-        if (downloadReportButton) {
-            downloadReportButton.style.display = 'none';
-            console.log('Download button hidden on initial DOMContentLoaded.'); // Debug log
-        }
-        window.addEventListener('storyblok:input', runAxeScan);
     });
+
+    window.runAxeScan = runAxeScan;
 </script>

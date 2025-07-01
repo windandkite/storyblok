@@ -81,8 +81,13 @@ $ajaxUrl = $block->getUrl('storyblok/story/ajax', ['_query' => ['_storyblock' =>
 
                 storyblokInstance.enterEditmode();
 
-                window.dispatchEvent(new CustomEvent('storyblok:input'));
+                if (window.runAxeScan) {
+                    window.runAxeScan(story.id);
+                } else {
+                    console.warn('Axe script not yet loaded, cannot run scan.');
+                }
             } catch (err) {
+                console.error('Storyblok AJAX update failed:', err);
                 return;
             }
         });
