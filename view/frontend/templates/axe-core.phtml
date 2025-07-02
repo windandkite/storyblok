@@ -1,8 +1,8 @@
 <?php
 
+use Magento\Framework\Escaper;
 use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Controller\Router;
-use Magento\Framework\Escaper;
 
 /** @var Template $block */
 /** @var Escaper $escaper */
@@ -15,7 +15,7 @@ if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
 
 $statusUpdateUrl = $block->getUrl('storyblok-status/update');
 ?>
-<script src="//unpkg.com/axe-core@4.10.3/axe.min.js"></script>
+<script src="//unpkg.com/axe-core@4.10.x/axe.min.js"></script>
 
 <script type="text/javascript">
     let axeMessageContainer;
@@ -23,6 +23,7 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
     let axeViolations = [];
     let currentViolationIndex = -1;
     let successMessageTimeoutId;
+
     let currentStoryId = null;
 
     function setupAxeUIElements() {
@@ -119,7 +120,7 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
                 `;
                 document.body.appendChild(axeTriggerButton);
             }
-            axeTriggerButton.addEventListener('click', () => runAxeScan(currentStoryId)); // Use currentStoryId on manual trigger
+            axeTriggerButton.addEventListener('click', () => runAxeScan(currentStoryId));
         }
     }
 
@@ -249,7 +250,7 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
                 case 'minor':
                     bgColor = '#e7f3ff'; textColor = '#004085'; borderColor = '#b8daff'; break;
                 default:
-                    bgColor = '#e2e3e5'; textColor = '#383d41'; borderColor = '#d6d8db'; break;
+                    bgColor = '#e2e3e5'; textColor = '#212529'; borderColor = '#d6d8db'; break;
             }
             axeMessageContainer.style.backgroundColor = bgColor;
             axeMessageContainer.style.color = textColor;
@@ -288,9 +289,8 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
             });
     }
 
-    // runAxeScan now accepts the storyId directly
     function runAxeScan(storyId) {
-        currentStoryId = storyId; // Store the storyId for potential manual triggers
+        currentStoryId = storyId;
 
         const triggerButton = axeTriggerButton || document.getElementById('axeTriggerButton');
         if (triggerButton) {
@@ -304,7 +304,6 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
         if (document.querySelectorAll('.storyblok__outline').length === 0) {
             dismissAxeModal();
             console.log('No .storyblok__outline elements found, skipping axe scan.');
-            // Send a "passed" status if no outlines exist, implying nothing to scan.
             if (currentStoryId) {
                 sendAxeStatus(currentStoryId, true);
             }
@@ -353,7 +352,7 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
                     triggerButton.style.display = 'flex';
                 }
                 if (currentStoryId) {
-                    sendAxeStatus(currentStoryId, false); // Send failed status due to error
+                    sendAxeStatus(currentStoryId, false);
                 }
                 return;
             }
@@ -472,9 +471,7 @@ $statusUpdateUrl = $block->getUrl('storyblok-status/update');
 
     window.addEventListener('DOMContentLoaded', () => {
         setupAxeUIElements();
-
         const triggerButton = axeTriggerButton || document.getElementById('axeTriggerButton');
-
         if (triggerButton) {
             triggerButton.style.display = 'flex';
         }
