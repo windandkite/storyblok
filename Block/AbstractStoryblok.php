@@ -18,7 +18,7 @@ abstract class AbstractStoryblok extends Template
 
     public function __construct(
         protected StoryRepository $storyRepository,
-        private Asset $assetViewModel,
+        protected Asset $assetViewModel,
         protected Config $scopeConfig,
         Template\Context $context,
         protected StoryRequestService $storyRequestService,

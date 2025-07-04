@@ -4,86 +4,173 @@ declare(strict_types=1);
 
 use Magento\Framework\Escaper;
 use Magento\Framework\View\Element\Template;
-use WindAndKite\Storyblok\Controller\Router;
+use WindAndKite\Storyblok\ViewModel\StoryblokBridgeConfig;
 
 /** @var Template $block */
 /** @var Escaper $escaper */
 
-$request = $block->getRequest();
+/** @var StoryblokBridgeConfig $storyblokConfig */
+$storyblokConfig = $block->getData('storyblok_bridge_config');
 
-if (!$request->getParam(Router::STORYBLOK_EDITOR_KEY)) {
+if (!$storyblokConfig->shouldInitializeStoryblokBridge()) {
     return;
 }
 
-$ajaxUrl = $block->getUrl('storyblok/story/ajax', ['_query' => ['_storyblock' => true]]);
+$ajaxUrl = $storyblokConfig->getAjaxUrl();
 ?>
-<script async="async" src="//app.storyblok.com/f/storyblok-v2-latest.js" onload="initStoryblok()"></script>
 <script type="text/javascript">
-    const initStoryblok = () => {
-        let controller = { abort: () => {} };
-        const { StoryblokBridge } = window;
-        const storyblokInstance = new StoryblokBridge({
-            preventClicks: true
-        });
+    (function() {
+        let storyblokInstance = null;
+        const queuedOnCalls = [];
 
-        function isStoryblokComment(node) {
-            if (node.textContent.includes('#storyblok#')) {
-                return NodeFilter.FILTER_ACCEPT;
+        window.StoryblokBridge = function(options) {
+            if (storyblokInstance) {
+                return storyblokInstance;
             }
-        }
+            const proxy = {
+                on: function() {
+                    queuedOnCalls.push(arguments);
+                }
+            };
+            return proxy;
+        };
 
-        function parseStoryblokComments() {
-            let curNode;
-            const comments = {};
-            const htmlComments = document.createNodeIterator(
-                document.body,
-                NodeFilter.SHOW_COMMENT,
-                isStoryblokComment
-            );
-
-            while ((curNode = htmlComments.nextNode())) {
-                const nodeData = curNode.textContent.replace('#storyblok#', '');
-                const jsonData = JSON.parse(nodeData);
-
-                comments[jsonData.uid] = {
-                    comment: curNode,
-                    element: curNode.nextElementSibling
-                };
-            }
-
-            return comments;
-        }
-
-        storyblokInstance.on(['published', 'change'], () => window.location.reload());
-
-        storyblokInstance.on(['input'], async ({ story }) => {
-            controller.abort();
-
-            controller = new AbortController();
-            const { signal } = controller;
-
-            try {
-                const request = await fetch('<?= $escaper->escapeUrl($ajaxUrl) ?>', {
-                    signal,
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        story,
-                        _storyblok: story.id
-                    })
-                });
-                const response = await request.json();
-                const blockId = Object.keys(response)[0];
-                const comments = parseStoryblokComments();
-
-                comments[blockId].element.outerHTML = response[blockId];
-
-                storyblokInstance.enterEditmode();
-            } catch (err) {
+        const initActualStoryblokBridge = () => {
+            if (storyblokInstance) {
                 return;
             }
-        });
-    };
+
+            const { StoryblokBridge: ActualStoryblokBridge } = window;
+
+            storyblokInstance = new ActualStoryblokBridge({
+                preventClicks: true
+            });
+
+            queuedOnCalls.forEach(args => {
+                storyblokInstance.on.apply(storyblokInstance, args);
+            });
+
+            storyblokInstance.on(
+                ['published', 'change'],
+                () => window.location.reload()
+            );
+
+            let controller = { abort: () => {} };
+            let lastBlockIds = [];
+
+            storyblokInstance.on('enterEditmode', ({ blockId, storyId }) => {
+                const parentBlok = document.querySelector(`[data-blok-uid="${storyId}-${blockId}"]`);
+
+                if (!parentBlok) {
+                    console.warn(`Storyblok Bridge: Element with data-blok-uid="${storyId}-${blockId}" not found.`);
+                    return;
+                }
+
+                parentBlok.querySelectorAll('[data-blok-c]').forEach(childBlok => {
+                    lastBlockIds.push(JSON.parse(childBlok.getAttribute('data-blok-c')).uid);
+                })
+            });
+
+            /**
+             * Fetches updated block HTML from the server and updates the DOM.
+             * @param {object} story The current Storyblok story object.
+             * @param {AbortSignal} signal The AbortSignal to cancel the fetch request.
+             * @returns {Promise<void>} A Promise that resolves when the update is complete.
+             */
+            const updateBlocksViaAjax = (story, signal) => {
+                if (!story || typeof story.id === 'undefined') {
+                    console.warn("Storyblok Bridge: 'story' object or 'story.id' is undefined. Skipping AJAX update.");
+                    return Promise.resolve();
+                }
+
+                return fetch('<?= $escaper->escapeUrl($ajaxUrl) ?>', {
+                    signal,
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ story, _storyblok: story.id })
+                })
+                    .then(request => {
+                        if (!request.ok) {
+                            return request.text().then(errorText => {
+                                console.error("Storyblok Bridge Input Error: HTTP", request.status, errorText);
+                                throw new Error(`HTTP error! status: ${request.status}`);
+                            });
+                        }
+                        return request.json();
+                    })
+                    .then(response => {
+                        for (const blockUid in response) {
+                            if (Object.prototype.hasOwnProperty.call(response, blockUid)) {
+                                const targetElement = document.querySelector(`[data-blok-uid="${story.id}-${blockUid}"]`);
+
+                                if (targetElement) {
+                                    targetElement.outerHTML = response[blockUid];
+                                } else {
+                                    console.warn(`Storyblok Bridge: Element with data-blok-uid="${blockUid}" not found for update.`);
+                                }
+                            }
+                        }
+                        storyblokInstance.enterEditmode();
+                    })
+                    .catch(err => {
+                        if (err.name === 'AbortError') {
+                            console.log("Storyblok Bridge Input: Fetch aborted.");
+                        } else {
+                            console.error("Storyblok Bridge Input Error:", err);
+                        }
+                    });
+            };
+
+            storyblokInstance.on(['input'], ({ story }) => {
+                controller.abort();
+
+                controller = new AbortController();
+                const { signal } = controller;
+
+                let currentBlokIds = story.content.body.map(el => el['_uid'])
+
+                if (currentBlokIds.length < lastBlockIds.length) {
+                    let removedBlokIds = lastBlockIds.filter(id => !currentBlokIds.includes(id));
+
+                    removedBlokIds.forEach(id => {
+                        const removedElement = document.querySelector(`[data-blok-uid="${story.id}-${id}"]`);
+                        if (removedElement) {
+                            removedElement.remove();
+                        } else {
+                            console.warn(`Storyblok Bridge: Element with data-blok-uid="${story.id}-${id}" not found for removal.`);
+                        }
+                    });
+
+                    lastBlockIds = currentBlokIds;
+
+                    return;
+                }
+
+                updateBlocksViaAjax(story, signal);
+            });
+        };
+
+        const loadStoryblokScript = () => {
+            if (document.getElementById('storyblok-bridge-script')) {
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.async = true;
+            script.src = "//app.storyblok.com/f/storyblok-v2-latest.js";
+            script.id = "storyblok-bridge-script";
+            script.onload = initActualStoryblokBridge;
+            document.head.appendChild(script);
+        };
+
+        document.addEventListener('scroll', loadStoryblokScript, { once: true });
+        document.addEventListener('mousemove', loadStoryblokScript, { once: true });
+        document.addEventListener('keydown', loadStoryblokScript, { once: true });
+        document.addEventListener('touchstart', loadStoryblokScript, { once: true });
+
+        <?php if ($storyblokConfig->shouldInitializeStoryblokBridge()): ?>
+        setTimeout(loadStoryblokScript, 0);
+        <?php endif; ?>
+
+    })();
 </script>

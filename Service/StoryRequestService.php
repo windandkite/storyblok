@@ -4,39 +4,29 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Service;
 
-use Magento\Framework\App\RequestInterface;
-use Storyblok\Api\Domain\Value\Dto\Version;
 use Storyblok\Api\Domain\Value\Resolver\RelationCollection;
 use Storyblok\Api\Request\StoryRequest;
-use WindAndKite\Storyblok\Controller\Router;
-use WindAndKite\Storyblok\Scope\Config;
 
 class StoryRequestService
 {
     public function __construct(
-        private Config $scopeConfig,
-        private RequestInterface $request,
+        private StoryblokSessionManager $storyblokSessionManager,
     ) {}
 
     public function getStoryRequest(
         array $data
     ): StoryRequest {
-        $language = $data['language'] ?? 'default';
+        $version = $data['version'] ?? $this->storyblokSessionManager->getStoryblokApiVersion();
+
+        $language = $data['language'] ?? $this->storyblokSessionManager->getRequestedLanguage();
+        $language = $language ?? 'default';
+
         $relations = $data['resolve_relations'] ?? null;
-        $version = $data['version'] ?? null;
-
-        if (!$version) {
-            $version = Version::Published;
-
-            if ($this->request->getParam(Router::STORYBLOK_EDITOR_KEY) || $this->scopeConfig->isDevModeEnabled()) {
-                $version = Version::Draft;
-            }
-        }
 
         return new StoryRequest(
             $language,
             $version,
-            $relations ? new RelationCollection(array_values($relations)) : new RelationCollection(),
+            $relations ? new RelationCollection(array_values($relations)) : new RelationCollection([])
         );
     }
 }
