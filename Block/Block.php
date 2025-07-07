@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Block;
 
-use Magento\Framework\Exception\InvalidArgumentException;
+use Exception;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
+use Magento\Framework\Serialize\SerializerInterface;
 use WindAndKite\Storyblok\Api\Data\BlockInterface;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
-use WindAndKite\Storyblok\Controller\Router;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\BlockFactory;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
 use WindAndKite\Storyblok\Service\StoryRequestService;
+use WindAndKite\Storyblok\Service\StoryblokSessionManager;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
 class Block extends AbstractStoryblok
@@ -29,12 +31,23 @@ class Block extends AbstractStoryblok
         private BlockFactory $blockFactory,
         private FieldRendererInterface $fieldRenderer,
         StoryRequestService $storyRequestService,
+        private SerializerInterface $serializer,
+        private StoryblokSessionManager $storyblokSessionManager,
         array $data = []
     ) {
-        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $context, $storyRequestService, $data);
+        parent::__construct(
+            $storyRepository,
+            $assetViewModel,
+            $scopeConfig,
+            $context,
+            $storyRequestService,
+            $data
+        );
     }
 
-    public function getData($key = '', $index = null) {
+    public function getData(
+        $key = '', $index = null
+    ) {
         if ($key === 'block') {
             return parent::getData($key, $index);
         }
@@ -45,6 +58,40 @@ class Block extends AbstractStoryblok
     public function getBlock(): StoryblokBlock
     {
         return $this->getData('block') ?? $this->blockFactory->create();
+    }
+
+    public function getBlokEditableAttributes(): string
+    {
+        if (!$this->scopeConfig->isDevModeEnabled() && !$this->storyblokSessionManager->isValidEditorSession()) {
+            return '';
+        }
+
+        $rawEditableComment = $this->getData('_editable');
+
+        if (
+            !is_string($rawEditableComment)
+            || !str_contains($rawEditableComment, '<!--#storyblok#')
+            || !preg_match('/\{[^}]*\}/', $rawEditableComment, $matches)
+            || !isset($matches[0]) || empty($matches[0])
+        ) {
+            return '';
+        }
+
+        $dataBlokC = $matches[0];
+
+        try {
+            $editableData = $this->serializer->unserialize($dataBlokC);
+        } catch (Exception $e) {
+            return '';
+        }
+
+        if (!isset($editableData['uid'], $editableData['id'], $editableData['name'])) {
+            return '';
+        }
+
+        $dataBlokUid = $this->getStory()->getId() . '-' . $editableData['uid'];
+
+        return sprintf("data-blok-c='%s' data-blok-uid='%s'", $dataBlokC, $dataBlokUid);
     }
 
     public function renderField(string $fieldName): ?string
@@ -72,10 +119,12 @@ class Block extends AbstractStoryblok
      *
      * @param string $method
      * @param array $args
+     *
      * @return mixed|null
-     * @throws NoSuchEntityException
+     * @throws NoSuchEntityException|LocalizedException
      */
     public function __call($method, $args)
+
     {
         if (str_starts_with($method, 'get') && str_ends_with($method, 'Html')) {
             $fieldName = $this->_underscore(substr($method, 0, -4));
@@ -85,35 +134,6 @@ class Block extends AbstractStoryblok
             }
 
             return $this->getData($fieldName);
-        }
-
-        if (str_starts_with($method, 'get') && str_ends_with($method, 'Asset')) {
-            $fieldName = $this->_underscore(substr($method, 0, -4));
-
-            if (
-                !in_array($fieldName, BlockInterface::UNRENDERABLE_FIELDS)
-                && $this->getBlock()->hasData($fieldName)
-                && ($this->getBlock()->getData($fieldName)['fieldtype'] ?? null) === 'asset'
-            ) {
-                $asset = $this->assetFactory->create();
-                $asset->setData($this->getBlock()->getData($fieldName));
-
-                return $asset;
-            }
-
-            if (
-                !in_array($fieldName, BlockInterface::UNRENDERABLE_FIELDS)
-                && $this->getBlock()->hasData($fieldName)
-                && ($this->getBlock()->getData($fieldName)['fieldtype'] ?? null) !== 'asset'
-            ) {
-                throw new InvalidArgumentException(
-                    __('Field "%1" is not an asset component.', $fieldName)
-                );
-            }
-
-            throw new NoSuchEntityException(
-                __('Field "%1" does not exist on component "%2".', $fieldName, $this->getBlock()->getComponent())
-            );
         }
 
         return parent::__call($method, $args);
@@ -126,8 +146,26 @@ class Block extends AbstractStoryblok
 
     protected function _toHtml(): string
     {
-        $editable = $this->getData('_editable') ?? '';
+        $html = parent::_toHtml();
+        $editableAttributes = $this->getBlokEditableAttributes();
 
-        return $editable . parent::_toHtml();
+        if (!empty($editableAttributes)) {
+            $excludedTags = ['script', 'style', 'link', 'meta', '!doctype', 'html', 'head', 'body'];
+
+            $pattern = '/<(?!(?:' . implode('|', $excludedTags) . ')[\s>\/])([a-zA-Z0-9]+)([^>]*)>/is';
+
+            $modifiedHtml = preg_replace_callback($pattern, function ($matches) use ($editableAttributes) {
+                $tagName = $matches[1];
+                $existingAttributes = $matches[2];
+
+                return "<{$tagName}{$existingAttributes} {$editableAttributes}>";
+            }, $html, 1);
+
+            if ($modifiedHtml !== null && $modifiedHtml !== $html) {
+                return $modifiedHtml;
+            }
+        }
+
+        return $html;
     }
 }

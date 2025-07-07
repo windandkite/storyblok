@@ -13,20 +13,21 @@ use Storyblok\Api\Domain\Value\Dto\Version;
 use Storyblok\Api\Request\StoryRequest;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
 use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\StoryblokSessionManager;
 
 class Router implements RouterInterface
 {
-    public const STORYBLOK_EDITOR_KEY = '_storyblok';
-
     /**
      * @param ActionFactory $actionFactory
      * @param StoryRepositoryInterface $storyRepository
      * @param Config $config
+     * @param StoryblokSessionManager $storyblokSessionManager
      */
     public function __construct(
         private ActionFactory $actionFactory,
         private StoryRepositoryInterface $storyRepository,
         private Config $config,
+        private StoryblokSessionManager $storyblokSessionManager
     ) {}
 
     /**
@@ -37,8 +38,9 @@ class Router implements RouterInterface
      * @return ActionInterface|null
      * @throws Exception
      */
-    public function match(RequestInterface $request): ?ActionInterface
-    {
+    public function match(
+        RequestInterface $request
+    ): ?ActionInterface {
         if (
             !$this->config->isModuleEnabled()
             || !$this->config->isPageRoutingEnabled()
@@ -61,7 +63,10 @@ class Router implements RouterInterface
             }
         }
 
-        $storyRequest = $this->getStoryRequest($request);
+        $version = $this->storyblokSessionManager->getStoryblokApiVersion();
+        $language = $this->storyblokSessionManager->getRequestedLanguage();
+
+        $storyRequest = new StoryRequest($language ?? 'default', $version);
 
         try {
             $storyData = $this->storyRepository->getBySlug($identifier, $storyRequest);
@@ -73,13 +78,17 @@ class Router implements RouterInterface
 
             if (
                 $this->config->isRestrictContentTypesEnabled()
-                && !$request->getParam('_storyblok')
-                && !array_search(['type' => $storyData->getContent()->getComponent()], $allowedContentTypes, true)
+                && $storyRequest->version === Version::Published
+                && !in_array(['type' => $storyData->getContent()->getComponent()], $allowedContentTypes, true)
             ) {
                 return null;
             }
 
             $request->setParams(['story' => $storyData]);
+            $request->setParam(StoryblokSessionManager::STORYBLOK_VERSION_PARAM, $version->value);
+            $request->setParam(StoryblokSessionManager::STORYBLOK_LANGUAGE_PARAM, $language);
+
+
             $request->setModuleName('storyblok')->setControllerName('page')->setActionName('view');
 
             return $this->actionFactory->create(Forward::class);
@@ -92,17 +101,5 @@ class Router implements RouterInterface
         RequestInterface $request
     ): string {
         return trim($request->getPathInfo(), '/');
-    }
-
-    public function getStoryRequest(
-        RequestInterface $request,
-    ): ?StoryRequest {
-        $storyRequest = null;
-
-        if ($request->getParam(self::STORYBLOK_EDITOR_KEY) || $this->config->isDevModeEnabled()) {
-            $storyRequest = new StoryRequest(version: Version::Draft);
-        }
-
-        return $storyRequest;
     }
 }
