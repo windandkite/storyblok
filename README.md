@@ -1,55 +1,54 @@
 # ![image logo](docs/favicon.svg) WindAndKite_Storyblok
 
-A Magento 2 Module Designed to Integrate with Storyblok headless CMS
+Magento 2 Module for Storyblok Integration
 
-## Why is it needed
-This Magento 2 module provides a robust integration with Storyblok, a headless CMS, offering several key advantages:
+## Why is it needed?
 
-* **Decoupled Content Management:** It separates content creation and management (in Storyblok) from the presentation layer (Magento). This allows content editors to work independently without needing deep Magento knowledge, and developers to build flexible, custom frontends.
-* **Enhanced Content Editor Experience:** Storyblok's visual editor empowers content editors with a real-time preview of their changes, making content creation more intuitive and efficient.
-* **Omnichannel Content Delivery:** By using a headless CMS, content can be delivered not only to the Magento storefront but also to other channels (e.g., mobile apps, other websites, etc.) from a single source.
-* **Improved Performance:** Headless architecture can lead to faster website performance as Magento is freed from the responsibility of content rendering.
-* **Scalability and Flexibility:** It provides greater scalability and flexibility, allowing for easier content model updates and the adoption of modern frontend technologies.
-* **Future-Proof Architecture:** Decoupling content makes it easier to adapt to future technological changes and evolve the digital experience.
+This Magento 2 Module seamlessly integrates your e-commerce platform with Storyblok, a powerful headless CMS, offering numerous benefits for content management and development workflows:
 
-Essentially, this module empowers businesses to create richer, more dynamic content experiences while improving development workflows and overall agility.
+* **Decoupled Content Management:** Separate content creation in Storyblok from Magento's presentation layer, allowing independent work for content editors and flexible frontend development.
+* **Enhanced Content Editor Experience:** Storyblok's visual editor provides real-time previews for intuitive and efficient content creation.
+* **Omnichannel Content Delivery:** Enable content delivery to various channels (Magento storefront, mobile apps, other websites) from a single source of truth.
+* **Improved Performance:** Headless architecture can lead to faster website performance by offloading content rendering from Magento.
+* **Scalability and Flexibility:** Offers greater scalability and flexibility for content model updates and adoption of modern frontend technologies.
+* **Future-Proof Architecture:** Decoupling content facilitates adaptation to future technological changes and digital experience evolution.
 
----
+This module empowers businesses to create richer, more dynamic content experiences while improving development workflows and overall agility.
 
 ## Installation
-Install via composer:
 
-```BASH
-composer config repositories.wind-and-kite composer https://wind-and-kite.repo.repman.io
-composer config --auth http-basic.wind-and-kite.repo.repman.io token <project_token>
-composer require windandkite/module-storyblok
-```
+This module can be installed via Composer from Packagist.
 
-To create a new project token please login to Repman, select the correct organisation, navigate to the tokens area and
-generate the token with an appropriate label.
+1.  **Add the module to your project:**
+    ```bash
+    composer require windandkite/module-storyblok
+    ```
 
-Project specific tokens are used in this manner so that access to wind and kite repositories can be revoked if the need
-arises. Never use the same token on multiple projects.
+2.  **Enable the module:**
+    ```bash
+    bin/magento module:enable WindAndKite_Storyblok
+    bin/magento setup:upgrade
+    ```
+    (or simply run `bin/magento setup:upgrade` which enables new modules automatically.)
 
-### Enable the module
+## Configuration & Usage
 
-You can enable the module by running one of the following commands
+All detailed setup, configuration, user guides, and developer guides are available in the module's Wiki.
 
-```BASH
-bin/magento module:enable WindAndKite_{MODULE_NAME}
-```
+The Wiki covers:
+* **Quick Start**
+* **Installation Guide**
+* **Configuration Guide**
+* **SEO App Integration**
+* **Content Routing**
+* **Creating Custom Templates**
+* **Accessing Storyblok Data**
+* **Working with Visual Editor**
+* **Displaying Story Lists**
+* **Troubleshooting Guide**
 
-or
-
-```BASH
-bin/magento setup:upgrade
-```
-
-## Setup
-
-// TODO: Add setup instructions
+Please refer to the [Wiki](https://github.com/windandkite/storyblok/wiki) for comprehensive documentation.
 
 ## Contributions
-to contribute to this project please install the package with the `--prefer-source` flag to download the Git source, any
-changes should then be pushed to GitHub and follow the usual Code Review Process. Once reviewed and merged in please
-create a release and appropriate tag for the changes ensuring to follow Semver.
+
+We welcome contributions! Whether that be raising bugs, suggesting feature ideas or getting down and dirty with the code, head on over to the [Contributions Guide](https://github.com/windandkite/storyblok/wiki/Contribution-Guide) in the Wiki to see how you can get involved.
