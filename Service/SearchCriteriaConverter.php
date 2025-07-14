@@ -164,7 +164,7 @@ class SearchCriteriaConverter
             }
         }
 
-        $version = $data['version'] ?? $this->storyblokSessionManager->getStoryblokApiVersion();
+        $version = $this->storyblokSessionManager->getStoryblokApiVersion();
 
 
         $request = new StoriesRequest(
