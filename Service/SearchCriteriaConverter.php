@@ -133,6 +133,7 @@ class SearchCriteriaConverter
 
     public function __construct(
         private \WindAndKite\Storyblok\Scope\Config $scopeConfig,
+        private StoryblokSessionManager $storyblokSessionManager,
         private RequestInterface $request,
     ) {}
 
@@ -163,15 +164,8 @@ class SearchCriteriaConverter
             }
         }
 
-        $version = $searchCriteria->getVersion();
+        $version = $this->storyblokSessionManager->getStoryblokApiVersion();
 
-        if (!$version) {
-            $version = Version::Published;
-
-            if ($this->request->getParam(Router::STORYBLOK_EDITOR_KEY) || $this->scopeConfig->isDevModeEnabled()) {
-                $version = Version::Draft;
-            }
-        }
 
         $request = new StoriesRequest(
             $searchCriteria->getLanguage(),
