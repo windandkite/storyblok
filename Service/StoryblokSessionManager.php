@@ -62,7 +62,7 @@ class StoryblokSessionManager
             return false;
         }
 
-        $expectedToken = sha1("{$spaceId}{$previewApiToken}{$timestamp}");
+        $expectedToken = sha1("{$spaceId}:{$previewApiToken}:{$timestamp}");
 
         $tolerance = 300;
 
