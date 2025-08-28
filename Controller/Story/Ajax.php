@@ -36,6 +36,7 @@ class Ajax extends Action implements CsrfAwareActionInterface, HttpPostActionInt
         $postContent = $this->serializer->unserialize($this->getRequest()->getContent());
         $storyData = $postContent['story'] ?? null;
         $storyData['is_draft'] = true;
+        $storyData['force_bridge'] = true;
 
         $layout = $this->_view->getLayout();
         $result = $this->resultJsonFactory->create();

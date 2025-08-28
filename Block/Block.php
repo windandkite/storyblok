@@ -62,7 +62,7 @@ class Block extends AbstractStoryblok
 
     public function getBlokEditableAttributes(): string
     {
-        if (!$this->scopeConfig->isDevModeEnabled() && !$this->storyblokSessionManager->isValidEditorSession()) {
+        if (!$this->scopeConfig->isDevModeEnabled() && !$this->storyblokSessionManager->isValidEditorSession() && !$this->getStory()->getForceBridge()) {
             return '';
         }
 
