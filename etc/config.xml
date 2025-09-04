@@ -22,6 +22,10 @@
                 <enable>1</enable>
                 <per_page>25</per_page>
             </story_lists>
+            <home>
+                <enable_home>1</enable_home>
+                <home_slug>home</home_slug>
+            </home>
         </storyblok>
     </default>
 </config>

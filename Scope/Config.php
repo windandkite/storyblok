@@ -22,6 +22,8 @@ class Config
     private const XML_PATH_SITEMAP_EXCLUDE_FOLDERS = 'storyblok/sitemap/exclude_folders';
     private const XML_PATH_ENABLE_STORY_LISTS = 'storyblok/story_lists/enable';
     private const XML_PATH_STORIES_PER_PAGE = 'storyblok/story_lists/per_page';
+    private const XML_PATH_ENABLE_HOME = 'storyblok/home/enable_home';
+    private const XML_PATH_HOME_SLUG = 'storyblok/home/home_slug';
 
     /**
      * There is and never will be an admin config field for this, to set this up please use
@@ -218,6 +220,28 @@ class Config
     ): ?string {
         return $this->scopeConfig->getValue(
             self::XML_PATH_DEV_WEBHOOK_SECRET,
+            $scopeType,
+            $scopeCode
+        );
+    }
+
+    public function isHomeEnabled(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): bool {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_ENABLE_HOME,
+            $scopeType,
+            $scopeCode,
+        );
+    }
+
+    public function getHomeSlug(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): ?string {
+        return $this->scopeConfig->getValue(
+            self::XML_PATH_HOME_SLUG,
             $scopeType,
             $scopeCode
         );

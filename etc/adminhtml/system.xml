@@ -2,8 +2,8 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
     <system>
-        <tab id="storyblok" translate="label" sortOrder="10">
-            <label>Storyblok</label>
+        <tab id="windandkite" translate="label" sortOrder="500" class="windandkite-tab">
+            <label>Wind and Kite</label>
         </tab>
         <section id="storyblok"
                  translate="label"
@@ -13,7 +13,7 @@
                  showInStore="1">
             <class>separator-top</class>
             <label>Storyblok Integration</label>
-            <tab>storyblok</tab>
+            <tab>windandkite</tab>
             <resource>WindAndKite_Storyblok::config</resource>
             <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
                 <label>General Settings</label>
@@ -196,6 +196,27 @@
                     <label>Stories Per Page</label>
                     <validate>validate-number validate-greater-than-0</validate>
                     <comment>Number of stories to display per page. Leave empty to display all stories.</comment>
+                </field>
+            </group>
+            <group id="home" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Home Page Settings</label>
+                <field id="enable_home" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                    <label>Switch the default Magento CMS homepage to Storyblok</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to switch the default Magento homepage to a Storyblok one.</comment>
+                </field>
+                <field id="home_slug"
+                       translate="label"
+                       type="text"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <depends>
+                        <field id="enable_home">1</field>
+                    </depends>
+                    <label>Home Page Slug</label>
+                    <comment>Enter the Storyblok slug of the story to use as the home page (e.g., 'home').</comment>
                 </field>
             </group>
         </section>
