@@ -2,8 +2,8 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
     <system>
-        <tab id="storyblok" translate="label" sortOrder="10">
-            <label>Storyblok</label>
+        <tab id="windandkite" translate="label" sortOrder="500" class="windandkite-tab">
+            <label>Wind and Kite</label>
         </tab>
         <section id="storyblok"
                  translate="label"
@@ -13,7 +13,7 @@
                  showInStore="1">
             <class>separator-top</class>
             <label>Storyblok Integration</label>
-            <tab>storyblok</tab>
+            <tab>windandkite</tab>
             <resource>WindAndKite_Storyblok::config</resource>
             <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
                 <label>General Settings</label>
