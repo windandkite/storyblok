@@ -11,4 +11,7 @@
             </argument>
         </arguments>
     </type>
+    <type name="Magento\Cms\Controller\Index\Index">
+        <plugin name="home_to_storyblok" type="WindAndKite\Storyblok\Plugin\Home" sortOrder="100"/>
+    </type>
 </config>

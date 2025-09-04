@@ -198,6 +198,27 @@
                     <comment>Number of stories to display per page. Leave empty to display all stories.</comment>
                 </field>
             </group>
+            <group id="home" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Home Page Settings</label>
+                <field id="enable_home" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Switch the default Magento CMS homepage to Storyblok</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to "Yes" to switch the default Magento homepage to a Storyblok one.</comment>
+                </field>
+                <field id="home_slug"
+                       translate="label"
+                       type="text"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <depends>
+                        <field id="enable_home">1</field>
+                    </depends>
+                    <label>Home Page Slug</label>
+                    <comment>Enter the Storyblok slug of the story to use as the home page (e.g., 'home').</comment>
+                </field>
+            </group>
         </section>
     </system>
 </config>
