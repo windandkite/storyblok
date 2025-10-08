@@ -241,6 +241,21 @@ class Story extends DataObject implements StoryInterface
     /**
      * @inheritDoc
      */
+    public function getRelatedStory(
+        string $uuid
+    ): ?StoryInterface {
+        foreach ($this->getRelatedStories() as $story) {
+            if ($story->getUuid() === $uuid) {
+                return $story;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function toHtml(): string
     {
         return $this->storyRenderer->renderStory($this);

@@ -225,6 +225,14 @@ interface StoryInterface
     public function getRelatedStories(): ?array;
 
     /**
+     * Get related story by uuid
+     *
+     * @param string $uuid
+     * @return StoryInterface|null
+     */
+    public function getRelatedStory(string $uuid): ?\WindAndKite\Storyblok\Api\Data\StoryInterface;
+
+    /**
      * Render Story Html
      *
      * @return string
