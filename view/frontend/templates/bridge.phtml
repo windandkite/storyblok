@@ -35,6 +35,47 @@ $ajaxUrl = $storyblokConfig->getAjaxUrl();
             return proxy;
         };
 
+        const updateBlocksViaAjax = (story, signal) => {
+            fetch('<?= $escaper->escapeUrl($ajaxUrl) ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ story, _storyblok: story.id }),
+                signal: signal
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        console.error('Storyblok Bridge: AJAX update failed.', response.statusText);
+                        throw new Error('AJAX update failed');
+                    }
+
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || typeof data !== 'object') return;
+
+                    for (const blokUid in data) {
+                        if (data.hasOwnProperty(blokUid)) {
+                            const newHtml = data[blokUid];
+                            const selector = `[data-blok-uid="${story.id}-${blokUid}"]`;
+                            const elementToUpdate = document.querySelector(selector);
+
+                            if (elementToUpdate) {
+                                elementToUpdate.outerHTML = newHtml;
+                            } else {
+                                console.warn(`Storyblok Bridge: Element with selector ${selector} not found for update.`);
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError' && error.message !== 'AJAX update failed') {
+                        console.error('Storyblok Bridge: Error during update process.', error);
+                    }
+                });
+        };
+
         const initActualStoryblokBridge = () => {
             if (storyblokInstance) {
                 return;
@@ -56,70 +97,7 @@ $ajaxUrl = $storyblokConfig->getAjaxUrl();
             );
 
             let controller = { abort: () => {} };
-            let lastBlockIds = [];
-
-            storyblokInstance.on('enterEditmode', ({ blockId, storyId }) => {
-                const parentBlok = document.querySelector(`[data-blok-uid="${storyId}-${blockId}"]`);
-
-                if (!parentBlok) {
-                    console.warn(`Storyblok Bridge: Element with data-blok-uid="${storyId}-${blockId}" not found.`);
-                    return;
-                }
-
-                parentBlok.querySelectorAll('[data-blok-c]').forEach(childBlok => {
-                    lastBlockIds.push(JSON.parse(childBlok.getAttribute('data-blok-c')).uid);
-                })
-            });
-
-            /**
-             * Fetches updated block HTML from the server and updates the DOM.
-             * @param {object} story The current Storyblok story object.
-             * @param {AbortSignal} signal The AbortSignal to cancel the fetch request.
-             * @returns {Promise<void>} A Promise that resolves when the update is complete.
-             */
-            const updateBlocksViaAjax = (story, signal) => {
-                if (!story || typeof story.id === 'undefined') {
-                    console.warn("Storyblok Bridge: 'story' object or 'story.id' is undefined. Skipping AJAX update.");
-                    return Promise.resolve();
-                }
-
-                return fetch('<?= $escaper->escapeUrl($ajaxUrl) ?>', {
-                    signal,
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ story, _storyblok: story.id })
-                })
-                    .then(request => {
-                        if (!request.ok) {
-                            return request.text().then(errorText => {
-                                console.error("Storyblok Bridge Input Error: HTTP", request.status, errorText);
-                                throw new Error(`HTTP error! status: ${request.status}`);
-                            });
-                        }
-                        return request.json();
-                    })
-                    .then(response => {
-                        for (const blockUid in response) {
-                            if (Object.prototype.hasOwnProperty.call(response, blockUid)) {
-                                const targetElement = document.querySelector(`[data-blok-uid="${story.id}-${blockUid}"]`);
-
-                                if (targetElement) {
-                                    targetElement.outerHTML = response[blockUid];
-                                } else {
-                                    console.warn(`Storyblok Bridge: Element with data-blok-uid="${blockUid}" not found for update.`);
-                                }
-                            }
-                        }
-                        storyblokInstance.enterEditmode();
-                    })
-                    .catch(err => {
-                        if (err.name === 'AbortError') {
-                            console.log("Storyblok Bridge Input: Fetch aborted.");
-                        } else {
-                            console.error("Storyblok Bridge Input Error:", err);
-                        }
-                    });
-            };
+            let lastBlockIds = {};
 
             storyblokInstance.on(['input'], ({ story }) => {
                 controller.abort();
@@ -129,8 +107,10 @@ $ajaxUrl = $storyblokConfig->getAjaxUrl();
 
                 let currentBlokIds = story.content.body.map(el => el['_uid'])
 
-                if (currentBlokIds.length < lastBlockIds.length) {
-                    let removedBlokIds = lastBlockIds.filter(id => !currentBlokIds.includes(id));
+                const previousBlokIds = lastBlockIds[story.id] || [];
+
+                if (currentBlokIds.length < previousBlokIds.length) {
+                    let removedBlokIds = previousBlokIds.filter(id => !currentBlokIds.includes(id));
 
                     removedBlokIds.forEach(id => {
                         const removedElement = document.querySelector(`[data-blok-uid="${story.id}-${id}"]`);
@@ -141,11 +121,12 @@ $ajaxUrl = $storyblokConfig->getAjaxUrl();
                         }
                     });
 
-                    lastBlockIds = currentBlokIds;
+                    lastBlockIds[story.id] = currentBlokIds;
 
                     return;
                 }
 
+                lastBlockIds[story.id] = currentBlokIds;
                 updateBlocksViaAjax(story, signal);
             });
         };
