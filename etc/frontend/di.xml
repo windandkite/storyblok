@@ -14,4 +14,8 @@
     <type name="Magento\Cms\Controller\Index\Index">
         <plugin name="home_to_storyblok" type="WindAndKite\Storyblok\Plugin\Home" sortOrder="100"/>
     </type>
+    <type name="Magento\PageCache\Model\Config">
+        <plugin name="WindAndKite_Storyblok::force_built_in_cache"
+                type="WindAndKite\Storyblok\Plugin\ForceBuiltInCachePlugin"/>
+    </type>
 </config>
