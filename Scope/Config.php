@@ -15,6 +15,7 @@ class Config
     private const XML_PATH_RESTRICT_FOLDER = 'storyblok/page_routing/restrict_folder';
     private const XML_PATH_FOLDER_PATH = 'storyblok/page_routing/folder_path';
     private const XML_PATH_RESTRICT_CONTENT_TYPES = 'storyblok/page_routing/restrict_content_types';
+    private const XML_PATH_LANGUAGE = 'storyblok/page_routing/language';
     private const XML_PATH_ALLOWED_FULL_PAGE_CONTENT_TYPES = 'storyblok/page_routing/allowed_full_page_content_types';
     private const XML_PATH_SITEMAP_ENABLED = 'storyblok/sitemap/enabled';
     private const XML_PATH_SITEMAP_PRIORITY = 'storyblok/sitemap/priority';
@@ -112,6 +113,19 @@ class Config
             $scopeType,
             $scopeCode
         );
+    }
+
+    public function getLanguage(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): ?string {
+        $value = $this->scopeConfig->getValue(
+            self::XML_PATH_LANGUAGE,
+            $scopeType,
+            $scopeCode
+        );
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     public function isRestrictContentTypesEnabled(
