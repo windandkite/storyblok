@@ -94,8 +94,14 @@ class StoryblokSessionManager
 
     public function getRequestedLanguage(): ?string
     {
-        $language = $this->request->getParam(self::STORYBLOK_LANGUAGE_PARAM);
+        if ($this->isValidEditorSession() || $this->config->isDevModeEnabled()) {
+            $language = $this->request->getParam(self::STORYBLOK_LANGUAGE_PARAM);
 
-        return is_string($language) && !empty($language) ? $language : null;
+            if (is_string($language) && !empty($language)) {
+                return $language;
+            }
+        }
+
+        return $this->config->getLanguage();
     }
 }

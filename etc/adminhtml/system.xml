@@ -66,7 +66,7 @@
                    sortOrder="20"
                    showInDefault="1"
                    showInWebsite="1"
-                   showInStore="0">
+                   showInStore="1">
                 <label>Page Routing</label>
                 <field id="enabled"
                        translate="label"
@@ -74,7 +74,7 @@
                        sortOrder="1"
                        showInDefault="1"
                        showInWebsite="1"
-                       showInStore="0">
+                       showInStore="1">
                     <label>Enable Page Routing</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to enable the routing of Storyblok pages to Magento URLs.</comment>
@@ -85,7 +85,7 @@
                        sortOrder="2"
                        showInDefault="1"
                        showInWebsite="1"
-                       showInStore="0">
+                       showInStore="1">
                     <label>Restrict to Folder</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to restrict routing to a specific Storyblok folder.</comment>
@@ -96,30 +96,40 @@
                        sortOrder="3"
                        showInDefault="1"
                        showInWebsite="1"
-                       showInStore="0">
+                       showInStore="1">
                     <label>Folder Path</label>
                     <depends>
                         <field id="restrict_folder">1</field>
                     </depends>
                     <comment>Enter the Storyblok folder path (e.g., 'blog') to restrict routing.</comment>
                 </field>
+                <field id="language"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="4"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Storyblok Language</label>
+                    <comment><![CDATA[Storyblok language code for field-level translation (e.g., 'de', 'fr', 'es'). Leave empty to use the space default language. This is used to resolve the correct translation when using folder-level translation per market combined with field-level translation per language.]]></comment>
+                </field>
                 <field id="restrict_content_types"
                        translate="label"
                        type="select"
-                       sortOrder="2"
+                       sortOrder="5"
                        showInDefault="1"
                        showInWebsite="1"
-                       showInStore="0">
+                       showInStore="1">
                     <label>Restrict Content Types</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to restrict routing to a specific Storyblok Content Types.</comment>
                 </field>
                 <field id="allowed_full_page_content_types"
                        translate="label comment"
-                       type="text" sortOrder="4"
+                       type="text" sortOrder="6"
                        showInDefault="1"
                        showInWebsite="1"
-                       showInStore="0">
+                       showInStore="1">
                     <label>Allowed Full Page Content Types</label>
                     <depends>
                         <field id="restrict_content_types">1</field>
