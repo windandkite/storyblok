@@ -59,7 +59,7 @@ class Router implements RouterInterface
             $folderPath = $this->config->getFolderPath();
 
             if ($folderPath) {
-                $identifier = $folderPath . $identifier;
+                $identifier = trim($folderPath, '/') . '/' . ltrim($identifier, '/');
             }
         }
 
