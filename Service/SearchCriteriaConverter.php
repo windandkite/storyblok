@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Service;
 
 use Magento\Framework\Api\Filter;
-use Magento\Framework\App\RequestInterface;
+use Magento\Framework\Api\SortOrder;
 use Magento\Framework\Exception\InvalidArgumentException;
 use ReflectionClass;
 use Storyblok\Api\Domain\Value\Dto\Direction;
 use Storyblok\Api\Domain\Value\Dto\Pagination;
 use Storyblok\Api\Domain\Value\Dto\SortBy;
-use Storyblok\Api\Domain\Value\Dto\Version;
+use Storyblok\Api\Domain\Value\Dto\SortByCollection;
 use Storyblok\Api\Domain\Value\Filter\FilterCollection;
 use Storyblok\Api\Domain\Value\Filter\Filters\AllInArrayFilter;
 use Storyblok\Api\Domain\Value\Filter\Filters\AnyInArrayFilter;
@@ -34,7 +34,7 @@ use Storyblok\Api\Domain\Value\Tag\TagCollection;
 use Storyblok\Api\Request\StoriesRequest;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface;
-use WindAndKite\Storyblok\Controller\Router;
+use WindAndKite\Storyblok\Scope\Config;
 
 class SearchCriteriaConverter
 {
@@ -132,9 +132,8 @@ class SearchCriteriaConverter
     private array $storyFields = [];
 
     public function __construct(
-        private \WindAndKite\Storyblok\Scope\Config $scopeConfig,
-        private StoryblokSessionManager $storyblokSessionManager,
-        private RequestInterface $request,
+        private readonly Config $scopeConfig,
+        private readonly StoryblokSessionManager $storyblokSessionManager,
     ) {}
 
     /**
@@ -205,30 +204,63 @@ class SearchCriteriaConverter
     /**
      * Get the sort orders from the search criteria.
      *
-     * @return SortBy|null
+     * Returns a SortByCollection built from all sort orders on the criteria.
+     * When no sort orders are defined a default of `first_published_at` DESC
+     * is applied so that results are consistently ordered newest-first.
+     *
+     * @param StoriesSearchCriteriaInterface $searchCriteria
+     *
+     * @return SortBy|SortByCollection
      */
     private function getSortBy(
         StoriesSearchCriteriaInterface $searchCriteria,
-    ): ?SortBy {
-        $sortOrders = $searchCriteria->getSortOrders();
+    ): SortBy|SortByCollection {
+        $sortBys = [];
 
-        if ($sortOrders && count($sortOrders) > 0) {
-            $sortOrder = reset($sortOrders);
+        foreach ($searchCriteria->getSortOrders() ?? [] as $sortOrder) {
             $field = $sortOrder->getField();
 
             if (!in_array($field, $this->getStoryFields(), true)) {
                 $field = 'content.' . $field;
             }
 
-            $direction = $sortOrder->getDirection();
-
-            return new SortBy(
+            $sortBys[] = new SortBy(
                 field: $field,
-                direction: Direction::from(strtolower($direction))
+                direction: Direction::from(strtolower($sortOrder->getDirection()))
             );
         }
 
-        return null;
+        return match (true) {
+            count($sortBys) > 1 => new SortByCollection($sortBys),
+            count($sortBys) === 1 => $sortBys[0],
+            default => $this->getDefaultListSort(),
+        };
+    }
+
+    /**
+     * Get the fallback sort order configuration from store configuration.
+     *
+     * @return SortBy|SortByCollection
+     */
+    private function getDefaultListSort(): SortBy|SortByCollection
+    {
+        $sortBys = [];
+
+        foreach ($this->scopeConfig->getDefaultListSort() as $sortRule) {
+            $sortBys[] = new SortBy(
+                field: $sortRule['field'],
+                direction: Direction::from(strtolower($sortRule['direction']))
+            );
+        }
+
+        return match (true) {
+            count($sortBys) > 1 => new SortByCollection($sortBys),
+            count($sortBys) === 1 => $sortBys[0],
+            default => new SortBy(
+                field: 'first_published_at',
+                direction: Direction::from(strtolower(SortOrder::SORT_DESC)),
+            ),
+        };
     }
 
     private function processFilter(

@@ -111,7 +111,8 @@
                        showInWebsite="1"
                        showInStore="1">
                     <label>Storyblok Language</label>
-                    <comment><![CDATA[Storyblok language code for field-level translation (e.g., 'de', 'fr', 'es'). Leave empty to use the space default language. This is used to resolve the correct translation when using folder-level translation per market combined with field-level translation per language.]]></comment>
+                    <comment>
+                        <![CDATA[Storyblok language code for field-level translation (e.g., 'de', 'fr', 'es'). Leave empty to use the space default language. This is used to resolve the correct translation when using folder-level translation per market combined with field-level translation per language.]]></comment>
                 </field>
                 <field id="restrict_content_types"
                        translate="label"
@@ -134,10 +135,14 @@
                     <depends>
                         <field id="restrict_content_types">1</field>
                     </depends>
-                    <comment><![CDATA[Add Storyblok component slugs (e.g., 'page', 'blog_post') that are allowed to be rendered as full pages.]]></comment>
+                    <comment>
+                        <![CDATA[Add Storyblok component slugs (e.g., 'page', 'blog_post') that are allowed to be rendered as full pages.]]>
+                    </comment>
                     <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>
                     <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\Form\Field\AllowedContentTypes</frontend_model>
-                    <tooltip>Only stories with these component slugs will be processed by the custom router for full page rendering.</tooltip>
+                    <tooltip>Only stories with these component slugs will be processed by the custom router for full
+                        page rendering.
+                    </tooltip>
                 </field>
             </group>
             <group id="sitemap" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
@@ -195,22 +200,71 @@
                     <comment>Enter folder paths to exclude from the sitemap, separated by commas.</comment>
                 </field>
             </group>
-            <group id="story_lists" translate="label" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
+            <group id="story_lists"
+                   translate="label"
+                   sortOrder="40"
+                   showInDefault="1"
+                   showInWebsite="1"
+                   showInStore="0">
                 <label>Story List Settings</label>
-                <field id="enable" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
+                <field id="enable"
+                       translate="label"
+                       type="select"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
                     <label>Enable Story Lists</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to enable the display of Story Lists for Folder Root stories.</comment>
                 </field>
-                <field id="per_page" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0">
+                <field id="per_page"
+                       translate="label"
+                       type="text"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
                     <label>Stories Per Page</label>
                     <validate>validate-number validate-greater-than-0</validate>
                     <comment>Number of stories to display per page. Leave empty to display all stories.</comment>
                 </field>
+                <field id="default_sort_type"
+                       translate="label comment"
+                       type="select"
+                       sortOrder="30"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Default List Sort</label>
+                    <source_model>WindAndKite\Storyblok\Config\OptionSource\DefaultSort</source_model>
+                    <comment>Select a predefined sort, or choose "Custom Multi-Sort" to define specific fields.</comment>
+                </field>
+                <field id="default_sort_custom"
+                       translate="label"
+                       type="text"
+                       sortOrder="40"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Custom Multi-Sort Rules</label>
+                    <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\Form\Field\CustomSortRows</frontend_model>
+                    <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>
+                    <depends>
+                        <field id="default_sort_type">custom</field>
+                    </depends>
+                </field>
             </group>
             <group id="home" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Home Page Settings</label>
-                <field id="enable_home" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                <field id="enable_home"
+                       translate="label"
+                       type="select"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1"
+                       canRestore="1">
                     <label>Switch the default Magento CMS homepage to Storyblok</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Set to "Yes" to switch the default Magento homepage to a Storyblok one.</comment>

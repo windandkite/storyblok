@@ -1,0 +1,320 @@
+diff --git a/Scope/Config.php b/Scope/Config.php
+index 0d7e655..9d6da98 100644
+--- a/Scope/Config.php
++++ b/Scope/Config.php
+@@ -1,9 +1,12 @@
+ <?php
+ namespace WindAndKite\Storyblok\Scope;
+ 
++use InvalidArgumentException;
++use Magento\Framework\Api\SortOrder;
+ use Magento\Framework\App\Config\ScopeConfigInterface;
+ use Magento\Framework\Serialize\SerializerInterface;
+ use Magento\Store\Model\ScopeInterface;
++use WindAndKite\Storyblok\Config\OptionSource\DefaultSort;
+ 
+ class Config
+ {
+@@ -23,6 +26,8 @@ class Config
+     private const XML_PATH_SITEMAP_EXCLUDE_FOLDERS = 'storyblok/sitemap/exclude_folders';
+     private const XML_PATH_ENABLE_STORY_LISTS = 'storyblok/story_lists/enable';
+     private const XML_PATH_STORIES_PER_PAGE = 'storyblok/story_lists/per_page';
++    private const XML_PATH_DEFAULT_SORT_TYPE = 'storyblok/story_lists/default_sort_type';
++    private const XML_PATH_DEFAULT_SORT_CUSTOM = 'storyblok/story_lists/default_sort_custom';
+     private const XML_PATH_ENABLE_HOME = 'storyblok/home/enable_home';
+     private const XML_PATH_HOME_SLUG = 'storyblok/home/home_slug';
+ 
+@@ -228,6 +233,71 @@ class Config
+         return ($value === null)? null : (int)$value;
+     }
+ 
++    /**
++     * Returns a normalized, predictable array of sorting rules with appropriate 'content.' prefixes applied.
++     *
++     * @param string $scopeType
++     * @param null|int|string $scopeCode
++     * @return array<array{field: string, direction: string}>
++     */
++    public function getDefaultListSort(
++        string $scopeType = ScopeInterface::SCOPE_STORE,
++        null|int|string $scopeCode = null,
++    ): array {
++        $sortType = (string)$this->scopeConfig->getValue(
++            self::XML_PATH_DEFAULT_SORT_TYPE,
++            $scopeType,
++            $scopeCode
++        );
++
++        $fallbackField = DefaultSort::FIELD_FIRST_PUBLISHED_AT;
++        $fallbackDir = strtolower(SortOrder::SORT_DESC);
++
++        if ($sortType !== DefaultSort::FIELD_CUSTOM) {
++            $separator = DefaultSort::SEPARATOR;
++            [$field, $direction] = explode($separator, $sortType ?: ($fallbackField . $separator . $fallbackDir));
++
++            return [[ 'field' => $field, 'direction' => $direction ]];
++        }
++
++        $customSortString = $this->scopeConfig->getValue(
++            self::XML_PATH_DEFAULT_SORT_CUSTOM,
++            $scopeType,
++            $scopeCode
++        );
++
++        $customRows = [];
++
++        if (!empty($customSortString)) {
++            try {
++                $customRows = $this->serializer->unserialize($customSortString);
++            } catch (InvalidArgumentException) {
++                // Use Default Empty Array
++            }
++        }
++
++        $sortRules = [];
++
++        foreach ($customRows as $row) {
++            $preset = $row['preset_field'] ?? DefaultSort::FIELD_CUSTOM;
++            $field = $row['field_name'] ?? $preset;
++            $direction = strtolower($row['direction'] ?? SortOrder::SORT_ASC);
++
++            if ($field) {
++                if ($preset === DefaultSort::FIELD_CUSTOM && !str_starts_with($field, 'content.')) {
++                    $field = 'content.' . $field;
++                }
++
++                $sortRules[] = [
++                    'field' => $field,
++                    'direction' => $direction
++                ];
++            }
++        }
++
++        return $sortRules ?: [['field' => $fallbackField, 'direction' => $fallbackDir]];
++    }
++
+     public function getDeveloperWebhookSecret(
+         string $scopeType = ScopeInterface::SCOPE_STORE,
+         null|int|string $scopeCode = null,
+diff --git a/Service/SearchCriteriaConverter.php b/Service/SearchCriteriaConverter.php
+index e042f71..f0b8547 100644
+--- a/Service/SearchCriteriaConverter.php
++++ b/Service/SearchCriteriaConverter.php
+@@ -5,13 +5,13 @@ declare(strict_types=1);
+ namespace WindAndKite\Storyblok\Service;
+ 
+ use Magento\Framework\Api\Filter;
+-use Magento\Framework\App\RequestInterface;
++use Magento\Framework\Api\SortOrder;
+ use Magento\Framework\Exception\InvalidArgumentException;
+ use ReflectionClass;
+ use Storyblok\Api\Domain\Value\Dto\Direction;
+ use Storyblok\Api\Domain\Value\Dto\Pagination;
+ use Storyblok\Api\Domain\Value\Dto\SortBy;
+-use Storyblok\Api\Domain\Value\Dto\Version;
++use Storyblok\Api\Domain\Value\Dto\SortByCollection;
+ use Storyblok\Api\Domain\Value\Filter\FilterCollection;
+ use Storyblok\Api\Domain\Value\Filter\Filters\AllInArrayFilter;
+ use Storyblok\Api\Domain\Value\Filter\Filters\AnyInArrayFilter;
+@@ -34,7 +34,7 @@ use Storyblok\Api\Domain\Value\Tag\TagCollection;
+ use Storyblok\Api\Request\StoriesRequest;
+ use WindAndKite\Storyblok\Api\Data\StoryInterface;
+ use WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface;
+-use WindAndKite\Storyblok\Controller\Router;
++use WindAndKite\Storyblok\Scope\Config;
+ 
+ class SearchCriteriaConverter
+ {
+@@ -132,9 +132,8 @@ class SearchCriteriaConverter
+     private array $storyFields = [];
+ 
+     public function __construct(
+-        private \WindAndKite\Storyblok\Scope\Config $scopeConfig,
+-        private StoryblokSessionManager $storyblokSessionManager,
+-        private RequestInterface $request,
++        private readonly Config $scopeConfig,
++        private readonly StoryblokSessionManager $storyblokSessionManager,
+     ) {}
+ 
+     /**
+@@ -205,30 +204,63 @@ class SearchCriteriaConverter
+     /**
+      * Get the sort orders from the search criteria.
+      *
+-     * @return SortBy|null
++     * Returns a SortByCollection built from all sort orders on the criteria.
++     * When no sort orders are defined a default of `first_published_at` DESC
++     * is applied so that results are consistently ordered newest-first.
++     *
++     * @param StoriesSearchCriteriaInterface $searchCriteria
++     *
++     * @return SortBy|SortByCollection
+      */
+     private function getSortBy(
+         StoriesSearchCriteriaInterface $searchCriteria,
+-    ): ?SortBy {
+-        $sortOrders = $searchCriteria->getSortOrders();
++    ): SortBy|SortByCollection {
++        $sortBys = [];
+ 
+-        if ($sortOrders && count($sortOrders) > 0) {
+-            $sortOrder = reset($sortOrders);
++        foreach ($searchCriteria->getSortOrders() ?? [] as $sortOrder) {
+             $field = $sortOrder->getField();
+ 
+             if (!in_array($field, $this->getStoryFields(), true)) {
+                 $field = 'content.' . $field;
+             }
+ 
+-            $direction = $sortOrder->getDirection();
+-
+-            return new SortBy(
++            $sortBys[] = new SortBy(
+                 field: $field,
+-                direction: Direction::from(strtolower($direction))
++                direction: Direction::from(strtolower($sortOrder->getDirection()))
+             );
+         }
+ 
+-        return null;
++        return match (true) {
++            count($sortBys) > 1 => new SortByCollection($sortBys),
++            count($sortBys) === 1 => $sortBys[0],
++            default => $this->getDefaultListSort(),
++        };
++    }
++
++    /**
++     * Get the fallback sort order configuration from store configuration.
++     *
++     * @return SortBy|SortByCollection
++     */
++    private function getDefaultListSort(): SortBy|SortByCollection
++    {
++        $sortBys = [];
++
++        foreach ($this->scopeConfig->getDefaultListSort() as $sortRule) {
++            $sortBys[] = new SortBy(
++                field: $sortRule['field'],
++                direction: Direction::from(strtolower($sortRule['direction']))
++            );
++        }
++
++        return match (true) {
++            count($sortBys) > 1 => new SortByCollection($sortBys),
++            count($sortBys) === 1 => $sortBys[0],
++            default => new SortBy(
++                field: 'first_published_at',
++                direction: Direction::from(strtolower(SortOrder::SORT_DESC)),
++            ),
++        };
+     }
+ 
+     private function processFilter(
+diff --git a/etc/adminhtml/system.xml b/etc/adminhtml/system.xml
+index 18f8776..ba24f3e 100644
+--- a/etc/adminhtml/system.xml
++++ b/etc/adminhtml/system.xml
+@@ -111,7 +111,8 @@
+                        showInWebsite="1"
+                        showInStore="1">
+                     <label>Storyblok Language</label>
+-                    <comment><![CDATA[Storyblok language code for field-level translation (e.g., 'de', 'fr', 'es'). Leave empty to use the space default language. This is used to resolve the correct translation when using folder-level translation per market combined with field-level translation per language.]]></comment>
++                    <comment>
++                        <![CDATA[Storyblok language code for field-level translation (e.g., 'de', 'fr', 'es'). Leave empty to use the space default language. This is used to resolve the correct translation when using folder-level translation per market combined with field-level translation per language.]]></comment>
+                 </field>
+                 <field id="restrict_content_types"
+                        translate="label"
+@@ -134,10 +135,14 @@
+                     <depends>
+                         <field id="restrict_content_types">1</field>
+                     </depends>
+-                    <comment><![CDATA[Add Storyblok component slugs (e.g., 'page', 'blog_post') that are allowed to be rendered as full pages.]]></comment>
++                    <comment>
++                        <![CDATA[Add Storyblok component slugs (e.g., 'page', 'blog_post') that are allowed to be rendered as full pages.]]>
++                    </comment>
+                     <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>
+                     <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\Form\Field\AllowedContentTypes</frontend_model>
+-                    <tooltip>Only stories with these component slugs will be processed by the custom router for full page rendering.</tooltip>
++                    <tooltip>Only stories with these component slugs will be processed by the custom router for full
++                        page rendering.
++                    </tooltip>
+                 </field>
+             </group>
+             <group id="sitemap" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
+@@ -195,22 +200,71 @@
+                     <comment>Enter folder paths to exclude from the sitemap, separated by commas.</comment>
+                 </field>
+             </group>
+-            <group id="story_lists" translate="label" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
++            <group id="story_lists"
++                   translate="label"
++                   sortOrder="40"
++                   showInDefault="1"
++                   showInWebsite="1"
++                   showInStore="0">
+                 <label>Story List Settings</label>
+-                <field id="enable" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
++                <field id="enable"
++                       translate="label"
++                       type="select"
++                       sortOrder="10"
++                       showInDefault="1"
++                       showInWebsite="1"
++                       showInStore="0">
+                     <label>Enable Story Lists</label>
+                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                     <comment>Set to "Yes" to enable the display of Story Lists for Folder Root stories.</comment>
+                 </field>
+-                <field id="per_page" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0">
++                <field id="per_page"
++                       translate="label"
++                       type="text"
++                       sortOrder="20"
++                       showInDefault="1"
++                       showInWebsite="1"
++                       showInStore="0">
+                     <label>Stories Per Page</label>
+                     <validate>validate-number validate-greater-than-0</validate>
+                     <comment>Number of stories to display per page. Leave empty to display all stories.</comment>
+                 </field>
++                <field id="default_sort_type"
++                       translate="label comment"
++                       type="select"
++                       sortOrder="30"
++                       showInDefault="1"
++                       showInWebsite="1"
++                       showInStore="1">
++                    <label>Default List Sort</label>
++                    <source_model>WindAndKite\Storyblok\Config\OptionSource\DefaultSort</source_model>
++                    <comment>Select a predefined sort, or choose "Custom Multi-Sort" to define specific fields.</comment>
++                </field>
++                <field id="default_sort_custom"
++                       translate="label"
++                       type="text"
++                       sortOrder="40"
++                       showInDefault="1"
++                       showInWebsite="1"
++                       showInStore="1">
++                    <label>Custom Multi-Sort Rules</label>
++                    <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\Form\Field\CustomSortRows</frontend_model>
++                    <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>
++                    <depends>
++                        <field id="default_sort_type">custom</field>
++                    </depends>
++                </field>
+             </group>
+             <group id="home" translate="label" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                 <label>Home Page Settings</label>
+-                <field id="enable_home" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
++                <field id="enable_home"
++                       translate="label"
++                       type="select"
++                       sortOrder="10"
++                       showInDefault="1"
++                       showInWebsite="1"
++                       showInStore="1"
++                       canRestore="1">
+                     <label>Switch the default Magento CMS homepage to Storyblok</label>
+                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                     <comment>Set to "Yes" to switch the default Magento homepage to a Storyblok one.</comment>

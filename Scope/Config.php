@@ -1,9 +1,12 @@
 <?php
 namespace WindAndKite\Storyblok\Scope;
 
+use InvalidArgumentException;
+use Magento\Framework\Api\SortOrder;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Store\Model\ScopeInterface;
+use WindAndKite\Storyblok\Config\OptionSource\DefaultSort;
 
 class Config
 {
@@ -23,6 +26,8 @@ class Config
     private const XML_PATH_SITEMAP_EXCLUDE_FOLDERS = 'storyblok/sitemap/exclude_folders';
     private const XML_PATH_ENABLE_STORY_LISTS = 'storyblok/story_lists/enable';
     private const XML_PATH_STORIES_PER_PAGE = 'storyblok/story_lists/per_page';
+    private const XML_PATH_DEFAULT_SORT_TYPE = 'storyblok/story_lists/default_sort_type';
+    private const XML_PATH_DEFAULT_SORT_CUSTOM = 'storyblok/story_lists/default_sort_custom';
     private const XML_PATH_ENABLE_HOME = 'storyblok/home/enable_home';
     private const XML_PATH_HOME_SLUG = 'storyblok/home/home_slug';
 
@@ -226,6 +231,71 @@ class Config
         );
 
         return ($value === null)? null : (int)$value;
+    }
+
+    /**
+     * Returns a normalized, predictable array of sorting rules with appropriate 'content.' prefixes applied.
+     *
+     * @param string $scopeType
+     * @param null|int|string $scopeCode
+     * @return array<array{field: string, direction: string}>
+     */
+    public function getDefaultListSort(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): array {
+        $sortType = (string)$this->scopeConfig->getValue(
+            self::XML_PATH_DEFAULT_SORT_TYPE,
+            $scopeType,
+            $scopeCode
+        );
+
+        $fallbackField = DefaultSort::FIELD_FIRST_PUBLISHED_AT;
+        $fallbackDir = strtolower(SortOrder::SORT_DESC);
+
+        if ($sortType !== DefaultSort::FIELD_CUSTOM) {
+            $separator = DefaultSort::SEPARATOR;
+            [$field, $direction] = explode($separator, $sortType ?: ($fallbackField . $separator . $fallbackDir));
+
+            return [[ 'field' => $field, 'direction' => $direction ]];
+        }
+
+        $customSortString = $this->scopeConfig->getValue(
+            self::XML_PATH_DEFAULT_SORT_CUSTOM,
+            $scopeType,
+            $scopeCode
+        );
+
+        $customRows = [];
+
+        if (!empty($customSortString)) {
+            try {
+                $customRows = $this->serializer->unserialize($customSortString);
+            } catch (InvalidArgumentException) {
+                // Use Default Empty Array
+            }
+        }
+
+        $sortRules = [];
+
+        foreach ($customRows as $row) {
+            $preset = $row['preset_field'] ?? DefaultSort::FIELD_CUSTOM;
+            $field = $row['field_name'] ?? $preset;
+            $direction = strtolower($row['direction'] ?? SortOrder::SORT_ASC);
+
+            if ($field) {
+                if ($preset === DefaultSort::FIELD_CUSTOM && !str_starts_with($field, 'content.')) {
+                    $field = 'content.' . $field;
+                }
+
+                $sortRules[] = [
+                    'field' => $field,
+                    'direction' => $direction
+                ];
+            }
+        }
+
+        return $sortRules ?: [['field' => $fallbackField, 'direction' => $fallbackDir]];
     }
 
     public function getDeveloperWebhookSecret(
