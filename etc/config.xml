@@ -22,6 +22,7 @@
             <story_lists>
                 <enable>1</enable>
                 <per_page>25</per_page>
+                <default_sort_type>position::ASC</default_sort_type>
             </story_lists>
             <home>
                 <enable_home>1</enable_home>

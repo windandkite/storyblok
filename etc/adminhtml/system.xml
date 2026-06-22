@@ -235,7 +235,7 @@
                        sortOrder="30"
                        showInDefault="1"
                        showInWebsite="1"
-                       showInStore="1">
+                       showInStore="0">
                     <label>Default List Sort</label>
                     <source_model>WindAndKite\Storyblok\Config\OptionSource\DefaultSort</source_model>
                     <comment>Select a predefined sort, or choose "Custom Multi-Sort" to define specific fields.</comment>
@@ -246,7 +246,7 @@
                        sortOrder="40"
                        showInDefault="1"
                        showInWebsite="1"
-                       showInStore="1">
+                       showInStore="0">
                     <label>Custom Multi-Sort Rules</label>
                     <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\Form\Field\CustomSortRows</frontend_model>
                     <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>

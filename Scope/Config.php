@@ -276,9 +276,14 @@ class Config
             }
         }
 
+        $customRows = is_array($customRows) ? $customRows : [];
         $sortRules = [];
 
         foreach ($customRows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
             $preset = $row['preset_field'] ?? DefaultSort::FIELD_CUSTOM;
             $field = $row['field_name'] ?? $preset;
             $direction = strtolower($row['direction'] ?? SortOrder::SORT_ASC);
