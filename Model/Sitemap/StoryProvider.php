@@ -109,12 +109,16 @@ class StoryProvider implements ItemProviderInterface
             && $folderPath = $this->config->getFolderPath(scopeCode: $storeId)
         ) {
             $this->searchCriteriaBuilder
-                ->addFilter(StoriesSearchCriteriaInterface::STARTS_WITH, $folderPath . '/*')
+                ->addFilter(StoriesSearchCriteriaInterface::STARTS_WITH, rtrim($folderPath, '/') . '/')
                 ->addFilter(StoriesSearchCriteriaInterface::IS_STARTPAGE, false);
         }
 
         if ($excludedFolders = $this->config->getSitemapExcludeFolders(scopeCode: $storeId)) {
-            $this->searchCriteriaBuilder->addFilter('slug', ['nin' => $excludedFolders]);
+            $excludedSlugs = array_map(
+                static fn(string $folder): string => rtrim($folder, '/') . '/*',
+                $excludedFolders
+            );
+            $this->searchCriteriaBuilder->addFilter('slug', $excludedSlugs, 'nin');
         }
 
         $sortOrder = $this->sortOrderBuilder
