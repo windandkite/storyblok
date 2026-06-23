@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Model\Sitemap;
 
 use DateTime;
+use Exception;
 use Magento\Framework\Api\CriteriaInterface;
 use Magento\Framework\Api\SortOrderBuilder;
 use Magento\Sitemap\Model\SitemapItemInterfaceFactory;
@@ -38,16 +39,16 @@ class StoryProvider implements ItemProviderInterface
     /**
      * @inheritDoc
      *
-     * @throws \DateMalformedStringException
+     * @throws Exception
      */
     public function getItems(
         $storeId
     ): array {
-        if (!$this->isSitemapGenerationAllowed($storeId)) {
+        if (!$this->isSitemapGenerationAllowed((int)$storeId)) {
             return [];
         }
 
-        $this->buildSearchCriteria($storeId);
+        $this->buildSearchCriteria((int)$storeId);
 
         $priority = $this->config->getSitemapPriority(scopeCode: $storeId);
         $changefreq = $this->config->getSitemapChangefreq(scopeCode: $storeId);
@@ -86,6 +87,7 @@ class StoryProvider implements ItemProviderInterface
      * Check if sitemap generation is allowed for the store.
      *
      * @param int $storeId
+     *
      * @return bool
      */
     private function isSitemapGenerationAllowed(
@@ -100,12 +102,14 @@ class StoryProvider implements ItemProviderInterface
      * Prepare initial filters and sorting on the search criteria builder.
      *
      * @param int $storeId
+     *
      * @return void
      */
     private function buildSearchCriteria(
         int $storeId,
     ): void {
-        if ($this->config->isRestrictFolderEnabled(scopeCode: $storeId)
+        if (
+            $this->config->isRestrictFolderEnabled(scopeCode: $storeId)
             && $folderPath = $this->config->getFolderPath(scopeCode: $storeId)
         ) {
             $this->searchCriteriaBuilder
@@ -118,6 +122,7 @@ class StoryProvider implements ItemProviderInterface
                 static fn(string $folder): string => rtrim($folder, '/') . '/*',
                 $excludedFolders
             );
+
             $this->searchCriteriaBuilder->addFilter('slug', $excludedSlugs, 'nin');
         }
 
@@ -126,8 +131,6 @@ class StoryProvider implements ItemProviderInterface
             ->setDirection(CriteriaInterface::SORT_ORDER_DESC)
             ->create();
 
-        $this->searchCriteriaBuilder
-            ->addSortOrder($sortOrder)
-            ->setPageSize(self::PAGE_SIZE);
+        $this->searchCriteriaBuilder->addSortOrder($sortOrder)->setPageSize(self::PAGE_SIZE);
     }
 }
