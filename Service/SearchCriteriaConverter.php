@@ -205,8 +205,8 @@ class SearchCriteriaConverter
      * Get the sort orders from the search criteria.
      *
      * Returns a SortByCollection built from all sort orders on the criteria.
-     * When no sort orders are defined a default of `first_published_at` DESC
-     * is applied so that results are consistently ordered newest-first.
+     * When no sort orders are defined, the default sort rules from store configuration are used,
+     * falling back to `first_published_at` DESC when no default sort configuration is set.
      *
      * @param StoriesSearchCriteriaInterface $searchCriteria
      *

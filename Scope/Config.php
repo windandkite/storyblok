@@ -255,7 +255,9 @@ class Config
 
         if ($sortType !== DefaultSort::FIELD_CUSTOM) {
             $separator = DefaultSort::SEPARATOR;
-            [$field, $direction] = explode($separator, $sortType ?: ($fallbackField . $separator . $fallbackDir));
+            $parts = explode($separator, $sortType ?: ($fallbackField . $separator . $fallbackDir), 2);
+            $field = $parts[0] !== '' ? $parts[0] : $fallbackField;
+            $direction = strtolower($parts[1] ?? $fallbackDir);
 
             return [[ 'field' => $field, 'direction' => $direction ]];
         }
