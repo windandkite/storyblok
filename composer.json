@@ -12,7 +12,7 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "php": "^8.0|^8.1|^8.2|^8.3",
+        "php": "^8.1",
         "magento/framework": "*",
         "storyblok/php-content-api-client": "^1.19.0",
         "storyblok/php-tiptap-extension": "^1.0",

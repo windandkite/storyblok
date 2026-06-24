@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Model\Sitemap;
 
+use DateTime;
+use Exception;
+use Magento\Framework\Api\CriteriaInterface;
 use Magento\Framework\Api\SortOrderBuilder;
 use Magento\Sitemap\Model\SitemapItemInterfaceFactory;
 use Magento\Sitemap\Model\ItemProvider\ItemProviderInterface;
-use Storyblok\Api\Domain\Value\Filter\Filters\IsFilter;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
+use WindAndKite\Storyblok\Api\StoriesSearchCriteriaBuilder;
+use WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
 use WindAndKite\Storyblok\Model\Story;
 use WindAndKite\Storyblok\Scope\Config;
-use Magento\Framework\Api\SearchCriteriaBuilder;
 
 class StoryProvider implements ItemProviderInterface
 {
@@ -20,94 +24,113 @@ class StoryProvider implements ItemProviderInterface
     /**
      * @param Config $config
      * @param StoryRepositoryInterface $storyRepository
-     * @param SearchCriteriaBuilder $searchCriteriaBuilder
+     * @param StoriesSearchCriteriaBuilder $searchCriteriaBuilder
      * @param SitemapItemInterfaceFactory $sitemapItemFactory
      * @param SortOrderBuilder $sortOrderBuilder
      */
     public function __construct(
-        private Config $config,
-        private StoryRepositoryInterface $storyRepository,
-        private SearchCriteriaBuilder $searchCriteriaBuilder,
-        private SitemapItemInterfaceFactory $sitemapItemFactory,
-        private SortOrderBuilder $sortOrderBuilder,
+        private readonly Config $config,
+        private readonly StoryRepositoryInterface $storyRepository,
+        private readonly StoriesSearchCriteriaBuilder $searchCriteriaBuilder,
+        private readonly SitemapItemInterfaceFactory $sitemapItemFactory,
+        private readonly SortOrderBuilder $sortOrderBuilder,
     ) {}
 
     /**
      * @inheritDoc
+     *
+     * @throws Exception
      */
     public function getItems(
         $storeId
     ): array {
-        $items = [];
-        $additionalFilters = [];
-        $currentPage = 1;
-        $processedItems = 0;
-
-        if (
-            !$this->config->isModuleEnabled(scopeCode: $storeId)
-            || !$this->config->isSitemapEnabled(scopeCode: $storeId)
-            || !$this->config->isPageRoutingEnabled(scopeCode: $storeId)
-        ) {
+        if (!$this->isSitemapGenerationAllowed((int)$storeId)) {
             return [];
         }
 
-        if ($this->config->isRestrictFolderEnabled(scopeCode: $storeId)) {
-            if ($folderPath = $this->config->getFolderPath(scopeCode: $storeId)) {
-                $additionalFilters['starts_with'] =  $folderPath . '/*';
-                $additionalFilters['is_startpage'] = 'false';
-            }
-        }
+        $this->buildSearchCriteria((int)$storeId);
 
-        if ($excludedFolders = $this->config->getSitemapExcludeFolders(scopeCode: $storeId)) {
-//            $additionalFilters['excluding_slugs'] = array_map(fn($folder) => $folder . '/*', $excludedFolders);
-            $additionalFilters['excluding_slugs'] =  implode('/*,', $excludedFolders) . '/*';
-        }
-
-        $sortOrder = $this->sortOrderBuilder
-            ->setField('published_at')
-            ->setDirection('DESC')
-            ->create();
-
-        $this->searchCriteriaBuilder
-            ->addSortOrder($sortOrder)
-            ->setPageSize(self::PAGE_SIZE)
-            ->setCurrentPage($currentPage);
-
-        $stories = $this->storyRepository->getList($this->searchCriteriaBuilder->create(), $additionalFilters);
         $priority = $this->config->getSitemapPriority(scopeCode: $storeId);
         $changefreq = $this->config->getSitemapChangefreq(scopeCode: $storeId);
 
-        $totalItems = $stories->getTotalCount();
+        $items = [];
+        $currentPage = 1;
 
-        while ($processedItems < $totalItems) {
-            /** @var Story $story */
-            foreach ($stories->getItems() as $story) {
-                $url = $story->getFullSlug();
-                $updatedAt = new \DateTime($story->getUpdatedAt());
+        do {
+            $this->searchCriteriaBuilder->setCurrentPage($currentPage);
+            $searchCriteria = $this->searchCriteriaBuilder->create();
+            $searchResults = $this->storyRepository->getList($searchCriteria);
+            $stories = $searchResults->getItems();
 
-                $items[] = $this->sitemapItemFactory->create(
-                    [
-                        'id' => $story->getId(),
-                        'url' => $url,
-                        'updated_at' => $updatedAt,
-                        'priority' => $priority,
-                        'changeFrequency' => $changefreq,
-                    ]
-                );
-
-                $processedItems++;
-            }
-
-            if ($processedItems >= $totalItems) {
+            if (empty($stories)) {
                 break;
             }
 
+            /** @var Story $story */
+            foreach ($stories as $story) {
+                $items[] = $this->sitemapItemFactory->create([
+                    'id' => $story->getId(),
+                    'url' => $story->getFullSlug(),
+                    'updated_at' => new DateTime($story->getUpdatedAt()),
+                    'priority' => $priority,
+                    'changeFrequency' => $changefreq,
+                ]);
+            }
+
             $currentPage++;
-            $searchCriteria = $stories->getSearchCriteria();
-            $searchCriteria->setCurrentPage($currentPage);
-            $stories = $this->storyRepository->getList($searchCriteria, $additionalFilters);
-        }
+        } while (count($items) < $searchResults->getTotalCount());
 
         return $items;
+    }
+
+    /**
+     * Check if sitemap generation is allowed for the store.
+     *
+     * @param int $storeId
+     *
+     * @return bool
+     */
+    private function isSitemapGenerationAllowed(
+        int $storeId,
+    ): bool {
+        return $this->config->isModuleEnabled(scopeCode: $storeId)
+            && $this->config->isSitemapEnabled(scopeCode: $storeId)
+            && $this->config->isPageRoutingEnabled(scopeCode: $storeId);
+    }
+
+    /**
+     * Prepare initial filters and sorting on the search criteria builder.
+     *
+     * @param int $storeId
+     *
+     * @return void
+     */
+    private function buildSearchCriteria(
+        int $storeId,
+    ): void {
+        if (
+            $this->config->isRestrictFolderEnabled(scopeCode: $storeId)
+            && $folderPath = $this->config->getFolderPath(scopeCode: $storeId)
+        ) {
+            $this->searchCriteriaBuilder
+                ->addFilter(StoriesSearchCriteriaInterface::STARTS_WITH, rtrim($folderPath, '/') . '/')
+                ->addFilter(StoriesSearchCriteriaInterface::IS_STARTPAGE, false);
+        }
+
+        if ($excludedFolders = $this->config->getSitemapExcludeFolders(scopeCode: $storeId)) {
+            $excludedSlugs = array_map(
+                static fn(string $folder): string => rtrim($folder, '/') . '/*',
+                $excludedFolders
+            );
+
+            $this->searchCriteriaBuilder->addFilter('slug', $excludedSlugs, 'nin');
+        }
+
+        $sortOrder = $this->sortOrderBuilder
+            ->setField(StoryInterface::KEY_FIRST_PUBLISHED_AT)
+            ->setDirection(CriteriaInterface::SORT_ORDER_DESC)
+            ->create();
+
+        $this->searchCriteriaBuilder->addSortOrder($sortOrder)->setPageSize(self::PAGE_SIZE);
     }
 }
