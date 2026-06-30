@@ -20,8 +20,8 @@ abstract class AbstractStoryblok extends Template
      * @param StoryRepository $storyRepository
      * @param Asset $assetViewModel
      * @param Config $scopeConfig
-     * @param Template\Context $context
      * @param StoryRequestService $storyRequestService
+     * @param Template\Context $context
      * @param array $data
      */
     public function __construct(

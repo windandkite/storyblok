@@ -7,7 +7,7 @@ namespace WindAndKite\Storyblok\Api;
 interface BlockHydratorInterface
 {
     /**
-     * Enrich or modify the block instance data/dependencies before layout generation.
+     * Enrich or modify the block instance data/dependencies before rendering.
      *
      * @param \WindAndKite\Storyblok\Block\Block $blockInstance
      *
