@@ -24,23 +24,23 @@ class Block extends AbstractStoryblok
     protected const TEMPLATE_DIR = 'block';
 
     public function __construct(
+        private readonly BlockFactory $blockFactory,
+        private readonly FieldRendererInterface $fieldRenderer,
+        private readonly SerializerInterface $serializer,
+        private readonly StoryblokSessionManager $storyblokSessionManager,
         StoryRepository $storyRepository,
         Asset $assetViewModel,
         Config $scopeConfig,
         Template\Context $context,
-        private BlockFactory $blockFactory,
-        private FieldRendererInterface $fieldRenderer,
         StoryRequestService $storyRequestService,
-        private SerializerInterface $serializer,
-        private StoryblokSessionManager $storyblokSessionManager,
         array $data = []
     ) {
         parent::__construct(
             $storyRepository,
             $assetViewModel,
             $scopeConfig,
-            $context,
             $storyRequestService,
+            $context,
             $data
         );
     }

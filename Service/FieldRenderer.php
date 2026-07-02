@@ -26,17 +26,21 @@ class FieldRenderer implements FieldRendererInterface
      * @param LoggerInterface $logger
      * @param LayoutInterface $layout
      * @param BlockFactory $blockFactory
+     * @param BlockHydrationManager $blockHydrationManager
      */
     public function __construct(
-        private LoggerInterface $logger,
-        private LayoutInterface $layout,
-        private BlockFactory $blockFactory,
+        private readonly LoggerInterface $logger,
+        private readonly LayoutInterface $layout,
+        private readonly BlockFactory $blockFactory,
+        private readonly BlockHydrationManager $blockHydrationManager,
     ) {}
 
     /**
      * Renders a Storyblok field based on its type.
      *
      * @param mixed $fieldValue The value of the Storyblok field. Can be a single value or an array.
+     * @param StoryInterface|null $story
+     *
      * @return string The rendered output.
      */
     public function renderField(
@@ -52,7 +56,7 @@ class FieldRenderer implements FieldRendererInterface
         }
 
         if ($this->isRichText($fieldValue)) {
-            return $this->renderRichTextField($fieldValue);
+            return $this->renderRichTextField($fieldValue, $story);
         }
 
         if ($this->isBlock($fieldValue)) {
@@ -72,16 +76,24 @@ class FieldRenderer implements FieldRendererInterface
      * Checks if a field value represents a Storyblok block.
      *
      * @param array $fieldValue The field value.
+     *
      * @return bool True if it's a block, false otherwise.
      */
     private function isBlock(
-        array $fieldValue
+        array $fieldValue,
     ): bool {
         return isset($fieldValue['_uid']) && isset($fieldValue['component']);
     }
 
+    /**
+     * Checks if a field value represents a Storyblok rich text field.
+     *
+     * @param array $fieldValue
+     *
+     * @return bool
+     */
     private function isRichText(
-        array $fieldValue
+        array $fieldValue,
     ): bool {
         return isset($fieldValue['type']) && $fieldValue['type'] === self::FIELD_TYPE_RICH_TEXT;
     }
@@ -89,11 +101,14 @@ class FieldRenderer implements FieldRendererInterface
     /**
      * Renders a Storyblok rich text field.
      *
-     * @param mixed $fieldValue The value of the rich text field.
+     * @param array $fieldValue The value of the rich text field.
+     * @param StoryInterface|null $story
+     *
      * @return string The rendered HTML output.
      */
     public function renderRichTextField(
         array $fieldValue,
+        ?StoryInterface $story = null,
     ): string {
         if ($fieldValue['type'] !== self::FIELD_TYPE_RICH_TEXT) {
             $this->logger->warning(
@@ -109,10 +124,12 @@ class FieldRenderer implements FieldRendererInterface
                 'extensions' => [
                     new StoryblokTipTapExtension([
                         'blokOptions' => [
-                            'renderer' => [$this, 'renderBlockField']
-                        ]
-                    ])
-                ]
+                            'renderer' => function (array $fieldValue) use ($story) {
+                                return $this->renderBlockField($fieldValue, $story);
+                            },
+                        ],
+                    ]),
+                ],
             ]
         );
         $editor->setContent($fieldValue);
@@ -124,6 +141,8 @@ class FieldRenderer implements FieldRendererInterface
      * Renders a Storyblok block.
      *
      * @param array $fieldValue The value of the block field.
+     * @param StoryInterface|null $story
+     *
      * @return string The rendered HTML output.
      */
     public function renderBlockField(
@@ -139,14 +158,35 @@ class FieldRenderer implements FieldRendererInterface
             return '';
         }
 
+        return $this->createBlockInstance($fieldValue, $story)->toHtml();
+    }
+
+    /**
+     * Creates and hydrates a Storyblok block instance.
+     *
+     * @param array $fieldValue
+     * @param StoryInterface|null $story
+     *
+     * @return Block
+     */
+    public function createBlockInstance(
+        array $fieldValue,
+        ?StoryInterface $story = null,
+    ): Block {
         $storyblokBlock = $this->blockFactory->create();
         $storyblokBlock->setData($fieldValue);
         $blockName = 'block_' . $storyblokBlock->getComponent() . '-' . $storyblokBlock->getUid() . '-' . uniqid();
 
-        return $this->layout
-            ->createBlock(Block::class, $blockName)
+        $blockInstance = $this->layout->createBlock(Block::class, $blockName)
             ->setData('block', $storyblokBlock)
-            ->setData('story', $story)
-            ->toHtml();
+            ->setData('story', $story);
+
+        $hydrators = $this->blockHydrationManager->getForComponent($storyblokBlock->getComponent());
+
+        foreach ($hydrators as $hydrator) {
+            $blockInstance = $hydrator->populate($blockInstance);
+        }
+
+        return $blockInstance;
     }
 }

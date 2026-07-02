@@ -18,4 +18,9 @@
         <plugin name="WindAndKite_Storyblok::force_built_in_cache"
                 type="WindAndKite\Storyblok\Plugin\ForceBuiltInCachePlugin"/>
     </type>
+
+    <type name="Magento\Framework\View\Design\Fallback\Rule\ModularSwitch">
+        <plugin name="storyblok_compat_module_fallback"
+                type="WindAndKite\Storyblok\Plugin\ViewFileOverride"/>
+    </type>
 </config>

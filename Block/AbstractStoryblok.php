@@ -16,29 +16,60 @@ abstract class AbstractStoryblok extends Template
     protected const TEMPLATE_DIR = '';
     protected const TEMPLATE_SUFFIX = '';
 
+    /**
+     * @param StoryRepository $storyRepository
+     * @param Asset $assetViewModel
+     * @param Config $scopeConfig
+     * @param StoryRequestService $storyRequestService
+     * @param Template\Context $context
+     * @param array $data
+     */
     public function __construct(
-        protected StoryRepository $storyRepository,
-        protected Asset $assetViewModel,
-        protected Config $scopeConfig,
+        protected readonly StoryRepository $storyRepository,
+        protected readonly Asset $assetViewModel,
+        protected readonly Config $scopeConfig,
+        protected readonly StoryRequestService $storyRequestService,
         Template\Context $context,
-        protected StoryRequestService $storyRequestService,
         array $data = []
     ) {
         parent::__construct($context, $data);
     }
 
+    /**
+     * Get the technical Storyblok component identifier name.
+     *
+     * @return string|null
+     */
     public abstract function getComponent(): ?string;
 
+    /**
+     * Get the designated directory name where templates for this block type live.
+     *
+     * @return string
+     */
     public function getTemplateDir(): string
     {
         return $this->getData('template_dir') ?? static::TEMPLATE_DIR;
     }
 
+    /**
+     * Get the suffix string applied to computed template paths.
+     *
+     * @return string
+     */
     public function getTemplateSuffix(): string
     {
         return $this->getData('template_suffix') ?? static::TEMPLATE_SUFFIX;
     }
 
+    /**
+     * Build the automatic component template path dynamically.
+     *
+     * Refactored to drop explicit module scope prefix mapping, allowing
+     * the path to fall through native view directory search lists seamlessly.
+     *
+     * @return string|null
+     */
     public function getStoryblokTemplate(): ?string
     {
         if ($this->_template) {
@@ -55,16 +86,26 @@ abstract class AbstractStoryblok extends Template
         $component = str_replace('-', '_', $component);
 
         return sprintf(
-            'WindAndKite_Storyblok::%s/%s%s.phtml',
+            '%s/%s%s.phtml',
             $this->getTemplateDir(),
             $component,
             $this->getTemplateSuffix()
         );
     }
 
+    /**
+     * Intercept template rendering file determinations.
+     *
+     * Resolves the template file via Magento design fallbacks, utilizing
+     * the calculated local component path if no explicit string path is specified.
+     *
+     * @param string|null $template
+     *
+     * @return string|bool
+     */
     public function getTemplateFile(
-        $template = null
-    ) {
+        $template = null,
+    ): bool|string {
         $template ??= $this->getStoryblokTemplate();
 
         $result = parent::getTemplateFile($template);
@@ -76,15 +117,29 @@ abstract class AbstractStoryblok extends Template
         return $result;
     }
 
-    public function getTemplate()
+    /**
+     * Return default fallback templates cleanly without explicit namespace lock-ins.
+     *
+     * @return string
+     */
+    public function getTemplate(): string
     {
         return $this->_template ?? sprintf(
-            'WindAndKite_Storyblok::%s/fallback%s.phtml',
+            '%s/fallback%s.phtml',
             $this->getTemplateDir(),
             $this->getTemplateSuffix()
         );
     }
 
+    /**
+     * Generate a direct storefront link URL pointing to a designated Storyblok story slug.
+     *
+     * @param StoryblokStory|null $story
+     * @param array $params
+     * @param array $retainParams
+     *
+     * @return string
+     */
     public function getStoryUrl(
         ?StoryblokStory $story = null,
         array $params = [],
@@ -114,6 +169,11 @@ abstract class AbstractStoryblok extends Template
         );
     }
 
+    /**
+     * Fetch or dynamically resolve the active Story model payload assigned to the block structure.
+     *
+     * @return StoryblokStory|null
+     */
     public function getStory(): ?StoryblokStory
     {
         if (!$this->getData('story')) {
@@ -122,10 +182,10 @@ abstract class AbstractStoryblok extends Template
             try {
                 if ($slug = $this->getSlug()) {
                     $this->setData('story', $this->storyRepository->getBySlug($slug, $storyRequest));
-                } elseif ($this->getRequest()->getParam('story')) {
+                } else if ($this->getRequest()->getParam('story')) {
                     $this->setData('story', $this->getRequest()->getParam('story'));
                 }
-            } catch (\Exception $e) {
+            } catch (\Exception) {
                 $this->setData('story', null);
             }
         }
@@ -133,6 +193,11 @@ abstract class AbstractStoryblok extends Template
         return $this->getData('story');
     }
 
+    /**
+     * Retrieve the view-model instance utilized for asset structural modifications.
+     *
+     * @return Asset
+     */
     public function getAssetViewModel(): Asset
     {
         return $this->assetViewModel;
