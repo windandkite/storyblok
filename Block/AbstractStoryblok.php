@@ -30,7 +30,7 @@ abstract class AbstractStoryblok extends Template
         protected readonly Config $scopeConfig,
         protected readonly StoryRequestService $storyRequestService,
         Template\Context $context,
-        array $data = []
+        array $data = [],
     ) {
         parent::__construct($context, $data);
     }
