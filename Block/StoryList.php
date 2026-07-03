@@ -20,15 +20,15 @@ class StoryList extends Story
     protected const TEMPLATE_DIR = 'story/list';
 
     public function __construct(
+        protected StoriesSearchCriteriaBuilder $searchCriteriaBuilder,
         StoryRepository $storyRepository,
         Asset $assetViewModel,
         Config $scopeConfig,
-        Template\Context $context,
         StoryRequestService $storyRequestService,
-        protected StoriesSearchCriteriaBuilder $searchCriteriaBuilder,
-        array $data = []
+        Template\Context $context,
+        array $data = [],
     ) {
-        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $context, $storyRequestService, $data);
+        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $storyRequestService, $context, $data);
     }
 
     public function getStories(): ?SearchResultsInterface

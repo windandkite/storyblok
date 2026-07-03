@@ -33,7 +33,7 @@ class Block extends AbstractStoryblok
         Config $scopeConfig,
         Template\Context $context,
         StoryRequestService $storyRequestService,
-        array $data = []
+        array $data = [],
     ) {
         parent::__construct(
             $storyRepository,
