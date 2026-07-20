@@ -36,12 +36,18 @@ class ViewFileOverride
         array $fallbackDirsResult,
         array $params,
     ): array {
-        if (isset($params['module_name']) && $params['module_name'] === self::TARGET_MODULE) {
-            $compatModules = $this->compatModuleRegistry->getCompatModules();
+        if (!isset($params['module_name'])) {
+            return $fallbackDirsResult;
+        }
 
-            if (!empty($compatModules)) {
-                return $this->injectCompatModulesDirs($fallbackDirsResult);
-            }
+        $compatModules = $this->compatModuleRegistry->getCompatModules();
+
+        if (empty($compatModules)) {
+            return $fallbackDirsResult;
+        }
+
+        if ($params['module_name'] === self::TARGET_MODULE || in_array($params['module_name'], $compatModules, true)) {
+            return $this->injectCompatModulesDirs($fallbackDirsResult);
         }
 
         return $fallbackDirsResult;
