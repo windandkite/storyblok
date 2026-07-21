@@ -202,4 +202,18 @@ abstract class AbstractStoryblok extends Template
     {
         return $this->assetViewModel;
     }
+
+    /**
+     * Force the block's module context to the core Storyblok namespace.
+     *
+     * Ensures that child blocks extending this class from external or compatibility
+     * modules retain access to core templates and layout fallback chains instead of
+     * being strictly scoped to their extending module's path.
+     *
+     * @return string
+     */
+    public function getModuleName()
+    {
+        return 'WindAndKite_Storyblok';
+    }
 }
