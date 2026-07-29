@@ -133,7 +133,7 @@ class StoryProvider implements ItemProviderInterface
                         $componentNames[0]
                     );
                 } elseif (count($componentNames) > 1) {
-                    $this->searchCriteriaBuilder->addFilter('component', $componentNames, 'in');
+                    $this->searchCriteriaBuilder->addFilter('component', implode(',', $componentNames), 'in');
                 }
             }
         }
