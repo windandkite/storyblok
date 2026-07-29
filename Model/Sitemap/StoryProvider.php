@@ -117,6 +117,27 @@ class StoryProvider implements ItemProviderInterface
                 ->addFilter(StoriesSearchCriteriaInterface::IS_STARTPAGE, false);
         }
 
+        if ($this->config->isRestrictContentTypesEnabled(scopeCode: $storeId)) {
+            $allowedContentTypes = $this->config->getAllowedFullPageContentTypes(scopeCode: $storeId);
+
+            if (!empty($allowedContentTypes)) {
+                $componentNames = array_values(
+                    array_filter(
+                        array_column($allowedContentTypes, 'type')
+                    )
+                );
+
+                if (count($componentNames) === 1) {
+                    $this->searchCriteriaBuilder->addFilter(
+                        StoriesSearchCriteriaInterface::CONTENT_TYPE,
+                        $componentNames[0]
+                    );
+                } elseif (count($componentNames) > 1) {
+                    $this->searchCriteriaBuilder->addFilter('component', $componentNames, 'in');
+                }
+            }
+        }
+
         if ($excludedFolders = $this->config->getSitemapExcludeFolders(scopeCode: $storeId)) {
             $excludedSlugs = array_map(
                 static fn(string $folder): string => rtrim($folder, '/') . '/*',
