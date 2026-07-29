@@ -49,6 +49,7 @@ class StoryProvider implements ItemProviderInterface
         }
 
         $this->buildSearchCriteria((int)$storeId);
+        $searchCriteria = $this->searchCriteriaBuilder->create();
 
         $priority = $this->config->getSitemapPriority(scopeCode: $storeId);
         $changefreq = $this->config->getSitemapChangefreq(scopeCode: $storeId);
@@ -57,8 +58,7 @@ class StoryProvider implements ItemProviderInterface
         $currentPage = 1;
 
         do {
-            $this->searchCriteriaBuilder->setCurrentPage($currentPage);
-            $searchCriteria = $this->searchCriteriaBuilder->create();
+            $searchCriteria->setCurrentPage($currentPage);
             $searchResults = $this->storyRepository->getList($searchCriteria);
             $stories = $searchResults->getItems();
 
@@ -115,6 +115,31 @@ class StoryProvider implements ItemProviderInterface
             $this->searchCriteriaBuilder
                 ->addFilter(StoriesSearchCriteriaInterface::STARTS_WITH, rtrim($folderPath, '/') . '/')
                 ->addFilter(StoriesSearchCriteriaInterface::IS_STARTPAGE, false);
+        }
+
+        if ($this->config->isRestrictContentTypesEnabled(scopeCode: $storeId)) {
+            $allowedContentTypes = $this->config->getAllowedFullPageContentTypes(scopeCode: $storeId);
+
+            if (!empty($allowedContentTypes)) {
+                $componentNames = array_values(
+                    array_filter(
+                        array_column($allowedContentTypes, 'type')
+                    )
+                );
+
+                if (count($componentNames) === 1) {
+                    $this->searchCriteriaBuilder->addFilter(
+                        StoriesSearchCriteriaInterface::CONTENT_TYPE,
+                        $componentNames[0]
+                    );
+                } elseif (count($componentNames) > 1) {
+                    $this->searchCriteriaBuilder->addFilter(
+                        'component',
+                        implode(',', $componentNames),
+                        'in'
+                    );
+                }
+            }
         }
 
         if ($excludedFolders = $this->config->getSitemapExcludeFolders(scopeCode: $storeId)) {
