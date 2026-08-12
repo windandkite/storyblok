@@ -126,6 +126,9 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
             // Invalidate cache tags based on story_id
             $cacheTags = ['storyblok_story_id_' . $storyId];
 
+            // Always invalidate all listing pages when a story is published
+            $cacheTags[] = 'storyblok_lists';
+
 
             // If cv is present, invalidate cache based on cv
             if ($cv) {

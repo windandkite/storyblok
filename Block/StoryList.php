@@ -90,4 +90,12 @@ class StoryList extends Story
 
         return '';
     }
+
+    public function getIdentities(): array
+    {
+        $identities = parent::getIdentities();
+        // Add listing cache tag to ensure all listing pages are invalidated together
+        $identities[] = 'storyblok_lists';
+        return $identities;
+    }
 }
