@@ -114,7 +114,7 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
 
         try {
             $storyId = $data['story_id'] ?? null;
-            $slug = $data['text'] ?? null;
+            $slug = $data['full_slug'] ?? null;
             $cv = $data['cv'] ?? null;
 
             if (!$storyId) {
