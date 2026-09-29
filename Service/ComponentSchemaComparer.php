@@ -35,6 +35,7 @@ class ComponentSchemaComparer
     public const KIND_WHITELIST_REMOVED = 'whitelist_removed';
     public const KIND_WHITELIST_NOT_PUSHED = 'whitelist_not_pushed';
     public const KIND_WHITELIST_UNRESTRICTED = 'whitelist_unrestricted';
+    public const KIND_WHITELIST_LIFTED = 'whitelist_lifted';
     public const KIND_LAYOUT = 'layout';
     public const KIND_FIELD_SETTINGS = 'field_settings';
     public const KIND_FIELD_ORDER = 'field_order';
@@ -48,6 +49,7 @@ class ComponentSchemaComparer
         'required' => 'required',
         'filetypes' => 'file types',
         'folder_slug' => 'story folder',
+        'translatable' => 'translatable',
     ];
 
     // Kinds that describe the space itself, not a difference the templates would push.
@@ -69,7 +71,7 @@ class ComponentSchemaComparer
 
     /**
      * @param array{components: array, renames?: array} $expected Generated from templates.
-     * @param array $pulled Pulled from the space: a CLI v4 item list, or CLI v3 {"components": [...]}.
+     * @param array $pulled Items pulled from the space with `storyblok components pull` (components and folders).
      * @param array<string, string> $untagged Component name => template path, for templates without a schema.
      *
      * @return array<int, array{level: string, kind: string, component: string, field: string|null, message: string, values: string[]}>
@@ -88,6 +90,9 @@ class ComponentSchemaComparer
         $issues = [];
 
         foreach ($space as $name => $component) {
+            // Numeric names ("404") become integer array keys.
+            $name = (string)$name;
+
             if (isset($templates[$name])) {
                 continue;
             }
@@ -108,6 +113,8 @@ class ComponentSchemaComparer
         }
 
         foreach ($templates as $name => $component) {
+            $name = (string)$name;
+
             if (!isset($space[$name])) {
                 $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_COMPONENT_NOT_PUSHED, $name, null, 'Defined by a template but not in the space yet: push to add it.');
                 continue;
@@ -176,10 +183,8 @@ class ComponentSchemaComparer
      */
     public function spaceComponents(array $pulled): array
     {
-        $items = $pulled['components'] ?? (array_is_list($pulled) ? $pulled : [$pulled]);
-
         return array_column(
-            array_filter($items, static fn ($item) => is_array($item) && isset($item['name'], $item['schema'])),
+            array_filter($pulled, static fn ($item) => is_array($item) && isset($item['name'], $item['schema'])),
             null,
             'name'
         );
@@ -206,6 +211,7 @@ class ComponentSchemaComparer
         $spaceFields = $this->contentFields($spaceFields);
 
         foreach (array_diff_key($spaceFields, $expectedFields) as $field => $_) {
+            $field = (string)$field;
             $issues[] = isset($renames[$field])
                 ? $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_RENAMED, $component, $field, sprintf('Renamed to "%s": the generated migration copies its content across.', $renames[$field]))
                 : $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_REMOVED, $component, $field, 'Only in the space (added in the Storyblok UI, or removed from the template). The next push removes it from the schema; stored content stays in Storyblok as "out of schema".');
@@ -224,6 +230,8 @@ class ComponentSchemaComparer
         }
 
         foreach ($expectedFields as $field => $expected) {
+            $field = (string)$field;
+
             if (isset($spaceFields[$field]) && $differences = $this->settingDifferences($field, $expected, $spaceFields[$field])) {
                 $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_SETTINGS, $component, $field, 'Settings differ from the space (' . implode(', ', $differences) . '). The next push updates them.', $differences);
             }
@@ -266,7 +274,7 @@ class ComponentSchemaComparer
      */
     private function compareOptions(string $component, string $field, array $expected, array $actual): array
     {
-        $expectedSource = $expected['source'] ?? 'self';
+        $expectedSource = ($expected['source'] ?? '') ?: 'self';
         $actualSource = ($actual['source'] ?? '') ?: 'self';
 
         if ($expectedSource !== $actualSource) {
@@ -322,6 +330,28 @@ class ComponentSchemaComparer
         $expectedAllowed = !empty($expected['restrict_components']) ? ($expected['component_whitelist'] ?? []) : null;
         $actualAllowed = !empty($actual['restrict_components']) ? ($actual['component_whitelist'] ?? []) : null;
         $issues = [];
+
+        // Restricted by Block Library folder or tag: which bloks that allows isn't in the pull.
+        if ($actualAllowed !== null && in_array($actual['restrict_type'] ?? '', ['groups', 'tags'], true)) {
+            $restriction = static fn (array $field) => [
+                $field['restrict_type'] ?? '',
+                $field['component_group_whitelist'] ?? [],
+                $field['component_tag_whitelist'] ?? [],
+            ];
+
+            // The same folder or tag restriction (a verbatim "storyblok" field).
+            if ($expectedAllowed !== null && $restriction($expected) == $restriction($actual)) {
+                return [];
+            }
+
+            return [$expectedAllowed !== null
+                ? $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_REMOVED, $component, $field, sprintf('Restricted by %s in the space: the next push replaces that with the template\'s list of bloks.', $actual['restrict_type'] === 'tags' ? 'tag' : 'folder'))
+                : $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_LIFTED, $component, $field, 'Restricted in the space, but the template allows any blok: the next push lifts the restriction.')];
+        }
+
+        if ($actualAllowed !== null && $expectedAllowed === null) {
+            $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_LIFTED, $component, $field, 'Restricted in the space, but the template allows any blok: the next push lifts the restriction.');
+        }
 
         if ($actualAllowed === null) {
             if ($expectedAllowed !== null) {
@@ -379,6 +409,10 @@ class ComponentSchemaComparer
             $differences[] = 'content type';
         }
 
+        if ((bool)($expected['is_nestable'] ?? empty($expected['is_root'])) !== (bool)($actual['is_nestable'] ?? empty($actual['is_root']))) {
+            $differences[] = 'nestable';
+        }
+
         $expectedFolder = $expected['component_group_name'] ?? null;
         $actualUuid = $actual['component_group_uuid'] ?? null;
 
@@ -410,6 +444,11 @@ class ComponentSchemaComparer
             ? null
             : (is_scalar($value) && !is_bool($value) ? (string)$value : $value);
 
+        // text, textarea and markdown are compatible for templates, but a push still changes the editor.
+        if (($expected['type'] ?? null) !== ($actual['type'] ?? null) && $this->typesMatch((string)($expected['type'] ?? ''), (string)($actual['type'] ?? ''))) {
+            $differences[] = 'editor type';
+        }
+
         foreach (self::FIELD_SETTINGS as $key => $label) {
             $want = $expected[$key] ?? null;
             $have = $actual[$key] ?? null;
@@ -435,10 +474,9 @@ class ComponentSchemaComparer
      */
     private function folderNames(array $pulled): array
     {
-        $items = $pulled['components'] ?? (array_is_list($pulled) ? $pulled : [$pulled]);
         $folders = [];
 
-        foreach ($items as $item) {
+        foreach ($pulled as $item) {
             if (is_array($item) && isset($item['uuid'], $item['name']) && !isset($item['schema'])) {
                 $folders[$item['uuid']] = $item['name'];
             }
@@ -465,9 +503,10 @@ class ComponentSchemaComparer
             self::KIND_OPTION_SOURCE_CHANGED => 'option source changed',
             self::KIND_OPTION_VALUES_REMOVED => 'option values removed (' . implode(', ', $issue['values']) . ')',
             self::KIND_OPTION_VALUES_NOT_PUSHED => 'option values added (' . implode(', ', $issue['values']) . ')',
-            self::KIND_WHITELIST_WITHOUT_TEMPLATE, self::KIND_WHITELIST_REMOVED => 'allowed bloks removed (' . implode(', ', $issue['values']) . ')',
+            self::KIND_WHITELIST_WITHOUT_TEMPLATE, self::KIND_WHITELIST_REMOVED => $issue['values'] ? 'allowed bloks removed (' . implode(', ', $issue['values']) . ')' : 'folder/tag whitelist replaced',
             self::KIND_WHITELIST_NOT_PUSHED => 'allowed bloks added (' . implode(', ', $issue['values']) . ')',
             self::KIND_WHITELIST_UNRESTRICTED => 'whitelist added',
+            self::KIND_WHITELIST_LIFTED => 'whitelist removed',
             self::KIND_LAYOUT => 'tabs/groups changed',
             self::KIND_FIELD_ORDER => 'field order changed',
             self::KIND_FIELD_SETTINGS, self::KIND_COMPONENT_SETTINGS => implode(', ', $issue['values']) . ' changed',

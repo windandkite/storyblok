@@ -56,7 +56,7 @@ class ComponentSchemaGeneratorTest extends TestCase
         );
     }
 
-    public function testCliV4FormatLinksGroupsByStableUuid(): void
+    public function testCliFormatLinksGroupsByStableUuid(): void
     {
         $schema = [
             'components' => [
@@ -67,7 +67,7 @@ class ComponentSchemaGeneratorTest extends TestCase
         ];
         $generator = $this->generator([]);
 
-        $items = $generator->formatForCli($schema, ComponentSchemaGenerator::FORMAT_V4);
+        $items = $generator->formatForCli($schema);
 
         $this->assertSame('Layout', $items[0]['name']);
         $this->assertArrayNotHasKey('schema', $items[0]);
@@ -77,8 +77,7 @@ class ComponentSchemaGeneratorTest extends TestCase
         $this->assertSame($items[0]['uuid'], $items[2]['component_group_uuid']);
         $this->assertArrayNotHasKey('component_group_name', $items[2]);
         $this->assertArrayNotHasKey('component_group_uuid', $items[3]);
-        $this->assertSame($items, $generator->formatForCli($schema, ComponentSchemaGenerator::FORMAT_V4), 'stable across runs');
-        $this->assertSame($schema, $generator->formatForCli($schema, ComponentSchemaGenerator::FORMAT_V3));
+        $this->assertSame($items, $generator->formatForCli($schema), 'stable across runs');
     }
 
     public function testParseErrorsNameTheFile(): void

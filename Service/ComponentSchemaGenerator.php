@@ -39,6 +39,11 @@ use Magento\Framework\View\Design\ThemeInterface;
  *   or theme can add bloks to shared whitelists.
  * - "tab" / "group" on a field: Storyblok tab and group (collapsible section) it appears in. A group's key
  *   is its label, so group names must be unique within a component and not match a field name.
+ * - "translatable" on a field: field-level translation. When omitted, the space's setting is kept.
+ * - "nestable" on a component: whether it can be added to bloks fields. Defaults to true for bloks and
+ *   false for content types ("root").
+ * - Settings the format can't express (e.g. max_length, regex, multilink options) are kept from the space
+ *   when it's pulled (see withSpaceSettings()); "storyblok" fields are used exactly as written.
  * - "labels" on an enum field: editor labels for values whose label isn't derived from the value, e.g.
  *   {"enum": ["s", "xl"], "labels": {"xl": "Extra Large"}}.
  * - "storyblok" on a field: a Storyblok field schema used verbatim (custom field plugins, datasources...).
@@ -47,13 +52,24 @@ use Magento\Framework\View\Design\ThemeInterface;
  */
 class ComponentSchemaGenerator
 {
-    public const FORMAT_V4 = 'v4';
-    public const FORMAT_V3 = 'v3';
 
     private const TEMPLATE_MODULE = 'WindAndKite_Storyblok';
     private const TEMPLATE_DIR = 'block';
     private const TAG = '@storyblok';
     private const IGNORED = ['fallback', 'fallback_item'];
+
+    // Field settings templates always own: the space's values never survive a push.
+    private const OWNED_FIELD_KEYS = [
+        'type', 'pos', 'id', 'display_name', 'description', 'default_value', 'required', 'options', 'source',
+        'folder_slug', 'filetypes', 'restrict_components', 'component_whitelist', 'restrict_type',
+        'component_group_whitelist', 'component_tag_whitelist', 'keys',
+    ];
+
+    // Settings the generator writes a default for, but templates can't set: the space's value wins.
+    private const SPACE_WINS_FIELD_KEYS = ['email_link_type', 'asset_link_type', 'show_anchor', 'allow_target_blank'];
+
+    // Component settings the format can't express, kept from the space.
+    private const SPACE_COMPONENT_KEYS = ['preview_field', 'preview_tmpl', 'color', 'icon', 'image'];
 
     /**
      * @var string[]
@@ -199,7 +215,10 @@ class ComponentSchemaGenerator
      */
     public static function ideClassName(string $component): string
     {
-        return str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', self::templateName($component)))) . 'Blok';
+        $class = preg_replace('/[^A-Za-z0-9_]/', '', str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', self::templateName($component))))) . 'Blok';
+
+        // Class names can't start with a digit (e.g. "3_column_grid").
+        return ctype_digit($class[0]) ? '_' . $class : $class;
     }
 
     /**
@@ -260,8 +279,8 @@ class ComponentSchemaGenerator
     /**
      * @param array<string, array{file: string, definition: array}> $components
      *
-     * @return array{components: array, component_groups: array, renames: array}
-     *         renames: list of {component, from, to}.
+     * @return array{components: array, component_groups: array, renames: array, verbatim: array}
+     *         renames: list of {component, from, to}; verbatim: component => field => true for "storyblok" fields.
      * @throws LocalizedException
      */
     public function build(array $components): array
@@ -270,15 +289,19 @@ class ComponentSchemaGenerator
 
         foreach ($components as $name => $component) {
             foreach ($component['definition']['whitelists'] ?? [] as $whitelist) {
-                $whitelists[$whitelist][] = $name;
+                $whitelists[$whitelist][] = (string)$name;
             }
         }
 
         $schema = [];
         $folders = [];
         $renames = [];
+        $verbatim = [];
+        // Numeric names ("404") become integer array keys.
+        $componentNames = array_map('strval', array_keys($components));
 
         foreach ($components as $name => $component) {
+            $name = (string)$name;
             $definition = $component['definition'];
 
             if (isset($definition['group']) && !isset($definition['folder'])) {
@@ -291,7 +314,12 @@ class ComponentSchemaGenerator
             $fields = [];
 
             foreach ($definition['fields'] ?? [] as $fieldName => $field) {
-                $fields[$fieldName] = $this->toField($fieldName, $field, $whitelists, array_keys($components), $component['file']);
+                $fieldName = (string)$fieldName;
+                $fields[$fieldName] = $this->toField($fieldName, $field, $whitelists, $componentNames, $component['file']);
+
+                if (isset($field['storyblok'])) {
+                    $verbatim[$name][$fieldName] = true;
+                }
 
                 if (!empty($field['renamed_from'])) {
                     $renames[] = ['component' => $name, 'from' => (string)$field['renamed_from'], 'to' => $fieldName];
@@ -307,13 +335,13 @@ class ComponentSchemaGenerator
                 'display_name' => $definition['display_name'] ?? $this->label($name),
                 'description' => $definition['description'] ?? null,
                 'is_root' => !empty($definition['root']),
-                'is_nestable' => empty($definition['root']),
+                'is_nestable' => isset($definition['nestable']) ? (bool)$definition['nestable'] : empty($definition['root']),
                 'component_group_name' => $definition['folder'] ?? null,
                 'schema' => $this->layout($name, $fields, $definition['fields'] ?? [], $component['file']),
             ], static fn ($value) => $value !== null);
         }
 
-        return ['components' => $schema, 'component_groups' => array_values($folders), 'renames' => $renames];
+        return ['components' => $schema, 'component_groups' => array_values($folders), 'renames' => $renames, 'verbatim' => $verbatim];
     }
 
     /**
@@ -338,6 +366,7 @@ class ComponentSchemaGenerator
         $pos = 0;
 
         foreach ($fields as $name => $field) {
+            $name = (string)$name;
             $tab = isset($definitions[$name]['tab']) ? (string)$definitions[$name]['tab'] : null;
             $group = isset($definitions[$name]['group']) ? (string)$definitions[$name]['group'] : null;
 
@@ -382,13 +411,71 @@ class ComponentSchemaGenerator
     }
 
     /**
+     * Keep the space's settings that the docblock format can't express (e.g. max_length, regex, multilink
+     * options), so a push never silently drops them. Templates own every setting in OWNED_FIELD_KEYS and
+     * any other setting they write (such as "translatable"); "storyblok" fields are used exactly as written.
+     * Only fields whose type and option source match the space's are merged.
+     *
+     * @param array{components: array, component_groups: array, renames: array, verbatim?: array} $final
+     * @param array $spaceComponents Components pulled from the space (items with a schema).
+     *
+     * @return array Same shape as $final.
+     */
+    public function withSpaceSettings(array $final, array $spaceComponents): array
+    {
+        $space = array_column(
+            array_filter($spaceComponents, static fn ($item) => is_array($item) && isset($item['name'], $item['schema'])),
+            null,
+            'name'
+        );
+
+        foreach ($final['components'] as &$component) {
+            $spaceComponent = $space[$component['name']] ?? null;
+
+            if ($spaceComponent === null) {
+                continue;
+            }
+
+            foreach (self::SPACE_COMPONENT_KEYS as $key) {
+                if (!array_key_exists($key, $component) && ($spaceComponent[$key] ?? null) !== null) {
+                    $component[$key] = $spaceComponent[$key];
+                }
+            }
+
+            foreach ($component['schema'] as $name => &$field) {
+                $spaceField = $spaceComponent['schema'][$name] ?? null;
+
+                if (!is_array($spaceField)
+                    || isset($final['verbatim'][$component['name']][$name])
+                    || in_array($field['type'] ?? '', ['tab', 'section'], true)
+                    || ($field['type'] ?? null) !== ($spaceField['type'] ?? null)
+                    || (($field['source'] ?? '') ?: 'self') !== (($spaceField['source'] ?? '') ?: 'self')
+                ) {
+                    continue;
+                }
+
+                $field = array_intersect_key($spaceField, array_flip(self::SPACE_WINS_FIELD_KEYS)) + $field
+                    + array_diff_key($spaceField, array_flip(self::OWNED_FIELD_KEYS));
+            }
+
+            unset($field);
+        }
+
+        unset($component);
+
+        return $final;
+    }
+
+    /**
      * Additive-only version of $final for pushing during development: the space's current schema plus
      * everything new from the templates. Nothing the space has is removed or changed:
      * - fields only in the space stay (a renamed field's old name gets a "Deprecated" description);
      * - option values and allowed bloks are merged;
      * - a field whose type changed keeps the space's type (report it: types can't change additively);
-     * - settings that would restrict editors don't apply yet: `required` only if the space has it, file
-     *   types are merged, and a story picker keeps the space's folder.
+     * - settings the template doesn't set are kept from the space;
+     * - settings that would restrict editors don't apply yet: `required` only if the space has it (never on
+     *   new fields), file types are merged, a story picker keeps the space's folder, folder or tag whitelists
+     *   and translation stay, and existing components keep their content type and nestable settings.
      *
      * @param array{components: array, component_groups: array, renames: array} $final
      * @param array $spaceComponents Components pulled from the space (items with a schema).
@@ -413,6 +500,20 @@ class ComponentSchemaGenerator
         foreach ($safe['components'] as &$component) {
             if (!isset($space[$component['name']])) {
                 continue;
+            }
+
+            $spaceComponent = $space[$component['name']];
+
+            // Where the blok can be used stays as it is until the final push.
+            foreach (['is_root', 'is_nestable'] as $key) {
+                if (array_key_exists($key, $spaceComponent)) {
+                    $component[$key] = (bool)$spaceComponent[$key];
+                }
+            }
+
+            // New fields can't be required yet: existing stories would fail validation on their next publish.
+            foreach (array_diff_key($component['schema'], $spaceComponent['schema']) as $name => $field) {
+                unset($component['schema'][$name]['required']);
             }
 
             $pos = count($component['schema']);
@@ -443,6 +544,13 @@ class ComponentSchemaGenerator
                     continue;
                 }
 
+                // The template's settings over the space's, so nothing the space has is dropped.
+                $component['schema'][$name] = $field + $spaceField;
+
+                if (!empty($spaceField['translatable'])) {
+                    $component['schema'][$name]['translatable'] = true;
+                }
+
                 if (isset($field['options'], $spaceField['options'])) {
                     $values = array_column($field['options'], 'value');
 
@@ -457,7 +565,10 @@ class ComponentSchemaGenerator
                     unset($component['schema'][$name]['required']);
                 }
 
-                if (isset($field['filetypes'], $spaceField['filetypes'])) {
+                // No file types in the space means any file type.
+                if (empty($spaceField['filetypes'])) {
+                    unset($component['schema'][$name]['filetypes']);
+                } elseif (isset($field['filetypes'])) {
                     $component['schema'][$name]['filetypes'] = array_values(array_unique([...$field['filetypes'], ...$spaceField['filetypes']]));
                 }
 
@@ -469,7 +580,16 @@ class ComponentSchemaGenerator
                     }
                 }
 
-                if (!empty($spaceField['restrict_components']) && !empty($field['restrict_components'])) {
+                // A folder or tag restriction can't be merged with a list: keep the space's as it is.
+                if (!empty($spaceField['restrict_components']) && in_array($spaceField['restrict_type'] ?? '', ['groups', 'tags'], true)) {
+                    foreach (['restrict_components', 'restrict_type', 'component_whitelist', 'component_group_whitelist', 'component_tag_whitelist'] as $key) {
+                        unset($component['schema'][$name][$key]);
+
+                        if (array_key_exists($key, $spaceField)) {
+                            $component['schema'][$name][$key] = $spaceField[$key];
+                        }
+                    }
+                } elseif (!empty($spaceField['restrict_components']) && !empty($field['restrict_components'])) {
                     $component['schema'][$name]['component_whitelist'] = array_values(array_unique([
                         ...$field['component_whitelist'] ?? [],
                         ...$spaceField['component_whitelist'] ?? [],
@@ -502,8 +622,19 @@ class ComponentSchemaGenerator
         foreach ($components as $name => $component) {
             $lines = [];
 
+            $methods = [];
+
             foreach ($component['definition']['fields'] ?? [] as $fieldName => $field) {
+                $fieldName = (string)$fieldName;
                 $method = 'get' . str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $fieldName)));
+
+                // Magento maps getFooBar() to "foo_bar": skip names a getter can't reach (e.g. "fooBar", "image2x").
+                if (self::getterKey($method) !== $fieldName || isset($methods[$method])) {
+                    $lines[] = sprintf(' * Field "%s": no getter, use $block->getData(\'%s\')', str_replace('*/', '* /', $fieldName), str_replace(['*/', "'"], ['* /', "\\'"], $fieldName));
+                    continue;
+                }
+
+                $methods[$method] = true;
                 [$type, $note] = $this->ideType($field);
                 $details = array_unique(array_filter([
                     $note,
@@ -534,6 +665,18 @@ class ComponentSchemaGenerator
     }
 
     /**
+     * The data key a magic getter reads, as Magento's DataObject::_underscore() derives it.
+     *
+     * @param string $method
+     *
+     * @return string
+     */
+    private static function getterKey(string $method): string
+    {
+        return strtolower(trim((string)preg_replace('/([A-Z]|[0-9]+)/', '_$1', lcfirst(substr($method, 3))), '_'));
+    }
+
+    /**
      * @param array $field
      *
      * @return array{0: string, 1: string|null} PHPDoc type and a short note.
@@ -555,33 +698,17 @@ class ComponentSchemaGenerator
     }
 
     /**
-     * Shape a build() result for a Storyblok CLI version.
+     * Shape a build() result for Storyblok CLI v4 (`storyblok components push`), which reads a flat list of
+     * items from `<path>/components/<from>/*.json`: components (have "schema") and groups (have "uuid", no
+     * "schema"), linked by component_group_uuid. Groups are matched to the target space by name, so the local
+     * ids and UUIDs only need to be unique and consistent within the file.
      *
-     * v4 (`storyblok components push`) reads a flat list of items from `<path>/components/<from>/*.json`:
-     * components (have "schema") and groups (have "uuid", no "schema"), linked by component_group_uuid.
-     * Groups are matched to the target space by name, so the local ids and UUIDs only need to be unique
-     * and consistent within the file.
-     * v3 (`storyblok push-components`) reads {"components": [...], "component_groups": [...]} with groups
-     * linked by component_group_name.
-     *
-     * @param array{components: array, component_groups: array, renames?: array} $schema
-     * @param string $format
+     * @param array{components: array, component_groups: array, renames?: array, verbatim?: array} $schema
      *
      * @return array
-     * @throws LocalizedException
      */
-    public function formatForCli(array $schema, string $format): array
+    public function formatForCli(array $schema): array
     {
-        unset($schema['renames']);
-
-        if ($format === self::FORMAT_V3) {
-            return $schema;
-        }
-
-        if ($format !== self::FORMAT_V4) {
-            throw new LocalizedException(__('Unknown format "%1", use %2 or %3.', $format, self::FORMAT_V4, self::FORMAT_V3));
-        }
-
         $groups = [];
 
         foreach ($schema['component_groups'] as $group) {
@@ -702,6 +829,10 @@ class ComponentSchemaGenerator
 
         if (!empty($field['required'])) {
             $schema['required'] = true;
+        }
+
+        if (isset($field['translatable'])) {
+            $schema['translatable'] = (bool)$field['translatable'];
         }
 
         if (isset($field['description'])) {

@@ -23,16 +23,19 @@ class ComponentSchemaComparerTest extends TestCase
 
     public function testMatchingSchemasHaveNoIssues(): void
     {
-        $pulled = self::EXPECTED;
-        // Compatible text types are not reported.
-        $pulled['components'][0]['schema']['title']['type'] = 'textarea';
-
+        // Pulled items are a plain list (Storyblok CLI v4).
+        $pulled = self::EXPECTED['components'];
         $this->assertSame([], (new ComponentSchemaComparer())->compare(self::EXPECTED, $pulled));
+
+        // Compatible text types aren't a type change, but a push still changes the editor.
+        $pulled[0]['schema']['title']['type'] = 'textarea';
+        $issues = (new ComponentSchemaComparer())->compare(self::EXPECTED, $pulled);
+        $this->assertSame([[ComponentSchemaComparer::KIND_FIELD_SETTINGS, 'title', ['editor type']]], array_map(static fn ($issue) => [$issue['kind'], $issue['field'], $issue['values']], $issues));
     }
 
     public function testReportsEachKindOfMismatch(): void
     {
-        $pulled = ['components' => [
+        $pulled = [
             ['name' => 'section', 'schema' => [
                 'body' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['text', 'legacy_banner']],
                 'padding' => ['type' => 'option', 'options' => [['value' => 'small'], ['value' => 'xl']]],
@@ -45,7 +48,7 @@ class ComponentSchemaComparerTest extends TestCase
             ['name' => 'legacy_banner', 'schema' => []],
             ['name' => 'page', 'is_root' => true, 'schema' => []],
             ['name' => 'promo', 'schema' => []],
-        ]];
+        ];
 
         $issues = (new ComponentSchemaComparer())->compare(self::EXPECTED, $pulled, ['promo' => '/theme/block/promo.phtml']);
         $summary = array_map(static fn ($issue) => $issue['level'] . ' ' . $issue['component'] . '.' . $issue['field'], $issues);
@@ -94,15 +97,43 @@ class ComponentSchemaComparerTest extends TestCase
         $this->assertSame(['section' => ['folder changed', 'body: allowed bloks removed (deleted)', 'size: option labels changed']], $comparer->changedComponents($issues));
     }
 
+    public function testRestrictionsNestableAndVerbatimSources(): void
+    {
+        $expected = ['components' => [
+            ['name' => 'a', 'is_root' => true, 'is_nestable' => false, 'schema' => [
+                'lifted' => ['type' => 'bloks'],
+                'byFolder' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['a']],
+                'pick' => ['type' => 'option', 'source' => '', 'options' => [['name' => 'X', 'value' => 'x']]],
+            ]],
+        ]];
+        $pulled = [['name' => 'a', 'is_root' => true, 'is_nestable' => true, 'schema' => [
+            'lifted' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['a']],
+            'byFolder' => ['type' => 'bloks', 'restrict_components' => true, 'restrict_type' => 'groups', 'component_group_whitelist' => ['g']],
+            'pick' => ['type' => 'option', 'options' => [['name' => 'X', 'value' => 'x']]],
+        ]]];
+
+        $comparer = new ComponentSchemaComparer();
+        $issues = $comparer->compare($expected, $pulled);
+        $kinds = array_map(static fn ($issue) => $issue['kind'] . ' ' . $issue['field'], $issues);
+
+        $this->assertEqualsCanonicalizing([
+            'component_settings ',          // nestable
+            'whitelist_lifted lifted',
+            'whitelist_removed byFolder',   // folder restriction replaced by a list
+        ], $kinds, 'an empty "source" is the default, not a source change');
+        $this->assertTrue($comparer->isDestructive($issues[array_search('whitelist_removed byFolder', $kinds, true)]));
+        $this->assertSame(['nestable'], $issues[array_search('component_settings ', $kinds, true)]['values']);
+    }
+
     public function testUnpushedComponentAndUnrestrictedSpaceField(): void
     {
-        $pulled = ['components' => [
+        $pulled = [
             ['name' => 'section', 'schema' => array_merge(self::EXPECTED['components'][0]['schema'], [
                 'body' => ['type' => 'bloks', 'restrict_components' => false],
             ])],
             self::EXPECTED['components'][1],
             self::EXPECTED['components'][3],
-        ]];
+        ];
 
         $issues = (new ComponentSchemaComparer())->compare(self::EXPECTED, $pulled);
 
@@ -110,10 +141,5 @@ class ComponentSchemaComparerTest extends TestCase
             [['warning', 'section', 'body'], ['warning', 'hero', null]],
             array_map(static fn ($issue) => [$issue['level'], $issue['component'], $issue['field']], $issues)
         );
-    }
-
-    public function testAcceptsAPlainListOfComponents(): void
-    {
-        $this->assertSame([], (new ComponentSchemaComparer())->compare(self::EXPECTED, self::EXPECTED['components']));
     }
 }

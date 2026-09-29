@@ -87,7 +87,7 @@ class ImportComponentSchema extends AbstractSchemaCommand
             ->addCliOptions()
             ->addOption(self::OPTION_COMPONENT, 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only import these components (repeatable).')
             ->addOption(self::OPTION_DRY_RUN, null, InputOption::VALUE_NONE, 'List the changes without writing anything.')
-            ->addOption(self::OPTION_YES, 'y', InputOption::VALUE_NONE, 'Apply every change without asking.')
+            ->addOption(self::OPTION_YES, 'y', InputOption::VALUE_NONE, 'Apply every change without asking (templates in vendor/ still need --copy-vendor).')
             ->addOption(self::OPTION_COPY_VENDOR, null, InputOption::VALUE_NONE, 'Copy templates from vendor/ into the theme and update the copies, without asking.')
             ->addOption(self::OPTION_SKIP_VENDOR, null, InputOption::VALUE_NONE, 'Skip templates in vendor/ without asking.')
             ->addOption(self::OPTION_OVERWRITE, null, InputOption::VALUE_NONE, 'Also replace existing @storyblok schemas with the space\'s (loses shared whitelists and renamed_from).');
@@ -104,6 +104,12 @@ class ImportComponentSchema extends AbstractSchemaCommand
         $basePath = $this->cliContext->getBasePath($input->getOption(self::OPTION_PATH));
         $space = $this->cliContext->resolveSpace($input->getOption(self::OPTION_SPACE));
 
+        if ($input->getOption(self::OPTION_COPY_VENDOR) && $input->getOption(self::OPTION_SKIP_VENDOR)) {
+            $output->writeln('<error>--copy-vendor and --skip-vendor can\'t be used together.</error>');
+
+            return Command::FAILURE;
+        }
+
         if (!$space['id']) {
             $output->writeln('<error>No space to import from: pass --space, set ' . StoryblokCliContext::ENV_SPACE_ID . ' or add `space` to storyblok.config.ts.</error>');
 
@@ -116,7 +122,7 @@ class ImportComponentSchema extends AbstractSchemaCommand
             $theme = $this->getTheme($store);
             $themeDirectory = $this->componentRegistrar->getPath(ComponentRegistrar::THEME, $theme->getFullPath());
 
-            if (!$themeDirectory || str_contains($themeDirectory, '/vendor/')) {
+            if (!$themeDirectory || $this->cliContext->isVendorPath($themeDirectory)) {
                 throw new LocalizedException(__('The store\'s theme (%1) is not in app/design, so new templates can\'t be written to it.', $theme->getFullPath()));
             }
 
@@ -132,7 +138,17 @@ class ImportComponentSchema extends AbstractSchemaCommand
         $only = $input->getOption(self::OPTION_COMPONENT);
 
         if ($only) {
+            foreach (array_diff($only, array_map('strval', array_keys($components))) as $unknown) {
+                $output->writeln(sprintf('<comment>%s: not a component in space %s (use the Storyblok name, e.g. "form-input").</comment>', $unknown, $space['id']));
+            }
+
             $components = array_intersect_key($components, array_flip($only));
+
+            if (!$components) {
+                $output->writeln('<error>None of the --component names are in the space.</error>');
+
+                return Command::FAILURE;
+            }
         }
 
         $folders = [];
@@ -153,32 +169,38 @@ class ImportComponentSchema extends AbstractSchemaCommand
         }
 
         $written = 0;
+        $failed = 0;
 
         foreach ($components as $name => $component) {
+            $name = (string)$name;
             $definition = $this->importer->toDefinition($component, $folders);
             $tag = $this->importer->formatTag($definition);
             $template = ComponentSchemaGenerator::templateName($name) . '.phtml';
             $existing = $this->findTemplate($blockDirectories, $template);
 
             if ($existing !== null && !$input->getOption(self::OPTION_OVERWRITE)) {
-                // Same rule as generate: only a tag in the first docblock is a schema.
+                // Same rule as generate: the first template down the fallback with a tag in its first docblock
+                // defines the schema, so an untagged override inherits it.
                 try {
-                    $hasSchema = $generator->parse($this->file->fileGetContents($existing), $existing) !== null;
+                    $tagged = $this->findTaggedTemplate($generator, $blockDirectories, $template);
                 } catch (LocalizedException $e) {
                     $output->writeln(sprintf('<comment>%s: skipped, %s (fix it, or --overwrite to replace it)</comment>', $name, $e->getMessage()));
+                    $failed++;
                     continue;
                 }
 
-                if ($hasSchema) {
-                    $output->writeln(sprintf('%s: already has a schema, skipped (--overwrite to replace it) (%s)', $name, $this->cliContext->toDisplayPath($existing)));
+                if ($tagged !== null) {
+                    $output->writeln($tagged === $existing
+                        ? sprintf('%s: already has a schema, skipped (--overwrite to replace it) (%s)', $name, $this->cliContext->toDisplayPath($existing))
+                        : sprintf('%s: inherits the schema in %s, skipped (--overwrite to write one into %s)', $name, $this->cliContext->toDisplayPath($tagged), $this->cliContext->toDisplayPath($existing)));
                     continue;
                 }
             }
 
             if ($existing === null) {
                 [$action, $target, $content] = ['create', $themeBlockDirectory . '/' . $template, $this->importer->newTemplate($name, $definition, $tag)];
-            } elseif (str_contains($existing, '/vendor/')) {
-                if (!$this->copyVendorTemplate($input, $output, $name, $existing, $themeBlockDirectory . '/' . $template, $dryRun)) {
+            } elseif ($this->cliContext->isVendorPath($existing)) {
+                if (!$this->copyVendorTemplate($input, $output, $name, $existing, $themeBlockDirectory . '/' . $template, $dryRun, $applyAll)) {
                     continue;
                 }
 
@@ -213,7 +235,11 @@ class ImportComponentSchema extends AbstractSchemaCommand
             ? 'Dry run: nothing was written.'
             : sprintf('%d template(s) written. Check them with `bin/magento storyblok:schema:generate` then `bin/magento storyblok:schema:validate`.', $written));
 
-        return Command::SUCCESS;
+        if ($failed) {
+            $output->writeln(sprintf('<error>%d template(s) skipped because of invalid @storyblok JSON.</error>', $failed));
+        }
+
+        return $failed ? Command::FAILURE : Command::SUCCESS;
     }
 
     /**
@@ -225,6 +251,7 @@ class ImportComponentSchema extends AbstractSchemaCommand
      * @param string $source
      * @param string $target
      * @param bool $dryRun
+     * @param bool $applyAll --yes: never asks, so vendor templates need --copy-vendor.
      *
      * @return bool Whether to copy it.
      */
@@ -235,6 +262,7 @@ class ImportComponentSchema extends AbstractSchemaCommand
         string $source,
         string $target,
         bool $dryRun,
+        bool $applyAll,
     ): bool {
         $from = $this->cliContext->toDisplayPath($source);
         $to = $this->cliContext->toDisplayPath($target);
@@ -249,7 +277,8 @@ class ImportComponentSchema extends AbstractSchemaCommand
             return true;
         }
 
-        if (!$input->isInteractive()) {
+        // A copy stops receiving upstream template fixes, so it's never implied by --yes.
+        if ($applyAll || !$input->isInteractive()) {
             $output->writeln(sprintf('<comment>%s: skipped, template is in vendor (%s). Use --copy-vendor to copy it into the theme.</comment>', $component, $from));
 
             return false;
@@ -272,6 +301,29 @@ class ImportComponentSchema extends AbstractSchemaCommand
     private function confirm(InputInterface $input, OutputInterface $output, bool $yes, string $question): bool
     {
         return $yes || (bool)$this->getHelper('question')->ask($input, $output, new ConfirmationQuestion($question, false));
+    }
+
+    /**
+     * The template whose @storyblok tag defines the component, highest priority first.
+     *
+     * @param ComponentSchemaGenerator $generator
+     * @param string[] $blockDirectories
+     * @param string $template
+     *
+     * @return string|null
+     * @throws LocalizedException When a tag has invalid JSON.
+     */
+    private function findTaggedTemplate(ComponentSchemaGenerator $generator, array $blockDirectories, string $template): ?string
+    {
+        foreach ($blockDirectories as $directory) {
+            $path = $directory . '/' . $template;
+
+            if ($this->file->isFile($path) && $generator->parse($this->file->fileGetContents($path), $path) !== null) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     /**

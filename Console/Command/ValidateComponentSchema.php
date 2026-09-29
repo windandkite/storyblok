@@ -97,7 +97,8 @@ class ValidateComponentSchema extends AbstractSchemaCommand
             $store = $this->getStore($input);
             $theme = $this->getTheme($store);
             $generator = $this->createGenerator();
-            $expected = $generator->build($generator->collect($theme));
+            // What a push would write: the templates' schema plus the space settings it keeps.
+            $expected = $generator->withSpaceSettings($generator->build($generator->collect($theme)), $this->comparer->spaceComponents($pulled));
         } catch (LocalizedException $e) {
             $output->writeln('<error>' . $e->getMessage() . '</error>');
 
@@ -155,13 +156,7 @@ class ValidateComponentSchema extends AbstractSchemaCommand
      */
     private function readPulled(string $directory, string $cli, string $spaceId): array
     {
-        $items = $this->cliContext->readPulledComponents($directory)
+        return $this->cliContext->readPulledComponents($directory)
             ?? throw new LocalizedException(__('Space %1 hasn\'t been pulled: run `%2 components pull --space %1` first.', $spaceId, $cli));
-
-        if (!$this->comparer->spaceComponents($items)) {
-            throw new LocalizedException(__('No components found in %1', $directory));
-        }
-
-        return $items;
     }
 }

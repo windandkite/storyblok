@@ -40,6 +40,10 @@ class ComponentSchemaImporter
             'name' => ComponentSchemaGenerator::templateName($name) !== $name ? $name : null,
             'folder' => $folders[$component['component_group_uuid'] ?? ''] ?? null,
             'root' => !empty($component['is_root']) ? true : null,
+            // Only when it differs from the default for bloks (nestable) and content types (not nestable).
+            'nestable' => array_key_exists('is_nestable', $component) && (bool)$component['is_nestable'] === !empty($component['is_root'])
+                ? (bool)$component['is_nestable']
+                : null,
             'display_name' => ($component['display_name'] ?? null) && $component['display_name'] !== $this->label($name)
                 ? $component['display_name']
                 : null,
@@ -49,6 +53,7 @@ class ComponentSchemaImporter
         $definition['fields'] = [];
 
         foreach ($fields as $key => $field) {
+            $key = (string)$key;
             $definition['fields'][$key] = array_filter(
                 $this->toField($key, $field) + ['tab' => $tabOf[$key] ?? null, 'group' => $groupOf[$key] ?? null],
                 static fn ($value) => $value !== null
@@ -113,24 +118,17 @@ class ComponentSchemaImporter
     {
         $docblock = $this->firstDocblock($source);
 
+        // Plain string operations only: space text in the tag ("$0", "\\") must never reach a regex replacement.
         if ($docblock !== null && str_contains($docblock, self::TAG)) {
-            // Replace the existing tag, keeping any text before it and tags after it.
-            $updated = preg_replace_callback(
-                '/^[ \t]*\*[ \t]*' . preg_quote(self::TAG, '/') . '.*?(?=^[ \t]*\*[ \t]*@\w|^[ \t]*\*\/)/ms',
-                static fn () => $tag . "\n",
-                $docblock,
-                1
-            );
-            $source = str_replace($docblock, (string)$updated, $source);
+            $source = $this->replaceFirst($source, $docblock, $this->replaceTag($docblock, $tag));
         } elseif ($docblock !== null && $this->isHeader($source, $docblock)) {
-            $source = str_replace($docblock, preg_replace('/\s*\*\/$/', "\n *\n" . $tag . "\n */", $docblock), $source);
+            $source = $this->replaceFirst($source, $docblock, rtrim(substr($docblock, 0, -2)) . "\n *\n" . $tag . "\n */");
+        } elseif (str_starts_with($source, '<?php') && !ctype_alnum(substr($source, 5, 1))) {
+            // Right after the opening tag, whatever follows it (a newline, CRLF or `declare(...)` on the same line).
+            $source = "<?php\n/**\n" . $tag . "\n */" . substr($source, 5);
         } else {
-            // Right after the opening tag, whatever follows it (a newline, CRLF or `declare(...)` on the same
-            // line); a template starting with markup gets its own PHP block.
-            $header = "/**\n" . $tag . "\n */";
-            $source = preg_match('/^<\?php\b/', $source)
-                ? (string)preg_replace('/^<\?php\b/', "<?php\n" . $header, $source, 1)
-                : "<?php\n" . $header . "\n?>\n" . $source;
+            // A template starting with markup gets its own PHP block.
+            $source = "<?php\n/**\n" . $tag . "\n */\n?>\n" . $source;
         }
 
         return $this->addIdeHint($source, $component);
@@ -220,12 +218,22 @@ class ComponentSchemaImporter
     {
         $type = $field['type'] ?? '';
         $source = ($field['source'] ?? '') ?: 'self';
+
+        // Anything the shorthand can't express keeps the field verbatim, so import never drops a setting.
+        if (!$this->isExpressible($field, $type, $source)) {
+            $raw = $field;
+            unset($raw['id'], $raw['pos']);
+
+            return ['storyblok' => $raw];
+        }
+
         $common = array_filter([
             'required' => !empty($field['required']) ? true : null,
             'description' => ($field['description'] ?? '') !== '' ? $field['description'] : null,
             'display_name' => ($field['display_name'] ?? null) && $field['display_name'] !== $this->label($key)
                 ? $field['display_name']
                 : null,
+            'translatable' => !empty($field['translatable']) ? true : null,
         ], static fn ($value) => $value !== null);
 
         $mapped = match (true) {
@@ -236,7 +244,8 @@ class ComponentSchemaImporter
             $type === 'richtext' => ['type' => 'richtext'],
             $type === 'table' => ['type' => 'object'],
             $type === 'multilink' => ['type' => 'multilink'],
-            $type === 'asset' => ['type' => 'asset'] + (($field['filetypes'] ?? ['images']) !== ['images'] ? ['filetypes' => $field['filetypes']] : []),
+            // No file types means any file type; the shorthand's default is images only.
+            $type === 'asset' => ['type' => 'asset'] + (($field['filetypes'] ?? []) !== ['images'] ? ['filetypes' => array_values($field['filetypes'] ?? [])] : []),
             $type === 'bloks' => ['type' => 'array'] + (!empty($field['restrict_components']) ? ['allowed' => array_values($field['component_whitelist'] ?? [])] : []),
             $type === 'option' && $source === 'internal_stories' => ['type' => 'story'] + (!empty($field['folder_slug']) ? ['folder' => $field['folder_slug']] : []),
             $type === 'option' && $source === 'self' => $this->toEnum($field['options'] ?? []),
@@ -253,12 +262,60 @@ class ComponentSchemaImporter
         if (array_key_exists('default_value', $field) && $field['default_value'] !== '' && $field['default_value'] !== null) {
             $mapped['default'] = match ($mapped['type']) {
                 'boolean' => (bool)$field['default_value'],
-                'integer' => is_numeric($field['default_value']) ? (int)$field['default_value'] : $field['default_value'],
+                // Integers only when lossless: "1.5" stays "1.5".
+                'integer' => (string)(int)$field['default_value'] === (string)$field['default_value'] ? (int)$field['default_value'] : $field['default_value'],
                 default => $field['default_value'],
             };
         }
 
         return $mapped + $common;
+    }
+
+    /**
+     * Whether every setting of a pulled field has a docblock equivalent. Unset values (null, "", false, [])
+     * don't count: Storyblok writes many of them for every field.
+     *
+     * @param array $field
+     * @param string $type
+     * @param string $source
+     *
+     * @return bool
+     */
+    private function isExpressible(array $field, string $type, string $source): bool
+    {
+        $common = ['type', 'pos', 'id', 'display_name', 'description', 'required', 'default_value', 'translatable'];
+        $byType = match (true) {
+            in_array($type, ['text', 'textarea', 'markdown', 'number', 'boolean', 'datetime', 'richtext', 'table'], true) => [],
+            $type === 'asset' => ['filetypes'],
+            $type === 'bloks' => ['restrict_components', 'component_whitelist', 'restrict_type'],
+            $type === 'multilink' => ['email_link_type', 'asset_link_type', 'show_anchor', 'allow_target_blank'],
+            $type === 'option' && $source === 'self' => ['options', 'source'],
+            // Story pickers store the story's UUID (use_uuid), which is what the shorthand generates.
+            $type === 'option' && $source === 'internal_stories' => ['source', 'folder_slug', 'use_uuid'],
+            default => null,
+        };
+
+        if ($byType === null) {
+            return false;
+        }
+
+        $set = array_filter($field, static fn ($value) => $value !== null && $value !== '' && $value !== false && $value !== []);
+
+        if (array_diff_key($set, array_flip([...$common, ...$byType]))) {
+            return false;
+        }
+
+        return match ($type) {
+            // The shorthand writes every link type on.
+            'multilink' => array_filter(
+                ['email_link_type', 'asset_link_type', 'show_anchor', 'allow_target_blank'],
+                static fn ($key) => ($field[$key] ?? false) !== true
+            ) === [],
+            // Folder and tag whitelists have no shorthand.
+            'bloks' => in_array($field['restrict_type'] ?? '', ['', 'components'], true),
+            'option' => $source !== 'internal_stories' || ($field['use_uuid'] ?? true) !== false,
+            default => true,
+        };
     }
 
     /**
@@ -327,6 +384,44 @@ class ComponentSchemaImporter
     }
 
     /**
+     * Replace the tag in a docblock, keeping the text before it and any tags after it. Finds the tag the way
+     * ComponentSchemaGenerator::parse() does, so single-line (`/** @storyblok {...} *\/`) and mid-line tags work.
+     *
+     * @param string $docblock
+     * @param string $tag
+     *
+     * @return string
+     */
+    private function replaceTag(string $docblock, string $tag): string
+    {
+        $position = strpos($docblock, self::TAG);
+        // The text before the tag, without the tag line's own " * " or blank " *" lines before it.
+        $head = (string)preg_replace('/(\n[ \t]*\*[ \t]*)+$/', '', rtrim(substr($docblock, 0, $position)));
+        $rest = substr($docblock, $position);
+        // The JSON ends at the next line starting with "@", as in parse().
+        $tail = preg_match('/^[ \t]*\*[ \t]*@\w/m', $rest, $matches, PREG_OFFSET_CAPTURE)
+            ? " *\n" . rtrim(substr($rest, $matches[0][1])) . "\n"
+            : '';
+        $tail = (string)preg_replace('/\s*\*\/\n?$/', '', $tail);
+
+        return ($head === '/**' ? '/**' : $head . "\n *") . "\n" . $tag . "\n" . ($tail !== '' ? $tail . "\n" : '') . ' */';
+    }
+
+    /**
+     * @param string $haystack
+     * @param string $search
+     * @param string $replace
+     *
+     * @return string
+     */
+    private function replaceFirst(string $haystack, string $search, string $replace): string
+    {
+        $position = strpos($haystack, $search);
+
+        return $position === false ? $haystack : substr_replace($haystack, $replace, $position, strlen($search));
+    }
+
+    /**
      * @param string $source
      * @param string $component
      *
@@ -357,7 +452,7 @@ class ComponentSchemaImporter
 
         return $docblock === null
             ? $source
-            : str_replace($docblock, $docblock . "\n\n/** @var \\WindAndKite\\Storyblok\\Block\\Block|" . $class . ' $block */', $source);
+            : $this->replaceFirst($source, $docblock, $docblock . "\n\n/** @var \\WindAndKite\\Storyblok\\Block\\Block|" . $class . ' $block */');
     }
 
     /**

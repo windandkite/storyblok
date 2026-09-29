@@ -211,6 +211,16 @@ class SchemaWorkflowTest extends TestCase
         $this->assertNull($context->readPulledComponents($this->root . '/missing'));
         $this->assertCount(2, $context->readPulledComponents($this->root . '/pull'));
 
+        file_put_contents($this->root . '/pull/v3.json', json_encode(['components' => [['name' => 'x', 'schema' => []]]]));
+
+        try {
+            $context->readPulledComponents($this->root . '/pull');
+            $this->fail('A CLI v3 pull is rejected');
+        } catch (LocalizedException $e) {
+            $this->assertStringContainsString('Storyblok CLI v3', $e->getMessage());
+        }
+
+        unlink($this->root . '/pull/v3.json');
         file_put_contents($this->root . '/pull/section.json', '{"name": "section", ');
         $this->expectException(LocalizedException::class);
         $this->expectExceptionMessage('is not valid JSON');
@@ -248,6 +258,88 @@ class SchemaWorkflowTest extends TestCase
             [ComponentSchemaComparer::KIND_FIELD_NOT_PUSHED, 'content'],
             array_map(static fn ($issue) => [$issue['kind'], $issue['field']], $comparer->compare($expected, $pulled))
         );
+    }
+
+    public function testSpaceSettingsTheFormatCantExpressAreKept(): void
+    {
+        $final = $this->build(['hero' => ['fields' => [
+            'title' => ['type' => 'string'],
+            'link' => ['type' => 'multilink'],
+            'raw' => ['storyblok' => ['type' => 'text']],
+            'body' => ['type' => 'richtext'],
+            'lang' => ['type' => 'string', 'translatable' => false],
+        ]]]);
+        $space = [['name' => 'hero', 'preview_field' => 'title', 'schema' => [
+            'title' => ['type' => 'text', 'id' => 'x', 'translatable' => true, 'max_length' => '60', 'required' => true],
+            'link' => ['type' => 'multilink', 'email_link_type' => false],
+            'raw' => ['type' => 'text', 'regex' => '^a'],
+            'body' => ['type' => 'textarea', 'rtl' => true],
+            'lang' => ['type' => 'text', 'translatable' => true],
+        ]]];
+
+        $merged = $this->generator()->withSpaceSettings($final, $space)['components'][0];
+        $schema = $merged['schema'];
+
+        $this->assertSame('title', $merged['preview_field']);
+        $this->assertTrue($schema['title']['translatable'], 'not declared: kept from the space');
+        $this->assertSame('60', $schema['title']['max_length']);
+        $this->assertArrayNotHasKey('required', $schema['title'], 'owned by the template');
+        $this->assertArrayNotHasKey('id', $schema['title']);
+        $this->assertFalse($schema['link']['email_link_type'], 'multilink options the format can\'t set are kept');
+        $this->assertArrayNotHasKey('regex', $schema['raw'], 'verbatim fields are used exactly as written');
+        $this->assertArrayNotHasKey('rtl', $schema['body'], 'only merged when the type matches');
+        $this->assertFalse($schema['lang']['translatable'], 'declared: the template wins');
+        $this->assertSame([], (new ComponentSchemaComparer())->compare(
+            $this->generator()->withSpaceSettings($this->build(['hero' => ['fields' => ['title' => ['type' => 'string', 'required' => true]]]]), $space),
+            [['name' => 'hero', 'preview_field' => 'title', 'schema' => ['title' => $space[0]['schema']['title']]]]
+        ), 'kept settings aren\'t reported');
+    }
+
+    public function testSafeSchemaNeverRestrictsEditors(): void
+    {
+        $final = $this->build([
+            'hero' => ['root' => true, 'fields' => [
+                'img' => ['type' => 'asset'],
+                'kids' => ['type' => 'array', 'allowed' => ['hero']],
+                'title' => ['type' => 'string'],
+                'sub' => ['type' => 'string', 'required' => true],
+            ]],
+        ]);
+        $space = [['name' => 'hero', 'is_root' => false, 'is_nestable' => true, 'schema' => [
+            'img' => ['type' => 'asset', 'filetypes' => []],
+            'kids' => ['type' => 'bloks', 'restrict_components' => true, 'restrict_type' => 'groups', 'component_group_whitelist' => ['g'], 'component_whitelist' => []],
+            'title' => ['type' => 'text', 'translatable' => true],
+        ]]];
+
+        $safe = $this->generator()->buildSafe($final, $space)['components'][0];
+
+        $this->assertFalse($safe['is_root']);
+        $this->assertTrue($safe['is_nestable'], 'where the blok can be used stays');
+        $this->assertArrayNotHasKey('filetypes', $safe['schema']['img'], 'any file type stays any');
+        $this->assertSame('groups', $safe['schema']['kids']['restrict_type']);
+        $this->assertSame(['g'], $safe['schema']['kids']['component_group_whitelist']);
+        $this->assertSame([], $safe['schema']['kids']['component_whitelist']);
+        $this->assertTrue($safe['schema']['title']['translatable']);
+        $this->assertArrayNotHasKey('required', $safe['schema']['sub'], 'new fields aren\'t required yet');
+    }
+
+    public function testNumericNamesAndIdeNames(): void
+    {
+        $schema = $this->build(['404' => ['fields' => ['1' => ['type' => 'string']]]]);
+
+        $this->assertSame('404', $schema['components'][0]['name']);
+        $this->assertSame('_3ColumnGridBlok', ComponentSchemaGenerator::ideClassName('3_column_grid'));
+        $this->assertSame('FormInputBlok', ComponentSchemaGenerator::ideClassName('form-input'));
+        $this->assertSame([], (new ComponentSchemaComparer())->compare($schema, [['name' => '404', 'schema' => ['1' => ['type' => 'text', 'display_name' => '1']]]]));
+
+        $helper = $this->generator()->buildIdeHelper(['hero' => ['file' => 'hero.phtml', 'definition' => ['fields' => [
+            'image_2x' => ['type' => 'asset'],
+            'fooBar' => ['type' => 'string'],
+        ]]]]);
+        token_get_all($helper, TOKEN_PARSE);
+        $this->assertStringContainsString('getImage2x()', $helper);
+        $this->assertStringNotContainsString('getFooBar()', $helper, 'Magento would read "foo_bar"');
+        $this->assertStringContainsString("getData('fooBar')", $helper);
     }
 
     private function build(array $definitions): array

@@ -24,7 +24,9 @@ use WindAndKite\Storyblok\Service\ComponentUsageCounter;
 use WindAndKite\Storyblok\Service\StoryblokCliContext;
 
 /**
- * bin/magento storyblok:schema:generate [--store] [--path] [--space] [--format] [--force] [--no-ide-helper] [--changed-only]
+ * bin/magento storyblok:schema:generate [--store] [--path] [--space] [--force] [--no-ide-helper] [--changed-only]
+ *
+ * Writes files for Storyblok CLI v4 (`storyblok components push`).
  *
  * Generates, from the @storyblok docblocks of the blok templates the store's theme renders:
  * - the final schema, `<path>/components/<store_code>/`: exactly what the templates define, pushed at deploy;
@@ -41,7 +43,6 @@ use WindAndKite\Storyblok\Service\StoryblokCliContext;
  */
 class GenerateComponentSchema extends AbstractSchemaCommand
 {
-    private const OPTION_FORMAT = 'format';
     private const OPTION_FORCE = 'force';
     private const OPTION_NO_IDE_HELPER = 'no-ide-helper';
     private const OPTION_CHANGED_ONLY = 'changed-only';
@@ -85,13 +86,6 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             ->setDescription('Generate the Storyblok component schema, migrations and IDE helper from a store\'s blok templates')
             ->addStoreOption()
             ->addCliOptions()
-            ->addOption(
-                self::OPTION_FORMAT,
-                'f',
-                InputOption::VALUE_REQUIRED,
-                'Storyblok CLI version to write for: v4 (`storyblok components push`) or v3 (`storyblok push-components`, no migrations).',
-                ComponentSchemaGenerator::FORMAT_V4
-            )
             ->addOption(self::OPTION_FORCE, null, InputOption::VALUE_NONE, 'Write the final schema even if it would orphan stored content, without asking.')
             ->addOption(self::OPTION_NO_IDE_HELPER, null, InputOption::VALUE_NONE, 'Don\'t write the IDE helper.')
             ->addOption(self::OPTION_CHANGED_ONLY, null, InputOption::VALUE_NONE, 'Also write <store_code>-changes/: only the components that differ from the pulled space.');
@@ -106,16 +100,21 @@ class GenerateComponentSchema extends AbstractSchemaCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         try {
-            $format = (string)$input->getOption(self::OPTION_FORMAT);
             $store = $this->getStore($input);
             $theme = $this->getTheme($store);
             $generator = $this->createGenerator();
             $components = $generator->collect($theme);
             $schema = $generator->build($components);
-            $finalFile = $generator->formatForCli($schema, $format);
             $basePath = $this->cliContext->getBasePath($input->getOption(self::OPTION_PATH));
             $space = $this->cliContext->resolveSpace($input->getOption(self::OPTION_SPACE));
-            $spaceComponents = $space['id'] ? $this->readPulledComponents($basePath . '/components/' . $space['id']) : null;
+            $spaceComponents = $space['id'] ? $this->cliContext->readPulledComponents($basePath . '/components/' . $space['id']) : null;
+
+            if ($spaceComponents !== null) {
+                // Keep space settings the templates can't express, so the push doesn't drop them.
+                $schema = $generator->withSpaceSettings($schema, $this->comparer->spaceComponents($spaceComponents));
+            }
+
+            $finalFile = $generator->formatForCli($schema);
         } catch (LocalizedException $e) {
             $output->writeln('<error>' . $e->getMessage() . '</error>');
 
@@ -146,9 +145,8 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             return Command::FAILURE;
         }
 
-        $v3 = $format === ComponentSchemaGenerator::FORMAT_V3;
-        $finalPath = $v3 ? $basePath . '/components-' . $storeCode . '.json' : $basePath . '/components/' . $storeCode . '/components.json';
-        $safePath = $v3 ? $basePath . '/components-' . $storeCode . '-safe.json' : $basePath . '/components/' . $storeCode . '-safe/components.json';
+        $finalPath = $basePath . '/components/' . $storeCode . '/components.json';
+        $safePath = $basePath . '/components/' . $storeCode . '-safe/components.json';
 
         $this->writeJson($finalPath, $finalFile);
         $output->writeln(sprintf(
@@ -162,7 +160,7 @@ class GenerateComponentSchema extends AbstractSchemaCommand
         $safeWritten = false;
 
         if ($spaceComponents !== null) {
-            $safeFile = $generator->formatForCli($generator->buildSafe($schema, $spaceComponents), $format);
+            $safeFile = $generator->formatForCli($generator->buildSafe($schema, $spaceComponents));
 
             if ($safeFile !== $finalFile) {
                 $this->writeJson($safePath, $safeFile);
@@ -177,18 +175,10 @@ class GenerateComponentSchema extends AbstractSchemaCommand
         }
 
         $changesWritten = $input->getOption(self::OPTION_CHANGED_ONLY)
-            && $this->writeChanges($output, $spaceComponents, $issues, $finalFile, $v3, $basePath, $storeCode);
+            && $this->writeChanges($output, $spaceComponents, $issues, $finalFile, $basePath, $storeCode);
 
-        $migrations = $v3 ? [] : $this->migrationBuilder->build($schema['renames']);
-
-        if ($v3 && $schema['renames']) {
-            $output->writeln('<comment>Renamed fields need migrations, which are only generated for Storyblok CLI v4 (--format=v4).</comment>');
-        }
-
-        // v3 output sits alongside the v4 files: leave v4 migrations alone.
-        if (!$v3) {
-            $this->writeMigrations($basePath . '/migrations/' . $storeCode, $migrations);
-        }
+        $migrations = $this->migrationBuilder->build($schema['renames']);
+        $this->writeMigrations($basePath . '/migrations/' . $storeCode, $migrations);
 
         foreach (array_keys($migrations) as $migration) {
             $output->writeln('<info>Wrote migration ' . $this->cliContext->toDisplayPath($basePath . '/migrations/' . $storeCode . '/' . $migration) . '</info>');
@@ -200,7 +190,7 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             $output->writeln('<info>Wrote the IDE helper to ' . $this->cliContext->toDisplayPath($basePath . '/' . self::IDE_HELPER_FILE) . '</info>');
         }
 
-        $this->printNextSteps($output, $basePath, $storeCode, $format, $safeWritten, (bool)$migrations, $changesWritten);
+        $this->printNextSteps($output, $basePath, $storeCode, $safeWritten, (bool)$migrations, $changesWritten, $space);
 
         return Command::SUCCESS;
     }
@@ -306,10 +296,10 @@ class GenerateComponentSchema extends AbstractSchemaCommand
      * @param OutputInterface $output
      * @param string $basePath
      * @param string $storeCode
-     * @param string $format
      * @param bool $safeWritten
      * @param bool $hasMigrations
      * @param bool $changesWritten
+     * @param array{id: string|null, source: string|null} $space
      *
      * @return void
      */
@@ -317,43 +307,30 @@ class GenerateComponentSchema extends AbstractSchemaCommand
         OutputInterface $output,
         string $basePath,
         string $storeCode,
-        string $format,
         bool $safeWritten,
         bool $hasMigrations,
         bool $changesWritten,
+        array $space,
     ): void {
         $cli = $this->cliContext->getCliPrefix($basePath);
+        // The CLI reads the space from storyblok.config.* itself; any other source has to be passed on.
+        $spaceOption = $space['id'] && !str_starts_with((string)$space['source'], 'storyblok.config.') ? ' --space ' . $space['id'] : '';
+
         $output->writeln('');
         $output->writeln('Next steps (from the Magento root):');
 
-        if ($format === ComponentSchemaGenerator::FORMAT_V3) {
-            if ($changesWritten) {
-                $output->writeln(sprintf(
-                    '  Changed components only: storyblok push-components %s --space <SPACE_ID>',
-                    $this->cliContext->toDisplayPath($basePath . '/components-' . $storeCode . '-changes.json')
-                ));
-            }
-
-            $output->writeln(sprintf(
-                '  At deploy: storyblok push-components %s --space <SPACE_ID>',
-                $this->cliContext->toDisplayPath($basePath . '/components-' . $storeCode . '.json')
-            ));
-
-            return;
-        }
-
         if ($changesWritten) {
-            $output->writeln(sprintf('  Changed components only (review it first): %s components push --from %s-changes', $cli, $storeCode));
+            $output->writeln(sprintf('  Changed components only (review it first): %s components push --from %s-changes%s', $cli, $storeCode, $spaceOption));
         }
 
         if ($safeWritten) {
-            $output->writeln(sprintf('  During development (additive, safe any time): %s components push --from %s-safe', $cli, $storeCode));
+            $output->writeln(sprintf('  During development (additive, safe any time): %s components push --from %s-safe%s', $cli, $storeCode, $spaceOption));
         }
 
-        $output->writeln(sprintf('  At deploy, after the templates are live: %s components push --from %s', $cli, $storeCode));
+        $output->writeln(sprintf('  At deploy, after the templates are live: %s components push --from %s%s', $cli, $storeCode, $spaceOption));
 
         if ($hasMigrations) {
-            $output->writeln(sprintf('  Then copy renamed content: %s migrations run --from %s --dry-run (then without --dry-run)', $cli, $storeCode));
+            $output->writeln(sprintf('  Then copy renamed content: %s migrations run --from %s%s --dry-run (then without --dry-run)', $cli, $storeCode, $spaceOption));
             $output->writeln('  Renamed fields are copied, not moved: templates should read the new name with a fallback to the old one.');
         }
     }
@@ -365,7 +342,6 @@ class GenerateComponentSchema extends AbstractSchemaCommand
      * @param array|null $spaceComponents
      * @param array $issues
      * @param array $finalFile The final schema in the CLI format being written.
-     * @param bool $v3
      * @param string $basePath
      * @param string $storeCode
      *
@@ -376,11 +352,10 @@ class GenerateComponentSchema extends AbstractSchemaCommand
         ?array $spaceComponents,
         array $issues,
         array $finalFile,
-        bool $v3,
         string $basePath,
         string $storeCode,
     ): bool {
-        $path = $v3 ? $basePath . '/components-' . $storeCode . '-changes.json' : $basePath . '/components/' . $storeCode . '-changes/components.json';
+        $path = $basePath . '/components/' . $storeCode . '-changes/components.json';
 
         $this->removeStale($path);
 
@@ -405,7 +380,7 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             $output->writeln(sprintf('  %s: %s', $name, implode('; ', $reasons)));
         }
 
-        $this->writeJson($path, $v3 ? $this->v3Subset($finalFile, $changed) : $this->v4Subset($finalFile, $changed));
+        $this->writeJson($path, $this->subset($finalFile, $changed));
         $output->writeln('<info>Wrote the changed components to ' . $this->cliContext->toDisplayPath($path) . '</info>');
 
         return true;
@@ -417,7 +392,7 @@ class GenerateComponentSchema extends AbstractSchemaCommand
      *
      * @return array
      */
-    private function v4Subset(array $items, array $changed): array
+    private function subset(array $items, array $changed): array
     {
         $components = array_values(array_filter($items, static fn ($item) => isset($item['schema'], $changed[$item['name']])));
         $folders = array_flip(array_filter(array_column($components, 'component_group_uuid')));
@@ -428,36 +403,6 @@ class GenerateComponentSchema extends AbstractSchemaCommand
         ];
     }
 
-    /**
-     * @param array $schema
-     * @param array $changed
-     *
-     * @return array
-     */
-    private function v3Subset(array $schema, array $changed): array
-    {
-        $components = array_values(array_filter($schema['components'], static fn ($component) => isset($changed[$component['name']])));
-        $folders = array_flip(array_filter(array_column($components, 'component_group_name')));
-
-        return [
-            'components' => $components,
-            'component_groups' => array_values(array_filter($schema['component_groups'], static fn ($group) => isset($folders[$group['name']]))),
-        ];
-    }
-
-    /**
-     * @param string $directory
-     *
-     * @return array|null Items (components and folders) from a `storyblok components pull` folder, or null if it doesn't exist.
-     * @throws LocalizedException
-     */
-    private function readPulledComponents(string $directory): ?array
-    {
-        $items = $this->cliContext->readPulledComponents($directory);
-
-        // Keep folders as well as components: they're needed to compare component folders.
-        return $items === null ? null : ($this->comparer->spaceComponents($items) ? $items : []);
-    }
 
     /**
      * Write the generated migrations and remove generated ones whose rename no longer exists.

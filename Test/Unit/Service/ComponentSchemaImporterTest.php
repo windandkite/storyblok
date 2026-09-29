@@ -138,6 +138,58 @@ class ComponentSchemaImporterTest extends TestCase
         $this->assertNotNull((new ComponentSchemaGenerator($this->createStub(RulePool::class), new File()))->parse($source, 'promo.phtml'));
     }
 
+    public function testSpaceTextIsNeverARegexReplacement(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $generator = new ComponentSchemaGenerator($this->createStub(RulePool::class), new File());
+        $fields = ['t' => ['type' => 'string', 'description' => 'Costs $0 now, C:\\new \\1']];
+        $tag = $importer->formatTag(['fields' => $fields]);
+
+        foreach ([
+            'header' => "<?php\n/**\n * Promo.\n */\n?>\n<div></div>\n",
+            'no docblock' => "<?php\n?>\n<div></div>\n",
+            'existing tag' => "<?php\n/**\n * @storyblok {\"fields\": {}}\n */\n?>\n<div></div>\n",
+            'single-line tag' => "<?php\n/** @storyblok {\"fields\": {\"old\": {\"type\": \"string\"}}} */\n?>\n<div></div>\n",
+        ] as $case => $source) {
+            $updated = $importer->applyToTemplate($source, $tag, 'promo');
+
+            token_get_all($updated, TOKEN_PARSE);
+            $this->assertSame(['fields' => $fields], $generator->parse($updated, 'promo.phtml'), $case);
+            $this->assertStringEndsWith("?>\n<div></div>\n", $updated, $case . ': markup untouched');
+        }
+    }
+
+    public function testRoundTripKeepsEverySetting(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $component = ['name' => 'rich', 'is_root' => true, 'is_nestable' => true, 'schema' => [
+            'title' => ['type' => 'text', 'translatable' => true, 'max_length' => '', 'regex' => '', 'rtl' => false],
+            'short' => ['type' => 'text', 'max_length' => '60'],
+            'link' => ['type' => 'multilink', 'email_link_type' => false],
+            'kids' => ['type' => 'bloks', 'restrict_components' => true, 'restrict_type' => 'groups', 'component_group_whitelist' => ['g']],
+            'story' => ['type' => 'option', 'source' => 'internal_stories', 'use_uuid' => true],
+            'file' => ['type' => 'asset'],
+            'ratio' => ['type' => 'number', 'default_value' => '1.5'],
+        ]];
+
+        $definition = $importer->toDefinition($component);
+
+        $this->assertTrue($definition['nestable']);
+        $this->assertSame(['type' => 'string', 'translatable' => true], $definition['fields']['title'], 'unset Storyblok values don\'t force a verbatim field');
+        $this->assertArrayHasKey('storyblok', $definition['fields']['short']);
+        $this->assertArrayHasKey('storyblok', $definition['fields']['link']);
+        $this->assertArrayHasKey('storyblok', $definition['fields']['kids']);
+        $this->assertSame(['type' => 'story'], $definition['fields']['story']);
+        $this->assertSame([], $definition['fields']['file']['filetypes'], 'no file types means any');
+        $this->assertSame('1.5', $definition['fields']['ratio']['default']);
+
+        $generator = new ComponentSchemaGenerator($this->createStub(RulePool::class), new File());
+        $parsed = $generator->parse("<?php\n/**\n" . $importer->formatTag($definition) . "\n */\n", 'rich.phtml');
+        $schema = $generator->build(['rich' => ['file' => 'rich.phtml', 'definition' => $parsed]]);
+
+        $this->assertSame([], (new ComponentSchemaComparer())->compare($generator->withSpaceSettings($schema, [$component]), [$component]));
+    }
+
     public function testNewTemplateIsValidPhp(): void
     {
         $importer = new ComponentSchemaImporter();

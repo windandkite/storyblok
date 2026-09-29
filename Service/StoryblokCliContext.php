@@ -84,7 +84,8 @@ class StoryblokCliContext
      * @param string $directory
      *
      * @return array|null Null when the folder doesn't exist.
-     * @throws LocalizedException When a file isn't valid JSON: a partial pull must never pass for a complete one.
+     * @throws LocalizedException When a file isn't valid JSON or there are no components: a partial or failed
+     *         pull must never pass for a complete one.
      */
     public function readPulledComponents(string $directory): ?array
     {
@@ -105,12 +106,40 @@ class StoryblokCliContext
                 throw new LocalizedException(__('%1 is not valid JSON (%2): pull the space again.', $path, $e->getMessage()));
             }
 
+            if (is_array($data) && isset($data['components'])) {
+                throw new LocalizedException(__('%1 was written by Storyblok CLI v3: pull the space with CLI v4 (`storyblok components pull`).', $path));
+            }
+
             if (is_array($data)) {
-                $items = [...$items, ...($data['components'] ?? (array_is_list($data) ? $data : [$data]))];
+                // One list per file, or one component per file (`--separate-files`).
+                $items = [...$items, ...(array_is_list($data) ? $data : [$data])];
             }
         }
 
+        if (!array_filter($items, static fn ($item) => is_array($item) && isset($item['name'], $item['schema']))) {
+            throw new LocalizedException(__('No components found in %1: pull the space again.', $directory));
+        }
+
         return $items;
+    }
+
+    /**
+     * Whether a file is inside the Magento root's vendor/ directory, following symlinks either way (a
+     * Composer path repository links vendor/ to a directory elsewhere).
+     *
+     * @param string $path
+     *
+     * @return bool
+     */
+    public function isVendorPath(string $path): bool
+    {
+        // ponytail: assumes Composer's default vendor-dir; read composer.json "config.vendor-dir" if a project changes it.
+        $vendor = $this->getRoot() . 'vendor/';
+        $realVendor = realpath($vendor);
+        $realPath = realpath($path);
+
+        return str_starts_with($path, $vendor)
+            || ($realVendor !== false && $realPath !== false && str_starts_with($realPath, $realVendor . '/'));
     }
 
     /**
