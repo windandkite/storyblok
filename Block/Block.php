@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Block;
 
 use Exception;
+use Magento\Framework\DataObject\IdentityInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
 use Magento\Framework\Serialize\SerializerInterface;
 use WindAndKite\Storyblok\Api\Data\BlockInterface;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\BlockFactory;
@@ -19,8 +21,10 @@ use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\Storyblok\Service\StoryblokSessionManager;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
-class Block extends AbstractStoryblok
+class Block extends AbstractStoryblok implements IdentityInterface
 {
+    private const KEY_CACHE_IDENTITIES = 'cache_identities';
+
     protected const TEMPLATE_DIR = 'block';
 
     public function __construct(
@@ -108,6 +112,38 @@ class Block extends AbstractStoryblok
         );
     }
 
+    /**
+     * Render a child blok (or a list of bloks, or rich text) with this block's story, e.g. to wrap each
+     * item of a blocks field in your own markup:
+     *
+     *     <?php foreach ((array)$block->getData('links') as $link): ?>
+     *         <li><?= $block->renderBlok($link) ?></li>
+     *     <?php endforeach ?>
+     *
+     * @param array $blok
+     * @param StoryInterface|null $story Defaults to this block's story (pass another, e.g. for referenced content).
+     *
+     * @return string
+     */
+    public function renderBlok(array $blok, ?StoryInterface $story = null): string
+    {
+        return $this->fieldRenderer->renderField($blok, $story ?? $this->getStory());
+    }
+
+    /**
+     * Create (and hydrate) the block for a child blok without rendering it, to read data a hydrator
+     * added before calling toHtml().
+     *
+     * @param array $blok
+     * @param StoryInterface|null $story Defaults to this block's story.
+     *
+     * @return Block
+     */
+    public function createBlokInstance(array $blok, ?StoryInterface $story = null): Block
+    {
+        return $this->fieldRenderer->createBlockInstance($blok, $story ?? $this->getStory());
+    }
+
     public function renderRichTextField(
         string $fieldName,
     ): string {
@@ -144,28 +180,68 @@ class Block extends AbstractStoryblok
         return $this->getBlock()->getComponent() ?? $this->getData('component');
     }
 
+    /**
+     * Add cache tags for entities this blok renders (products, categories, referenced stories...),
+     * typically from a hydrator. They are collected into the page's X-Magento-Tags so the full page
+     * cache is purged when those entities change.
+     *
+     * @param string[] $identities
+     *
+     * @return $this
+     */
+    public function addIdentities(array $identities): static
+    {
+        return $this->setData(
+            self::KEY_CACHE_IDENTITIES,
+            array_values(array_unique([...$this->getIdentities(), ...$identities]))
+        );
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getIdentities(): array
+    {
+        return parent::getData(self::KEY_CACHE_IDENTITIES) ?? [];
+    }
+
     protected function _toHtml(): string
     {
         $html = parent::_toHtml();
         $editableAttributes = $this->getBlokEditableAttributes();
 
-        if (!empty($editableAttributes)) {
-            $excludedTags = ['script', 'style', 'link', 'meta', '!doctype', 'html', 'head', 'body'];
-
-            $pattern = '/<(?!(?:' . implode('|', $excludedTags) . ')[\s>\/])([a-zA-Z0-9]+)([^>]*)>/is';
-
-            $modifiedHtml = preg_replace_callback($pattern, function ($matches) use ($editableAttributes) {
-                $tagName = $matches[1];
-                $existingAttributes = $matches[2];
-
-                return "<{$tagName}{$existingAttributes} {$editableAttributes}>";
-            }, $html, 1);
-
-            if ($modifiedHtml !== null && $modifiedHtml !== $html) {
-                return $modifiedHtml;
-            }
+        if (empty($editableAttributes)) {
+            return $html;
         }
 
-        return $html;
+        return $this->addAttributesToFirstTag($html, $editableAttributes);
+    }
+
+    /**
+     * Append attributes to the first element tag in the HTML (skipping script/style/meta and document tags).
+     *
+     * Attribute values are matched as quoted strings, so a ">" inside one (e.g. a utility-class variant like
+     * class="[&>*]:mt-4") doesn't end the tag early.
+     *
+     * @param string $html
+     * @param string $attributes
+     *
+     * @return string
+     */
+    private function addAttributesToFirstTag(
+        string $html,
+        string $attributes,
+    ): string {
+        $excludedTags = ['script', 'style', 'link', 'meta', '!doctype', 'html', 'head', 'body'];
+        $pattern = '/<(?!(?:' . implode('|', $excludedTags) . ')[\s>\/])([a-zA-Z0-9]+)((?:"[^"]*"|\'[^\']*\'|[^\'">])*?)(\s*\/?)>/is';
+
+        $modifiedHtml = preg_replace_callback(
+            $pattern,
+            static fn (array $matches) => '<' . $matches[1] . $matches[2] . ' ' . $attributes . $matches[3] . '>',
+            $html,
+            1
+        );
+
+        return $modifiedHtml ?? $html;
     }
 }

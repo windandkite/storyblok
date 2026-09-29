@@ -198,8 +198,15 @@ class StoryRepository implements StoryRepositoryInterface
         ?StoryRequest $request = null,
     ): StoryInterface {
         try {
+            $cacheKey = $this->cacheService->generateStoryCacheKey('uuid_' . $uuid, $request);
+
+            if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
+                return $this->convertStoryResponse($cachedStory);
+            }
+
             $storyUuid = new Uuid($uuid);
             $response = $this->storyBlockClientWrapper->getStoriesApi()->byUuid($storyUuid, $request);
+            $this->cacheService->saveStoryResponse($cacheKey, $response);
 
             return $this->convertStoryResponse($response);
         } catch (Exception $e) {

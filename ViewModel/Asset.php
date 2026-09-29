@@ -41,10 +41,15 @@ class Asset implements ArgumentInterface
             );
         }
 
+        // External URLs, SVGs and GIFs can't go through Storyblok's image service: use them as they are.
+        if (!$this->isTransformable($assetData)) {
+            return (string)$assetData['filename'];
+        }
+
         $filename = $assetData['filename'];
         $dimensions = $this->getDimensionsFromFilename($filename);
 
-        if ($options['width'] ?? null || $options['height'] ?? null) {
+        if (($options['width'] ?? null) || ($options['height'] ?? null)) {
             $dimensions = [
                 'width' => $options['width'] ?? 0,
                 'height' => $options['height'] ?? 0,
@@ -52,11 +57,11 @@ class Asset implements ArgumentInterface
         }
 
         if ($options['flip_vertical'] ?? null) {
-            $dimensions['height'] = '-' . $dimensions['height'];
+            $dimensions['height'] = '-' . ($dimensions['height'] ?? 0);
         }
 
         if ($options['flip_horizontal'] ?? null) {
-            $dimensions['width'] = '-' . $dimensions['width'];
+            $dimensions['width'] = '-' . ($dimensions['width'] ?? 0);
         }
 
         if ($options['crop'] ?? null) {
@@ -73,10 +78,10 @@ class Asset implements ArgumentInterface
 
         // Special Filter Handling
         if ($options['grayscale'] ?? null) {
-            $filters[] = 'graysscale()';
+            $filters[] = 'grayscale()';
         }
 
-        $url = $filename . '/m/' . $dimensions['width'] . 'x' . $dimensions['height'];
+        $url = $filename . '/m/' . ($dimensions['width'] ?? 0) . 'x' . ($dimensions['height'] ?? 0);
 
         if ($filters) {
             $url .= '/filters:' . implode(':', $filters);
@@ -85,10 +90,143 @@ class Asset implements ArgumentInterface
         return $url;
     }
 
+    /**
+     * Whether the value is a Storyblok asset field with a file selected.
+     *
+     * @param mixed $assetData
+     *
+     * @return bool
+     */
+    public function isValidAsset(mixed $assetData): bool
+    {
+        return is_array($assetData)
+            && ($assetData['fieldtype'] ?? null) === 'asset'
+            && !empty($assetData['filename']);
+    }
+
+    /**
+     * Original pixel dimensions encoded in the Storyblok asset URL, or [] when unknown.
+     *
+     * @param array $assetData
+     *
+     * @return array{width?: int, height?: int}
+     */
+    public function getDimensions(array $assetData): array
+    {
+        return $this->isValidAsset($assetData) ? $this->getDimensionsFromFilename($assetData['filename']) : [];
+    }
+
+    /**
+     * Build a srcset string, one transformed URL per width.
+     *
+     * Pass $options['ratio'] (height / width, e.g. 9/16) to crop every candidate to the same
+     * aspect ratio; otherwise height is 0 so the image service keeps the original ratio.
+     * Candidates wider (or, with a ratio, taller) than the original image are skipped to avoid upscaling.
+     *
+     * @param array $assetData
+     * @param int[] $widths
+     * @param array $options Any transformImage() option, plus "ratio".
+     *
+     * @return string
+     */
+    public function getSrcset(
+        array $assetData,
+        array $widths,
+        array $options = [],
+    ): string {
+        if (!$this->isTransformable($assetData)) {
+            return '';
+        }
+
+        $ratio = (float)($options['ratio'] ?? 0);
+        unset($options['ratio']);
+
+        $widths = array_filter($widths, fn ($width) => $width <= $this->getMaxWidth($assetData, $ratio)) ?: [min($widths)];
+        $candidates = [];
+
+        foreach ($widths as $width) {
+            $candidates[] = $this->transformImage($assetData, [
+                'width' => $width,
+                'height' => $ratio ? (int)round($width * $ratio) : 0,
+            ] + $options) . ' ' . $width . 'w';
+        }
+
+        return implode(', ', $candidates);
+    }
+
+    /**
+     * CSS object-position ("42% 30%") for the asset's focal point, or null when none is set.
+     *
+     * @param array $assetData
+     *
+     * @return string|null
+     */
+    public function getFocalPointPosition(array $assetData): ?string
+    {
+        $dimensions = $this->getDimensions($assetData);
+
+        if (
+            empty($assetData['focus'])
+            || empty($dimensions['width'])
+            || empty($dimensions['height'])
+            || !preg_match('/^(\d+)x(\d+):/', (string)$assetData['focus'], $matches)
+        ) {
+            return null;
+        }
+
+        return round((int)$matches[1] / $dimensions['width'] * 100, 2) . '% '
+            . round((int)$matches[2] / $dimensions['height'] * 100, 2) . '%';
+    }
+
+    /**
+     * Whether the image service can transform the asset. SVGs, GIFs and assets that aren't hosted on
+     * Storyblok (external URLs) can't be processed and are used as-is.
+     *
+     * @param array $assetData
+     *
+     * @return bool
+     */
+    public function isTransformable(array $assetData): bool
+    {
+        if (!$this->isValidAsset($assetData) || !empty($assetData['is_external_url'])) {
+            return false;
+        }
+
+        $host = (string)parse_url($assetData['filename'], PHP_URL_HOST);
+        $path = (string)parse_url($assetData['filename'], PHP_URL_PATH);
+
+        // Storyblok asset hosts, including regional ones (a-us.storyblok.com, a.storyblokchina.cn).
+        return (bool)preg_match('/(^|\.)(storyblok\.com|storyblokchina\.cn)$/i', $host)
+            && !preg_match('/\.(svg|gif)$/i', $path);
+    }
+
+    /**
+     * Widest rendition possible without upscaling, optionally for a height / width crop ratio.
+     *
+     * @param array $assetData
+     * @param float $ratio
+     *
+     * @return int
+     */
+    public function getMaxWidth(
+        array $assetData,
+        float $ratio = 0,
+    ): int {
+        $dimensions = $this->getDimensions($assetData);
+
+        if (empty($dimensions['width'])) {
+            return PHP_INT_MAX;
+        }
+
+        return $ratio && !empty($dimensions['height'])
+            ? (int)min($dimensions['width'], floor($dimensions['height'] / $ratio))
+            : $dimensions['width'];
+    }
+
     private function getFormat(
         array $options,
     ): ?string {
-        if (!($optins['format'] ?? null)) {
+        if (!($options['format'] ?? null)) {
             return null;
         }
 
@@ -201,26 +339,26 @@ class Asset implements ArgumentInterface
         array $assetData,
         array $dimensions,
     ): ?string {
-        if (!($options['round_corner'] ?? null) || !is_array($assetData['round_corner'])) {
+        if (!($options['round_corner'] ?? null) || !is_array($options['round_corner'])) {
             return null;
         }
 
         $roundedCorners = $options['round_corner'];
-        $radius = (int)$roundedCorners['radius'] ?? 0;
+        $radius = (int)($roundedCorners['radius'] ?? 0);
 
         if (!$radius) {
             return null;
         }
 
-        $this->validateDimensionAgainstWidthPercentage($radius, 0.5, $dimensions['width'], 'Radius');
+        $this->validateDimensionAgainstWidthPercentage($radius, 0.5, (int)($dimensions['width'] ?? 0), 'Radius');
 
-        $ellipsis = (int)$roundedCorners['ellipsis'] ?? 0;
+        $ellipsis = (int)($roundedCorners['ellipsis'] ?? 0);
 
         if ($ellipsis) {
-            $this->validateDimensionAgainstWidthPercentage($ellipsis, 0.5, $dimensions['width'], 'Ellipsis');
+            $this->validateDimensionAgainstWidthPercentage($ellipsis, 0.5, (int)($dimensions['width'] ?? 0), 'Ellipsis');
         }
 
-        $backgroundColor = $roundedCorners['background'] ?? 'null';
+        $backgroundColor = $roundedCorners['background'] ?? null;
 
         if ($backgroundColor && $backgroundColor !== self::COLOR_TRANSPARENT) {
             $backgroundColor = $this->parseColor($backgroundColor) . ',0';
@@ -235,7 +373,7 @@ class Asset implements ArgumentInterface
         }
 
 
-        return $radius . ($ellipsis ? '|' . $ellipsis : '') . $backgroundColor;
+        return $radius . ($ellipsis ? '|' . $ellipsis : '') . ',' . $backgroundColor;
     }
 
     // Validation Function

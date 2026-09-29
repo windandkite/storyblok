@@ -28,4 +28,17 @@ interface FieldRendererInterface
         mixed $fieldValue,
         ?StoryInterface $story = null,
     ): string;
+
+    /**
+     * Creates and hydrates the block instance for a single blok without rendering it.
+     *
+     * @param array $fieldValue A single blok (must have _uid and component).
+     * @param StoryInterface|null $story
+     *
+     * @return \WindAndKite\Storyblok\Block\Block
+     */
+    public function createBlockInstance(
+        array $fieldValue,
+        ?StoryInterface $story = null,
+    ): \WindAndKite\Storyblok\Block\Block;
 }
