@@ -190,6 +190,20 @@ class ComponentSchemaImporterTest extends TestCase
         $this->assertSame([], (new ComponentSchemaComparer())->compare($generator->withSpaceSettings($schema, [$component]), [$component]));
     }
 
+    public function testStarterRendersFieldsGettersCantReach(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $definition = $importer->toDefinition(['name' => 'promo', 'schema' => [
+            'fooBar' => ['type' => 'richtext'],
+            'body' => ['type' => 'bloks'],
+        ]]);
+        $source = $importer->newTemplate('promo', $definition, $importer->formatTag($definition));
+
+        token_get_all($source, TOKEN_PARSE);
+        $this->assertStringContainsString("\$block->renderField('fooBar')", $source, 'getFooBarHtml() would read "foo_bar"');
+        $this->assertStringContainsString('$block->getBodyHtml()', $source);
+    }
+
     public function testNewTemplateIsValidPhp(): void
     {
         $importer = new ComponentSchemaImporter();

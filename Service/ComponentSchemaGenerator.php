@@ -671,7 +671,7 @@ class ComponentSchemaGenerator
      *
      * @return string
      */
-    private static function getterKey(string $method): string
+    public static function getterKey(string $method): string
     {
         return strtolower(trim((string)preg_replace('/([A-Z]|[0-9]+)/', '_$1', lcfirst(substr($method, 3))), '_'));
     }
@@ -734,6 +734,30 @@ class ComponentSchemaGenerator
         }, $schema['components']);
 
         return [...array_values($groups), ...$components];
+    }
+
+    /**
+     * JSON for a formatForCli() item list. Each component's schema is written as an object: PHP would write an
+     * empty schema, or field names "0", "1", ..., as a list. Nested lists (options, whitelists) stay lists.
+     *
+     * @param array $items
+     *
+     * @return string
+     */
+    public static function toJson(array $items): string
+    {
+        $items = array_map(
+            static function ($item) {
+                if (is_array($item) && is_array($item['schema'] ?? null)) {
+                    $item['schema'] = (object)$item['schema'];
+                }
+
+                return $item;
+            },
+            $items
+        );
+
+        return json_encode($items, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
     }
 
     /**

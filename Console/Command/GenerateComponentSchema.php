@@ -459,13 +459,13 @@ class GenerateComponentSchema extends AbstractSchemaCommand
 
     /**
      * @param string $path
-     * @param array $data
+     * @param array $items A formatForCli() item list.
      *
      * @return void
      */
-    private function writeJson(string $path, array $data): void
+    private function writeJson(string $path, array $items): void
     {
         $this->file->createDirectory(dirname($path));
-        $this->file->filePutContents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+        $this->file->filePutContents($path, ComponentSchemaGenerator::toJson($items));
     }
 }

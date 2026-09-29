@@ -133,6 +133,22 @@ class ComponentSchemaGeneratorTest extends TestCase
         $this->assertArrayNotHasKey('labels', $schema['size']);
     }
 
+    public function testSchemasAreWrittenAsObjects(): void
+    {
+        $json = ComponentSchemaGenerator::toJson([
+            ['name' => 'empty', 'schema' => []],
+            ['name' => 'numbered', 'schema' => ['0' => ['type' => 'text', 'pos' => 0], '1' => ['type' => 'option', 'options' => [['name' => 'A', 'value' => 'a']]]]],
+            ['name' => 'Layout', 'uuid' => 'g'],
+        ]);
+        $decoded = json_decode($json);
+
+        $this->assertEquals(new \stdClass(), $decoded[0]->schema);
+        $this->assertIsObject($decoded[1]->schema);
+        $this->assertStringContainsString('"0": {', $json, 'field "0" is kept as a key');
+        $this->assertIsArray($decoded[1]->schema->{'1'}->options, 'nested lists stay lists');
+        $this->assertObjectNotHasProperty('schema', $decoded[2]);
+    }
+
     private function template(string $directory, string $name, ?array $definition): string
     {
         $path = $this->root . '/' . $directory . '/block/' . $name . '.phtml';

@@ -153,13 +153,17 @@ class ComponentSchemaImporter
 
         foreach ($definition['fields'] ?? [] as $name => $field) {
             $data = sprintf('$block->getData(%s)', var_export($name, true));
-            $method = 'get' . str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $name))) . 'Html';
+            $getter = 'get' . str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $name)));
+            // The getter reads another key for names like "fooBar" (Magento reads "foo_bar"): render by name.
+            $render = ComponentSchemaGenerator::getterKey($getter) === $name
+                ? '$block->' . $getter . 'Html()'
+                : sprintf('$block->renderField(%s)', var_export($name, true));
 
             $lines[] = match ($field['type'] ?? null) {
                 'string', 'integer', 'datetime', null => isset($field['storyblok'])
                     ? '    <?php /* ' . $comment(sprintf('%s (%s): %s', $name, $field['storyblok']['type'] ?? 'custom', $data)) . ' */ ?>'
                     : sprintf("    <?php if ((string)%1\$s !== ''): ?>\n        <p><?= \$escaper->escapeHtml(%1\$s) ?></p>\n    <?php endif ?>", $data),
-                'richtext', 'array' => sprintf('    <?= /** @noEscape */ $block->%s() ?>', $method),
+                'richtext', 'array' => sprintf('    <?= /** @noEscape */ %s ?>', $render),
                 'asset' => sprintf(
                     "    <?php if (!empty(%1\$s['filename'])): ?>\n        <img src=\"<?= \$escaper->escapeUrl(%1\$s['filename']) ?>\" alt=\"<?= \$escaper->escapeHtmlAttr(%1\$s['alt'] ?? '') ?>\" loading=\"lazy\">\n    <?php endif ?>",
                     $data
