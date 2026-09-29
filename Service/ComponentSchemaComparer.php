@@ -229,7 +229,8 @@ class ComponentSchemaComparer
             }
 
             if (!isset($spaceFields[$field])) {
-                if (!isset($renamedTargets[$field])) {
+                // A rename target is covered by the rename issue, but only when the old field is in the space.
+                if (!isset($spaceFields[$renamedTargets[$field] ?? ''])) {
                     $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_NOT_PUSHED, $component, $field, 'Defined by the template but not in the space: push to add it.');
                 }
 

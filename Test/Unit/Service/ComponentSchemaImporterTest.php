@@ -124,6 +124,20 @@ class ComponentSchemaImporterTest extends TestCase
         $this->assertSame([], (new ComponentSchemaComparer())->compare(['components' => [['name' => 'box', 'schema' => $schema]]], [$component]));
     }
 
+    public function testSpaceTextCantCloseComments(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $definition = $importer->toDefinition(['name' => 'promo', 'display_name' => 'Promo */ ?><?php exit; /*', 'schema' => [
+            'odd' => ['type' => 'custom', 'field_type' => '*/ exit; /*'],
+        ]]);
+        $source = $importer->newTemplate('promo', $definition, $importer->formatTag($definition));
+
+        token_get_all($source, TOKEN_PARSE);
+        $this->assertStringNotContainsString('*/ ?><?php exit;', $source);
+        $this->assertStringNotContainsString('*/ exit;', $source);
+        $this->assertNotNull((new ComponentSchemaGenerator($this->createStub(RulePool::class), new File()))->parse($source, 'promo.phtml'));
+    }
+
     public function testNewTemplateIsValidPhp(): void
     {
         $importer = new ComponentSchemaImporter();

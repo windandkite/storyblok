@@ -150,24 +150,27 @@ class ComponentSchemaImporter
     {
         $lines = [];
 
+        // Names and labels come from the space: never let them close a comment.
+        $comment = static fn (string $text) => str_replace('*/', '*\\/', $text);
+
         foreach ($definition['fields'] ?? [] as $name => $field) {
             $data = sprintf('$block->getData(%s)', var_export($name, true));
             $method = 'get' . str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $name))) . 'Html';
 
             $lines[] = match ($field['type'] ?? null) {
                 'string', 'integer', 'datetime', null => isset($field['storyblok'])
-                    ? sprintf('    <?php /* %s (%s): %s */ ?>', $name, $field['storyblok']['type'] ?? 'custom', $data)
+                    ? '    <?php /* ' . $comment(sprintf('%s (%s): %s', $name, $field['storyblok']['type'] ?? 'custom', $data)) . ' */ ?>'
                     : sprintf("    <?php if ((string)%1\$s !== ''): ?>\n        <p><?= \$escaper->escapeHtml(%1\$s) ?></p>\n    <?php endif ?>", $data),
                 'richtext', 'array' => sprintf('    <?= /** @noEscape */ $block->%s() ?>', $method),
                 'asset' => sprintf(
                     "    <?php if (!empty(%1\$s['filename'])): ?>\n        <img src=\"<?= \$escaper->escapeUrl(%1\$s['filename']) ?>\" alt=\"<?= \$escaper->escapeHtmlAttr(%1\$s['alt'] ?? '') ?>\" loading=\"lazy\">\n    <?php endif ?>",
                     $data
                 ),
-                default => sprintf('    <?php /* %s (%s): %s */ ?>', $name, $field['type'], $data),
+                default => '    <?php /* ' . $comment(sprintf('%s (%s): %s', $name, $field['type'], $data)) . ' */ ?>',
             };
         }
 
-        return "<?php\n/**\n * " . ($definition['display_name'] ?? $this->label($component))
+        return "<?php\n/**\n * " . $comment((string)($definition['display_name'] ?? $this->label($component)))
             . " (created by storyblok:schema:import: replace the starter markup below).\n *\n"
             . $tag . "\n */\n\n"
             . "declare(strict_types=1);\n\n"

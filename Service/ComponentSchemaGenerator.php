@@ -386,7 +386,9 @@ class ComponentSchemaGenerator
      * everything new from the templates. Nothing the space has is removed or changed:
      * - fields only in the space stay (a renamed field's old name gets a "Deprecated" description);
      * - option values and allowed bloks are merged;
-     * - a field whose type changed keeps the space's type (report it: types can't change additively).
+     * - a field whose type changed keeps the space's type (report it: types can't change additively);
+     * - settings that would restrict editors don't apply yet: `required` only if the space has it, file
+     *   types are merged, and a story picker keeps the space's folder.
      *
      * @param array{components: array, component_groups: array, renames: array} $final
      * @param array $spaceComponents Components pulled from the space (items with a schema).
@@ -448,6 +450,22 @@ class ComponentSchemaGenerator
                         if (!in_array($option['value'] ?? null, $values, true)) {
                             $component['schema'][$name]['options'][] = $option;
                         }
+                    }
+                }
+
+                if (empty($spaceField['required'])) {
+                    unset($component['schema'][$name]['required']);
+                }
+
+                if (isset($field['filetypes'], $spaceField['filetypes'])) {
+                    $component['schema'][$name]['filetypes'] = array_values(array_unique([...$field['filetypes'], ...$spaceField['filetypes']]));
+                }
+
+                if (($field['folder_slug'] ?? null) !== ($spaceField['folder_slug'] ?? null)) {
+                    unset($component['schema'][$name]['folder_slug']);
+
+                    if (!empty($spaceField['folder_slug'])) {
+                        $component['schema'][$name]['folder_slug'] = $spaceField['folder_slug'];
                     }
                 }
 

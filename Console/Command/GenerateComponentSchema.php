@@ -185,7 +185,10 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             $output->writeln('<comment>Renamed fields need migrations, which are only generated for Storyblok CLI v4 (--format=v4).</comment>');
         }
 
-        $this->writeMigrations($basePath . '/migrations/' . $storeCode, $migrations);
+        // v3 output sits alongside the v4 files: leave v4 migrations alone.
+        if (!$v3) {
+            $this->writeMigrations($basePath . '/migrations/' . $storeCode, $migrations);
+        }
 
         foreach (array_keys($migrations) as $migration) {
             $output->writeln('<info>Wrote migration ' . $this->cliContext->toDisplayPath($basePath . '/migrations/' . $storeCode . '/' . $migration) . '</info>');

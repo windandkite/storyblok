@@ -82,6 +82,8 @@ class SchemaWorkflowTest extends TestCase
             'size' => ['type' => 'string', 'enum' => ['small', 'large']],
             'image' => ['type' => 'asset'],
             'story' => ['type' => 'string', 'enum' => ['a', 'b']],
+            'photo' => ['type' => 'asset', 'required' => true],
+            'related' => ['type' => 'story', 'folder' => 'blog/'],
         ]]]);
 
         $this->assertSame([['component' => 'page', 'from' => 'body', 'to' => 'content']], $final['renames']);
@@ -94,6 +96,8 @@ class SchemaWorkflowTest extends TestCase
             'legacy' => ['type' => 'text'],
             'tab-old' => ['type' => 'tab', 'keys' => ['legacy']],
             'story' => ['type' => 'option', 'source' => 'internal_stories'],
+            'photo' => ['type' => 'asset', 'filetypes' => ['images', 'videos']],
+            'related' => ['type' => 'option', 'source' => 'internal_stories'],
         ]]];
 
         $safe = $this->generator()->buildSafe($final, $space)['components'][0]['schema'];
@@ -106,6 +110,9 @@ class SchemaWorkflowTest extends TestCase
         $this->assertSame('text', $safe['image']['type'], 'type changes keep the space type');
         $this->assertSame('internal_stories', $safe['story']['source'], 'option source changes keep the space field');
         $this->assertArrayNotHasKey('options', $safe['story']);
+        $this->assertArrayNotHasKey('required', $safe['photo'], 'required only once the final schema is pushed');
+        $this->assertSame(['images', 'videos'], $safe['photo']['filetypes'], 'file types merged');
+        $this->assertArrayNotHasKey('folder_slug', $safe['related'], 'the picker stays unrestricted');
         $this->assertSame('array', $this->build(['page' => ['fields' => ['content' => ['type' => 'array']]]])['components'][0]['schema']['content']['type'] === 'bloks' ? 'array' : 'x');
     }
 
@@ -234,6 +241,13 @@ class SchemaWorkflowTest extends TestCase
         $this->assertSame(ComponentSchemaComparer::KIND_FIELD_REMOVED, $kinds['legacy']);
         $this->assertContains(ComponentSchemaComparer::KIND_LAYOUT, array_column($issues, 'kind'));
         $this->assertSame(['legacy'], array_column(array_filter($issues, [$comparer, 'isDestructive']), 'field'), 'renames and layout are not destructive');
+
+        // Old field not in the space (e.g. already removed): the new field still needs pushing.
+        unset($pulled[0]['schema']['body'], $pulled[0]['schema']['content']);
+        $this->assertContains(
+            [ComponentSchemaComparer::KIND_FIELD_NOT_PUSHED, 'content'],
+            array_map(static fn ($issue) => [$issue['kind'], $issue['field']], $comparer->compare($expected, $pulled))
+        );
     }
 
     private function build(array $definitions): array
