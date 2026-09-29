@@ -27,6 +27,16 @@
         </arguments>
     </type>
 
+    <type name="Magento\Framework\Console\CommandList">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="storyblok_schema_generate" xsi:type="object">WindAndKite\Storyblok\Console\Command\GenerateComponentSchema</item>
+                <item name="storyblok_schema_validate" xsi:type="object">WindAndKite\Storyblok\Console\Command\ValidateComponentSchema</item>
+                <item name="storyblok_schema_import" xsi:type="object">WindAndKite\Storyblok\Console\Command\ImportComponentSchema</item>
+            </argument>
+        </arguments>
+    </type>
+
     <type name="Magento\Sitemap\Model\ItemProvider\Composite">
         <arguments>
             <argument name="itemProviders" xsi:type="array">
