@@ -139,10 +139,9 @@ class ComponentUsageCounter
      */
     private function isEmpty(mixed $value): bool
     {
-        // ponytail: an unticked checkbox (false) counts as "not set"; compare against the field default if
-        // a space ever defaults a boolean to true and false becomes meaningful.
+        // A stored false is content: when a boolean defaults to true, an explicit false is a choice. Missing
+        // fields are null.
         return $value === null
-            || $value === false
             || $value === ''
             || $value === []
             || (is_array($value) && ($value['type'] ?? null) === 'doc' && empty($value['content']))

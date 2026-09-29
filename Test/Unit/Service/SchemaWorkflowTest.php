@@ -167,7 +167,7 @@ class SchemaWorkflowTest extends TestCase
         mkdir($this->root . '/stories');
         file_put_contents($this->root . '/stories/a.json', json_encode(['uuid' => 'a', 'content' => ['_uid' => '1', 'component' => 'page', 'body' => [
             ['_uid' => '2', 'component' => 'section', 'padding' => 'xl', 'legacy' => 'x'],
-            ['_uid' => '3', 'component' => 'section', 'padding' => 'small', 'legacy' => ''],
+            ['_uid' => '3', 'component' => 'section', 'padding' => 'small', 'legacy' => '', 'sticky' => false],
         ]]]));
         file_put_contents($this->root . '/stories/b.json', json_encode(['uuid' => 'b', 'content' => ['_uid' => '4', 'component' => 'section', 'padding' => 'xl']]));
 
@@ -175,12 +175,14 @@ class SchemaWorkflowTest extends TestCase
             ['component' => 'section', 'field' => 'padding', 'values' => ['xl']],
             ['component' => 'section', 'field' => 'legacy', 'values' => []],
             ['component' => 'section', 'field' => null, 'values' => []],
+            ['component' => 'section', 'field' => 'sticky', 'values' => []],
         ];
         $annotated = (new ComponentUsageCounter(new File()))->annotate($this->root . '/stories', $issues);
 
         $this->assertSame(['stories' => 2, 'bloks' => 2], $annotated[0]['usage']);
         $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[1]['usage'], 'empty values are not usage');
         $this->assertArrayNotHasKey('usage', $annotated[2]);
+        $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[3]['usage'], 'a stored false is content');
         $this->assertNull((new ComponentUsageCounter(new File()))->annotate($this->root . '/missing', $issues));
 
         // Zero usage is only reported when stories were actually read.

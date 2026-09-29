@@ -266,7 +266,8 @@ class ComponentSchemaImporter
     private function toEnum(array $options): array
     {
         $values = array_map(static fn ($option) => (string)($option['value'] ?? ''), $options);
-        $numeric = $values && array_filter($values, static fn ($value) => !ctype_digit($value)) === [];
+        // Integers only when lossless: "01" must stay "01", or content using it would be orphaned.
+        $numeric = $values && array_filter($values, static fn ($value) => (string)(int)$value !== $value) === [];
 
         // Only labels the generator wouldn't derive from the value are kept.
         $labels = [];

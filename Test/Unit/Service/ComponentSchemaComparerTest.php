@@ -90,6 +90,7 @@ class ComponentSchemaComparerTest extends TestCase
         $this->assertSame(['deleted'], $byKind[ComponentSchemaComparer::KIND_WHITELIST_REMOVED]['values'], 'a blok whose template was deleted is still a removal');
         $this->assertTrue($comparer->isDestructive($byKind[ComponentSchemaComparer::KIND_WHITELIST_REMOVED]));
         $this->assertArrayNotHasKey(ComponentSchemaComparer::KIND_WHITELIST_WITHOUT_TEMPLATE, $byKind, 'not reported twice');
+        $this->assertCount(1, array_filter($issues, static fn ($issue) => $issue['field'] === 'size'), 'one warning per relabelled field');
         $this->assertSame(['section' => ['folder changed', 'body: allowed bloks removed (deleted)', 'size: option labels changed']], $comparer->changedComponents($issues));
     }
 

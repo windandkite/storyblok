@@ -424,14 +424,6 @@ class ComponentSchemaComparer
             }
         }
 
-        // Option labels (values are compared separately).
-        if (isset($expected['options'], $actual['options'])
-            && array_column($expected['options'], 'name', 'value') != array_column($actual['options'], 'name', 'value')
-            && array_keys(array_column($expected['options'], 'name', 'value')) == array_keys(array_column($actual['options'], 'name', 'value'))
-        ) {
-            $differences[] = 'option labels';
-        }
-
         return $differences;
     }
 

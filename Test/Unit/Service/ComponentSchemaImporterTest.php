@@ -109,11 +109,13 @@ class ComponentSchemaImporterTest extends TestCase
         $component = ['name' => 'box', 'schema' => [
             'size' => ['type' => 'option', 'options' => [['name' => 'Small', 'value' => 'small'], ['name' => 'Extra Large', 'value' => 'xl']]],
             'level' => ['type' => 'option', 'options' => [['name' => 'Off', 'value' => '0'], ['name' => 'On', 'value' => '1']]],
+            'code' => ['type' => 'option', 'options' => [['name' => '01', 'value' => '01'], ['name' => '2', 'value' => '2']]],
         ]];
 
         $tag = $importer->formatTag($importer->toDefinition($component));
         $this->assertStringContainsString('"labels": {"xl": "Extra Large"}', $tag, 'only labels that differ from the derived ones');
         $this->assertStringContainsString('"labels": {"0": "Off", "1": "On"}', $tag, 'an object even when keys are 0, 1');
+        $this->assertStringContainsString('"code": {"type": "string", "enum": ["01", "2"]}', $tag, 'integers only when lossless');
 
         $generator = new ComponentSchemaGenerator($this->createStub(RulePool::class), new File());
         $definition = $generator->parse("<?php\n/**\n" . $tag . "\n */\n", 'box.phtml');
