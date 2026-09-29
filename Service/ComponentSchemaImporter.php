@@ -125,7 +125,12 @@ class ComponentSchemaImporter
         } elseif ($docblock !== null && $this->isHeader($source, $docblock)) {
             $source = str_replace($docblock, preg_replace('/\s*\*\/$/', "\n *\n" . $tag . "\n */", $docblock), $source);
         } else {
-            $source = preg_replace('/^<\?php[ \t]*\n/', "<?php\n/**\n" . $tag . "\n */\n", $source, 1);
+            // Right after the opening tag, whatever follows it (a newline, CRLF or `declare(...)` on the same
+            // line); a template starting with markup gets its own PHP block.
+            $header = "/**\n" . $tag . "\n */";
+            $source = preg_match('/^<\?php\b/', $source)
+                ? (string)preg_replace('/^<\?php\b/', "<?php\n" . $header, $source, 1)
+                : "<?php\n" . $header . "\n?>\n" . $source;
         }
 
         return $this->addIdeHint($source, $component);
@@ -181,15 +186,15 @@ class ComponentSchemaImporter
      */
     private function encode(mixed $value): string
     {
-        if ($value instanceof \stdClass) {
-            return '{}';
-        }
+        // stdClass forces an object, e.g. labels keyed "0", "1", which would otherwise encode as a list.
+        $object = $value instanceof \stdClass;
+        $value = $object ? (array)$value : $value;
 
         if (!is_array($value)) {
             return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
-        if (array_is_list($value)) {
+        if (!$object && array_is_list($value)) {
             return '[' . implode(', ', array_map([$this, 'encode'], $value)) . ']';
         }
 
@@ -263,10 +268,22 @@ class ComponentSchemaImporter
         $values = array_map(static fn ($option) => (string)($option['value'] ?? ''), $options);
         $numeric = $values && array_filter($values, static fn ($value) => !ctype_digit($value)) === [];
 
+        // Only labels the generator wouldn't derive from the value are kept.
+        $labels = [];
+
+        foreach ($options as $option) {
+            $value = (string)($option['value'] ?? '');
+            $name = (string)($option['name'] ?? '');
+
+            if ($name !== '' && $name !== $this->label($value)) {
+                $labels[$value] = $name;
+            }
+        }
+
         return [
             'type' => $numeric ? 'integer' : 'string',
             'enum' => $numeric ? array_map('intval', $values) : $values,
-        ];
+        ] + ($labels ? ['labels' => (object)$labels] : []);
     }
 
     /**

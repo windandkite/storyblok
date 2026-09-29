@@ -155,27 +155,8 @@ class ValidateComponentSchema extends AbstractSchemaCommand
      */
     private function readPulled(string $directory, string $cli, string $spaceId): array
     {
-        if (!$this->file->isDirectory($directory)) {
-            throw new LocalizedException(__('Space %1 hasn\'t been pulled: run `%2 components pull --space %1` first.', $spaceId, $cli));
-        }
-
-        $items = [];
-
-        foreach ($this->file->readDirectory($directory) as $path) {
-            if (!str_ends_with($path, '.json')) {
-                continue;
-            }
-
-            try {
-                $data = json_decode($this->file->fileGetContents($path), true, flags: JSON_THROW_ON_ERROR);
-            } catch (\JsonException $e) {
-                throw new LocalizedException(__('%1 is not valid JSON: %2', $path, $e->getMessage()));
-            }
-
-            if (is_array($data)) {
-                $items = [...$items, ...($data['components'] ?? (array_is_list($data) ? $data : [$data]))];
-            }
-        }
+        $items = $this->cliContext->readPulledComponents($directory)
+            ?? throw new LocalizedException(__('Space %1 hasn\'t been pulled: run `%2 components pull --space %1` first.', $spaceId, $cli));
 
         if (!$this->comparer->spaceComponents($items)) {
             throw new LocalizedException(__('No components found in %1', $directory));

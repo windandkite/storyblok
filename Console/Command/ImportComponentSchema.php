@@ -120,7 +120,8 @@ class ImportComponentSchema extends AbstractSchemaCommand
                 throw new LocalizedException(__('The store\'s theme (%1) is not in app/design, so new templates can\'t be written to it.', $theme->getFullPath()));
             }
 
-            $blockDirectories = $this->createGenerator()->getBlockDirectories($theme);
+            $generator = $this->createGenerator();
+            $blockDirectories = $generator->getBlockDirectories($theme);
         } catch (LocalizedException $e) {
             $output->writeln('<error>' . $e->getMessage() . '</error>');
 
@@ -159,11 +160,19 @@ class ImportComponentSchema extends AbstractSchemaCommand
             $template = ComponentSchemaGenerator::templateName($name) . '.phtml';
             $existing = $this->findTemplate($blockDirectories, $template);
 
-            if ($existing !== null && !$input->getOption(self::OPTION_OVERWRITE)
-                && str_contains($this->file->fileGetContents($existing), '@storyblok')
-            ) {
-                $output->writeln(sprintf('%s: already has a schema, skipped (--overwrite to replace it) (%s)', $name, $this->cliContext->toDisplayPath($existing)));
-                continue;
+            if ($existing !== null && !$input->getOption(self::OPTION_OVERWRITE)) {
+                // Same rule as generate: only a tag in the first docblock is a schema.
+                try {
+                    $hasSchema = $generator->parse($this->file->fileGetContents($existing), $existing) !== null;
+                } catch (LocalizedException $e) {
+                    $output->writeln(sprintf('<comment>%s: skipped, %s (fix it, or --overwrite to replace it)</comment>', $name, $e->getMessage()));
+                    continue;
+                }
+
+                if ($hasSchema) {
+                    $output->writeln(sprintf('%s: already has a schema, skipped (--overwrite to replace it) (%s)', $name, $this->cliContext->toDisplayPath($existing)));
+                    continue;
+                }
             }
 
             if ($existing === null) {
@@ -292,18 +301,7 @@ class ImportComponentSchema extends AbstractSchemaCommand
      */
     private function readPulled(string $directory, string $cli, string $spaceId): array
     {
-        if (!$this->file->isDirectory($directory)) {
-            throw new LocalizedException(__('Space %1 hasn\'t been pulled: run `%2 components pull --space %1` first.', $spaceId, $cli));
-        }
-
-        $items = [];
-
-        foreach ($this->file->readDirectory($directory) as $path) {
-            if (str_ends_with($path, '.json') && is_array($data = json_decode($this->file->fileGetContents($path), true))) {
-                $items = [...$items, ...($data['components'] ?? (array_is_list($data) ? $data : [$data]))];
-            }
-        }
-
-        return $items;
+        return $this->cliContext->readPulledComponents($directory)
+            ?? throw new LocalizedException(__('Space %1 hasn\'t been pulled: run `%2 components pull --space %1` first.', $spaceId, $cli));
     }
 }

@@ -113,6 +113,9 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             $components = $generator->collect($theme);
             $schema = $generator->build($components);
             $finalFile = $generator->formatForCli($schema, $format);
+            $basePath = $this->cliContext->getBasePath($input->getOption(self::OPTION_PATH));
+            $space = $this->cliContext->resolveSpace($input->getOption(self::OPTION_SPACE));
+            $spaceComponents = $space['id'] ? $this->readPulledComponents($basePath . '/components/' . $space['id']) : null;
         } catch (LocalizedException $e) {
             $output->writeln('<error>' . $e->getMessage() . '</error>');
 
@@ -123,9 +126,6 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             $output->writeln('<comment>' . $warning . '</comment>');
         }
 
-        $basePath = $this->cliContext->getBasePath($input->getOption(self::OPTION_PATH));
-        $space = $this->cliContext->resolveSpace($input->getOption(self::OPTION_SPACE));
-        $spaceComponents = $space['id'] ? $this->readPulledComponents($basePath . '/components/' . $space['id']) : null;
         $storeCode = $store->getCode();
 
         if ($space['id'] && $spaceComponents === null) {
@@ -171,6 +171,9 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             } else {
                 $this->removeStale($safePath);
             }
+        } else {
+            // Nothing to be additive against: an earlier safe schema would be stale.
+            $this->removeStale($safePath);
         }
 
         $changesWritten = $input->getOption(self::OPTION_CHANGED_ONLY)
@@ -443,29 +446,14 @@ class GenerateComponentSchema extends AbstractSchemaCommand
      * @param string $directory
      *
      * @return array|null Items (components and folders) from a `storyblok components pull` folder, or null if it doesn't exist.
+     * @throws LocalizedException
      */
     private function readPulledComponents(string $directory): ?array
     {
-        if (!$this->file->isDirectory($directory)) {
-            return null;
-        }
-
-        $items = [];
-
-        foreach ($this->file->readDirectory($directory) as $path) {
-            if (!str_ends_with($path, '.json')) {
-                continue;
-            }
-
-            $data = json_decode($this->file->fileGetContents($path), true);
-
-            if (is_array($data)) {
-                $items = [...$items, ...($data['components'] ?? (array_is_list($data) ? $data : [$data]))];
-            }
-        }
+        $items = $this->cliContext->readPulledComponents($directory);
 
         // Keep folders as well as components: they're needed to compare component folders.
-        return $this->comparer->spaceComponents($items) ? $items : [];
+        return $items === null ? null : ($this->comparer->spaceComponents($items) ? $items : []);
     }
 
     /**

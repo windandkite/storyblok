@@ -59,10 +59,38 @@ class ComponentSchemaComparerTest extends TestCase
             'error section.title',        // type mismatch
             'error section.padding',      // space value "xl" not handled
             'warning section.padding',    // template value "large" not in space
-            'error section.body',         // space allows a blok with no template
+            'warning section.body',       // "legacy_banner" (no template) dropped from the whitelist: a removal
             'warning section.body',       // template allows "hero", space doesn't
             'error teaser.story',         // option source differs
         ], $summary);
+    }
+
+    public function testWhitelistFolderAndLabelChanges(): void
+    {
+        $expected = ['components' => [
+            ['name' => 'section', 'component_group_name' => 'Layout', 'schema' => [
+                'body' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['text']],
+                'size' => ['type' => 'option', 'options' => [['name' => 'Extra Large', 'value' => 'xl']]],
+            ]],
+            ['name' => 'text', 'component_group_name' => 'Content', 'schema' => []],
+        ]];
+        // A pull with no folder records: "section" is ungrouped (known), "text" is in a folder the pull lacks.
+        $pulled = [
+            ['name' => 'section', 'schema' => [
+                'body' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['text', 'deleted']],
+                'size' => ['type' => 'option', 'options' => [['name' => 'XL', 'value' => 'xl']]],
+            ]],
+            ['name' => 'text', 'component_group_uuid' => 'not-pulled', 'schema' => []],
+        ];
+
+        $comparer = new ComponentSchemaComparer();
+        $issues = $comparer->compare($expected, $pulled);
+        $byKind = array_column($issues, null, 'kind');
+
+        $this->assertSame(['deleted'], $byKind[ComponentSchemaComparer::KIND_WHITELIST_REMOVED]['values'], 'a blok whose template was deleted is still a removal');
+        $this->assertTrue($comparer->isDestructive($byKind[ComponentSchemaComparer::KIND_WHITELIST_REMOVED]));
+        $this->assertArrayNotHasKey(ComponentSchemaComparer::KIND_WHITELIST_WITHOUT_TEMPLATE, $byKind, 'not reported twice');
+        $this->assertSame(['section' => ['folder changed', 'body: allowed bloks removed (deleted)', 'size: option labels changed']], $comparer->changedComponents($issues));
     }
 
     public function testUnpushedComponentAndUnrestrictedSpaceField(): void

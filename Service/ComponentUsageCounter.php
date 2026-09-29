@@ -20,8 +20,8 @@ class ComponentUsageCounter
     ) {}
 
     /**
-     * Adds "usage" => {stories, bloks} to each issue that has a field. Returns null when there are no
-     * story files to count from.
+     * Adds "usage" => {stories, bloks} to each issue that has a field. Returns null (usage unknown) unless
+     * the folder holds at least one story and every file in it is valid JSON: a zero count must mean zero.
      *
      * @param string $storiesDirectory
      * @param array $issues
@@ -35,6 +35,7 @@ class ComponentUsageCounter
         }
 
         $bloks = [];
+        $storyCount = 0;
 
         foreach ($this->file->readDirectory($storiesDirectory) as $path) {
             if (!str_ends_with($path, '.json')) {
@@ -43,9 +44,19 @@ class ComponentUsageCounter
 
             $story = json_decode($this->file->fileGetContents($path), true);
 
-            if (is_array($story) && is_array($story['content'] ?? null)) {
-                $this->collect($story['content'], (string)($story['uuid'] ?? $path), $bloks);
+            if (!is_array($story)) {
+                return null;
             }
+
+            // Folders and other non-story files have no content.
+            if (is_array($story['content'] ?? null)) {
+                $this->collect($story['content'], (string)($story['uuid'] ?? $path), $bloks);
+                $storyCount++;
+            }
+        }
+
+        if (!$storyCount) {
+            return null;
         }
 
         foreach ($issues as &$issue) {

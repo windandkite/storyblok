@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Service;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Driver\File;
 
@@ -75,6 +76,41 @@ class StoryblokCliContext
         }
 
         return ['id' => null, 'source' => null];
+    }
+
+    /**
+     * Items (components and folders) from a `storyblok components pull` folder.
+     *
+     * @param string $directory
+     *
+     * @return array|null Null when the folder doesn't exist.
+     * @throws LocalizedException When a file isn't valid JSON: a partial pull must never pass for a complete one.
+     */
+    public function readPulledComponents(string $directory): ?array
+    {
+        if (!$this->file->isDirectory($directory)) {
+            return null;
+        }
+
+        $items = [];
+
+        foreach ($this->file->readDirectory($directory) as $path) {
+            if (!str_ends_with($path, '.json')) {
+                continue;
+            }
+
+            try {
+                $data = json_decode($this->file->fileGetContents($path), true, flags: JSON_THROW_ON_ERROR);
+            } catch (\JsonException $e) {
+                throw new LocalizedException(__('%1 is not valid JSON (%2): pull the space again.', $path, $e->getMessage()));
+            }
+
+            if (is_array($data)) {
+                $items = [...$items, ...($data['components'] ?? (array_is_list($data) ? $data : [$data]))];
+            }
+        }
+
+        return $items;
     }
 
     /**

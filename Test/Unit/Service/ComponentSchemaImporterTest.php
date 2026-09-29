@@ -85,6 +85,43 @@ class ComponentSchemaImporterTest extends TestCase
         $this->assertSame($once, $importer->applyToTemplate($once, $tag, 'hero'), 'idempotent');
     }
 
+    public function testTagIsAddedWhateverFollowsTheOpeningTag(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $tag = $importer->formatTag(['fields' => ['title' => ['type' => 'string']]]);
+        $generator = new ComponentSchemaGenerator($this->createStub(RulePool::class), new File());
+
+        foreach ([
+            'CRLF' => "<?php\r\ndeclare(strict_types=1);\r\n?>\r\n<div></div>\r\n",
+            'same line' => "<?php declare(strict_types=1); ?>\n<div></div>\n",
+            'markup first' => "<div><?= 'x' ?></div>\n",
+        ] as $case => $source) {
+            $updated = $importer->applyToTemplate($source, $tag, 'hero');
+
+            token_get_all($updated, TOKEN_PARSE);
+            $this->assertSame(['fields' => ['title' => ['type' => 'string']]], $generator->parse($updated, 'hero.phtml'), $case);
+        }
+    }
+
+    public function testCustomOptionLabelsRoundTrip(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $component = ['name' => 'box', 'schema' => [
+            'size' => ['type' => 'option', 'options' => [['name' => 'Small', 'value' => 'small'], ['name' => 'Extra Large', 'value' => 'xl']]],
+            'level' => ['type' => 'option', 'options' => [['name' => 'Off', 'value' => '0'], ['name' => 'On', 'value' => '1']]],
+        ]];
+
+        $tag = $importer->formatTag($importer->toDefinition($component));
+        $this->assertStringContainsString('"labels": {"xl": "Extra Large"}', $tag, 'only labels that differ from the derived ones');
+        $this->assertStringContainsString('"labels": {"0": "Off", "1": "On"}', $tag, 'an object even when keys are 0, 1');
+
+        $generator = new ComponentSchemaGenerator($this->createStub(RulePool::class), new File());
+        $definition = $generator->parse("<?php\n/**\n" . $tag . "\n */\n", 'box.phtml');
+        $schema = $generator->build(['box' => ['file' => 'box.phtml', 'definition' => $definition]])['components'][0]['schema'];
+
+        $this->assertSame([], (new ComponentSchemaComparer())->compare(['components' => [['name' => 'box', 'schema' => $schema]]], [$component]));
+    }
+
     public function testNewTemplateIsValidPhp(): void
     {
         $importer = new ComponentSchemaImporter();

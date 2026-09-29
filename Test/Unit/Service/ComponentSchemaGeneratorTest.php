@@ -111,6 +111,29 @@ class ComponentSchemaGeneratorTest extends TestCase
         $this->generator([])->build(['a' => ['file' => 'a.phtml', 'definition' => ['fields' => ['b' => ['type' => 'array', 'allowed' => ['missing']]]]]]);
     }
 
+    public function testNameMustRenderThisTemplate(): void
+    {
+        $this->template('theme', 'form_input', ['name' => 'form-input', 'fields' => []]);
+        $this->assertArrayHasKey('form-input', $this->generator([$this->root . '/theme'])->collect($this->createStub(ThemeInterface::class)));
+
+        $this->template('other', 'foo', ['name' => 'bar', 'fields' => []]);
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('is rendered by block/bar.phtml');
+        $this->generator([$this->root . '/other'])->collect($this->createStub(ThemeInterface::class));
+    }
+
+    public function testEnumLabels(): void
+    {
+        $schema = $this->generator([])->build(['size' => ['file' => 'size.phtml', 'definition' => ['fields' => [
+            'size' => ['enum' => ['small', 'xl'], 'labels' => ['xl' => 'Extra Large']],
+            'span' => ['type' => 'integer', 'enum' => [0, 1], 'labels' => ['0' => 'None']],
+        ]]]])['components'][0]['schema'];
+
+        $this->assertSame([['name' => 'Small', 'value' => 'small'], ['name' => 'Extra Large', 'value' => 'xl']], $schema['size']['options']);
+        $this->assertSame([['name' => 'None', 'value' => '0'], ['name' => '1', 'value' => '1']], $schema['span']['options']);
+        $this->assertArrayNotHasKey('labels', $schema['size']);
+    }
+
     private function template(string $directory, string $name, ?array $definition): string
     {
         $path = $this->root . '/' . $directory . '/block/' . $name . '.phtml';

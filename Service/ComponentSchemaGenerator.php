@@ -39,6 +39,8 @@ use Magento\Framework\View\Design\ThemeInterface;
  *   or theme can add bloks to shared whitelists.
  * - "tab" / "group" on a field: Storyblok tab and group (collapsible section) it appears in. A group's key
  *   is its label, so group names must be unique within a component and not match a field name.
+ * - "labels" on an enum field: editor labels for values whose label isn't derived from the value, e.g.
+ *   {"enum": ["s", "xl"], "labels": {"xl": "Extra Large"}}.
  * - "storyblok" on a field: a Storyblok field schema used verbatim (custom field plugins, datasources...).
  * - "renamed_from" on a field: the field was renamed; generates a copy migration and keeps the old field in
  *   the safe schema (see buildSafe()).
@@ -134,6 +136,17 @@ class ComponentSchemaGenerator
 
                 // "name" overrides the Storyblok component name, for names a file can't carry (e.g. "form-input").
                 $name = (string)($definition['name'] ?? $template);
+
+                // The renderer finds a component's template by name, so a name mapping to another file would
+                // publish a schema this template never renders.
+                if (self::templateName($name) !== $template) {
+                    throw new LocalizedException(__(
+                        '"name": "%1" in %2 is rendered by block/%3.phtml, not this template.',
+                        $name,
+                        $path,
+                        self::templateName($name)
+                    ));
+                }
 
                 if (isset($found[$name])) {
                     throw new LocalizedException(__('Storyblok component "%1" is defined by both %2 and %3.', $name, $found[$name]['file'], $path));
@@ -420,7 +433,10 @@ class ComponentSchemaGenerator
                     continue;
                 }
 
-                if (($field['type'] ?? null) !== ($spaceField['type'] ?? null)) {
+                // A different type or option source (e.g. a story picker becoming a fixed list) isn't additive.
+                if (($field['type'] ?? null) !== ($spaceField['type'] ?? null)
+                    || (($field['source'] ?? '') ?: 'self') !== (($spaceField['source'] ?? '') ?: 'self')
+                ) {
                     $component['schema'][$name] = ['pos' => $field['pos']] + $spaceField;
                     continue;
                 }
@@ -629,7 +645,7 @@ class ComponentSchemaGenerator
             isset($field['enum']) => [
                 'type' => 'option',
                 'options' => array_map(
-                    fn ($value) => ['name' => $this->label((string)$value), 'value' => (string)$value],
+                    fn ($value) => ['name' => (string)($field['labels'][(string)$value] ?? $this->label((string)$value)), 'value' => (string)$value],
                     $field['enum']
                 ),
             ],

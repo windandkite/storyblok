@@ -288,6 +288,22 @@ class ComponentSchemaComparer
             $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_OPTION_VALUES_NOT_PUSHED, $component, $field, 'Option values the template supports but editors can\'t choose yet: ' . implode(', ', $unpushed), $unpushed);
         }
 
+        $labels = static fn (array $field) => array_column(
+            array_map(static fn ($option) => ['value' => (string)($option['value'] ?? ''), 'name' => (string)($option['name'] ?? '')], $field['options'] ?? []),
+            'name',
+            'value'
+        );
+        $expectedLabels = $labels($expected);
+        $actualLabels = $labels($actual);
+
+        if ($relabelled = array_values(array_filter(
+            array_keys(array_intersect_key($expectedLabels, $actualLabels)),
+            static fn ($value) => $expectedLabels[$value] !== $actualLabels[$value]
+        ))) {
+            $relabelled = array_map('strval', $relabelled);
+            $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_SETTINGS, $component, $field, 'Option labels differ from the space (' . implode(', ', $relabelled) . '). The next push updates them.', ['option labels']);
+        }
+
         return $issues;
     }
 
@@ -314,12 +330,16 @@ class ComponentSchemaComparer
             return $issues;
         }
 
-        if ($withoutTemplate = array_values(array_diff($actualAllowed, array_keys($templates)))) {
+        // Every entry the push drops is a removal, including bloks whose template was deleted: stored
+        // children of those still need the orphaning guard.
+        $removed = $expectedAllowed !== null ? array_values(array_diff($actualAllowed, $expectedAllowed)) : [];
+
+        if ($withoutTemplate = array_values(array_diff($actualAllowed, array_keys($templates), $removed))) {
             $issues[] = $this->issue(self::LEVEL_ERROR, self::KIND_WHITELIST_WITHOUT_TEMPLATE, $component, $field, 'The space allows bloks with no template: ' . implode(', ', $withoutTemplate), $withoutTemplate);
         }
 
         if ($expectedAllowed !== null) {
-            if ($removed = array_values(array_intersect(array_diff($actualAllowed, $expectedAllowed), array_keys($templates)))) {
+            if ($removed) {
                 $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_REMOVED, $component, $field, 'Bloks the space allows but the template no longer does (existing ones stay, editors can\'t add more): ' . implode(', ', $removed), $removed);
             }
 
@@ -359,10 +379,11 @@ class ComponentSchemaComparer
         }
 
         $expectedFolder = $expected['component_group_name'] ?? null;
-        $actualFolder = $folders[$actual['component_group_uuid'] ?? ''] ?? null;
+        $actualUuid = $actual['component_group_uuid'] ?? null;
 
-        // Only comparable when the pull includes folders (CLI v4 pulls do).
-        if ($folders && $expectedFolder !== $actualFolder) {
+        // An ungrouped component is known to have no folder. A folder UUID missing from the pull (e.g. a
+        // pull without folder records) can't be compared.
+        if ((!$actualUuid || isset($folders[$actualUuid])) && $expectedFolder !== ($actualUuid ? $folders[$actualUuid] : null)) {
             $differences[] = 'folder';
         }
 

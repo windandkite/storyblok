@@ -81,6 +81,7 @@ class SchemaWorkflowTest extends TestCase
             'content' => ['type' => 'array', 'renamed_from' => 'body'],
             'size' => ['type' => 'string', 'enum' => ['small', 'large']],
             'image' => ['type' => 'asset'],
+            'story' => ['type' => 'string', 'enum' => ['a', 'b']],
         ]]]);
 
         $this->assertSame([['component' => 'page', 'from' => 'body', 'to' => 'content']], $final['renames']);
@@ -92,6 +93,7 @@ class SchemaWorkflowTest extends TestCase
             'image' => ['type' => 'text', 'pos' => 2],
             'legacy' => ['type' => 'text'],
             'tab-old' => ['type' => 'tab', 'keys' => ['legacy']],
+            'story' => ['type' => 'option', 'source' => 'internal_stories'],
         ]]];
 
         $safe = $this->generator()->buildSafe($final, $space)['components'][0]['schema'];
@@ -102,6 +104,8 @@ class SchemaWorkflowTest extends TestCase
         $this->assertArrayNotHasKey('tab-old', $safe, 'the space layout is replaced');
         $this->assertSame(['small', 'large', 'xl'], array_column($safe['size']['options'], 'value'), 'option values merged');
         $this->assertSame('text', $safe['image']['type'], 'type changes keep the space type');
+        $this->assertSame('internal_stories', $safe['story']['source'], 'option source changes keep the space field');
+        $this->assertArrayNotHasKey('options', $safe['story']);
         $this->assertSame('array', $this->build(['page' => ['fields' => ['content' => ['type' => 'array']]]])['components'][0]['schema']['content']['type'] === 'bloks' ? 'array' : 'x');
     }
 
@@ -178,6 +182,30 @@ class SchemaWorkflowTest extends TestCase
         $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[1]['usage'], 'empty values are not usage');
         $this->assertArrayNotHasKey('usage', $annotated[2]);
         $this->assertNull((new ComponentUsageCounter(new File()))->annotate($this->root . '/missing', $issues));
+
+        // Zero usage is only reported when stories were actually read.
+        mkdir($this->root . '/empty');
+        file_put_contents($this->root . '/empty/folder.json', json_encode(['uuid' => 'f', 'is_folder' => true, 'content' => null]));
+        $this->assertNull((new ComponentUsageCounter(new File()))->annotate($this->root . '/empty', $issues), 'no stories');
+
+        file_put_contents($this->root . '/stories/broken.json', '{"uuid": "c", "content": ');
+        $this->assertNull((new ComponentUsageCounter(new File()))->annotate($this->root . '/stories', $issues), 'invalid story file');
+    }
+
+    public function testPulledComponentsMustBeValidJson(): void
+    {
+        $context = $this->context();
+        mkdir($this->root . '/pull');
+        file_put_contents($this->root . '/pull/groups.json', json_encode([['name' => 'Layout', 'uuid' => 'g']]));
+        file_put_contents($this->root . '/pull/components.json', json_encode([['name' => 'page', 'schema' => []]]));
+
+        $this->assertNull($context->readPulledComponents($this->root . '/missing'));
+        $this->assertCount(2, $context->readPulledComponents($this->root . '/pull'));
+
+        file_put_contents($this->root . '/pull/section.json', '{"name": "section", ');
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('is not valid JSON');
+        $context->readPulledComponents($this->root . '/pull');
     }
 
     public function testComparerKindsAndDestructiveChanges(): void
