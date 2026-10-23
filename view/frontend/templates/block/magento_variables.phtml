@@ -10,12 +10,20 @@ use WindAndKite\Storyblok\ViewModel\Variables;
  * Editor reference listing every Magento variable usable in rich text. Keep the story using it unpublished.
  * Unstyled on purpose: override it in your theme to match the design.
  *
+ * The view model is only set in a validated Visual Editor session (see Model\Hydrator\MagentoVariables), so
+ * nothing renders for anyone else. Keep that check if you override this template.
+ *
  * @var Block $block
  * @var Escaper $escaper
  */
 
-/** @var Variables $variables */
+/** @var Variables|null $variables */
 $variables = $block->getData('variables_view_model');
+
+if (!$variables) {
+    return;
+}
+
 $groups = $variables->getConfigVariables();
 $groups[] = [
     'label' => __('Custom Variables (Content > Custom Variables in the Magento admin)'),
