@@ -24,8 +24,8 @@ class StoryRepositoryTest extends TestCase
         $cache = $this->createMock(StoryblokCacheService::class);
         $cache->expects($this->once())
             ->method('generateStoryCacheKey')
-            // Namespaced so a UUID can never share a cache entry with a slug or numeric ID.
-            ->with('uuid_' . self::UUID, null)
+            // Typed so a UUID can never share a cache entry with a slug or numeric ID.
+            ->with(self::UUID, null, 'uuid')
             ->willReturn('key');
         $cache->method('loadStoryResponse')->with('key')->willReturn(
             new StoryResponse(['story' => ['id' => 5, 'uuid' => self::UUID, 'slug' => 'usp'], 'cv' => 123, 'links' => []])

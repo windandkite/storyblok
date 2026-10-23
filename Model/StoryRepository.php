@@ -175,7 +175,7 @@ class StoryRepository implements StoryRepositoryInterface
         ?StoryRequest $request = null,
     ): StoryInterface {
         try {
-            $cacheKey = $this->cacheService->generateStoryCacheKey((string)$id, $request);
+            $cacheKey = $this->cacheService->generateStoryCacheKey((string)$id, $request, 'id');
 
             if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
                 return $this->convertStoryResponse($cachedStory);
@@ -198,7 +198,7 @@ class StoryRepository implements StoryRepositoryInterface
         ?StoryRequest $request = null,
     ): StoryInterface {
         try {
-            $cacheKey = $this->cacheService->generateStoryCacheKey('uuid_' . $uuid, $request);
+            $cacheKey = $this->cacheService->generateStoryCacheKey($uuid, $request, 'uuid');
 
             if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
                 return $this->convertStoryResponse($cachedStory);

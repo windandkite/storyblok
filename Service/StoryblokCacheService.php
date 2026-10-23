@@ -37,15 +37,27 @@ class StoryblokCacheService
         return $this->storeManager->getStore()->getId();
     }
 
+    /**
+     * Cache key for a single story response.
+     *
+     * @param string $identifier
+     * @param StoryRequest|null $storyRequest
+     * @param string $type What the identifier is (slug, id or uuid), so e.g. a slug "123" and story ID 123
+     *     never share a cache entry.
+     *
+     * @return string
+     */
     public function generateStoryCacheKey(
         string $identifier,
-        ?StoryRequest $storyRequest = null
+        ?StoryRequest $storyRequest = null,
+        string $type = 'slug',
     ): string {
         if ($storyRequest) {
             $identifier .= '-' . md5($this->serializer->serialize($storyRequest->toArray()));
         }
 
-        return self::CACHE_IDENTIFIER . self::STORY_CACHE_PREFIX . $identifier . '_' . $this->getStoreId();
+        return self::CACHE_IDENTIFIER . self::STORY_CACHE_PREFIX . $type . '_' . $identifier
+            . '_' . $this->getStoreId();
     }
 
     public function generateStoryListCacheKey(

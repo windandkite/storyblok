@@ -121,7 +121,8 @@ class Asset implements ArgumentInterface
      *
      * Pass $options['ratio'] (height / width, e.g. 9/16) to crop every candidate to the same
      * aspect ratio; otherwise height is 0 so the image service keeps the original ratio.
-     * Candidates wider (or, with a ratio, taller) than the original image are skipped to avoid upscaling.
+     * Candidates wider (or, with a ratio, taller) than the original image are skipped to avoid upscaling. If that
+     * skips them all, the widest size the original allows is used instead.
      *
      * @param array $assetData
      * @param int[] $widths
@@ -141,7 +142,10 @@ class Asset implements ArgumentInterface
         $ratio = (float)($options['ratio'] ?? 0);
         unset($options['ratio']);
 
-        $widths = array_filter($widths, fn ($width) => $width <= $this->getMaxWidth($assetData, $ratio)) ?: [min($widths)];
+        $maxWidth = $this->getMaxWidth($assetData, $ratio);
+        $widths = array_filter($widths, static fn ($width) => $width > 0);
+        $widths = array_filter($widths, static fn ($width) => $width <= $maxWidth)
+            ?: ($widths && $maxWidth > 0 ? [$maxWidth] : []);
         $candidates = [];
 
         foreach ($widths as $width) {

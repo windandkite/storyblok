@@ -68,6 +68,15 @@ class AssetTest extends TestCase
         $this->assertSame(900, (new Asset())->getMaxWidth(self::ASSET, 1));
     }
 
+    public function testSrcsetNeverUpscales(): void
+    {
+        $small = ['filename' => 'https://a.storyblok.com/f/1/300x200/x/p.jpg'] + self::ASSET;
+
+        $this->assertSame($small['filename'] . '/m/300x0 300w', (new Asset())->getSrcset($small, [400, 800]), 'capped at the source width');
+        $this->assertSame('', (new Asset())->getSrcset(self::ASSET, []));
+        $this->assertSame('', (new Asset())->getSrcset(self::ASSET, [0, -1]));
+    }
+
     public function testExternalAndSvgAssetsAreUsedAsIs(): void
     {
         $asset = new Asset();

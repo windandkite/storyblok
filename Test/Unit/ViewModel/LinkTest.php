@@ -46,6 +46,8 @@ class LinkTest extends TestCase
         $this->assertSame('', $this->link->getUrl(null));
         $this->assertSame('', $this->link->getUrl(['linktype' => 'story', 'cached_url' => '']));
         $this->assertSame('', $this->link->getUrl(['linktype' => 'url', 'url' => 'javascript:alert(1)']));
+        $this->assertSame('', $this->link->getUrl(['linktype' => 'url', 'url' => "java\nscript:alert(1)"]));
+        $this->assertSame('', $this->link->getUrl(['linktype' => 'url', 'url' => "java\tscript:alert(1)"]));
     }
 
     public function testAttributesAndExternal(): void
@@ -55,6 +57,7 @@ class LinkTest extends TestCase
         $this->assertSame('href="https://example.com" target="_blank" rel="noopener noreferrer"', $this->link->getAttributes($link));
         $this->assertTrue($this->link->isExternal($link));
         $this->assertFalse($this->link->isExternal(['linktype' => 'story', 'cached_url' => 'home']));
+        $this->assertFalse($this->link->isExternal(['linktype' => 'url', 'url' => 'https://SHOP.TEST/path']), 'hosts are case-insensitive');
     }
 
     public function testHomepageStoryLinksToTheBaseUrl(): void

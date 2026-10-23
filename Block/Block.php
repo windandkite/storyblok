@@ -220,6 +220,9 @@ class Block extends AbstractStoryblok implements IdentityInterface
     /**
      * Append attributes to the first element tag in the HTML (skipping script/style/meta and document tags).
      *
+     * Leading comments and script/style elements are skipped whole, so markup inside them (e.g. a "<div>" in a
+     * JavaScript string) is never mistaken for the root element.
+     *
      * Attribute values are matched as quoted strings, so a ">" inside one (e.g. a utility-class variant like
      * class="[&>*]:mt-4") doesn't end the tag early.
      *
@@ -232,16 +235,22 @@ class Block extends AbstractStoryblok implements IdentityInterface
         string $html,
         string $attributes,
     ): string {
-        $excludedTags = ['script', 'style', 'link', 'meta', '!doctype', 'html', 'head', 'body'];
-        $pattern = '/<(?!(?:' . implode('|', $excludedTags) . ')[\s>\/])([a-zA-Z0-9]+)((?:"[^"]*"|\'[^\']*\'|[^\'">])*?)(\s*\/?)>/is';
+        $skip = '/\G(?:[^<]+|<!--.*?-->|<(script|style)(?=[\s>\/]).*?<\/\1\s*>'
+            . '|<(?:link|meta|!doctype|html|head|body)(?=[\s>\/])[^>]*>|<\/[^>]*>)/is';
+        $offset = 0;
 
-        $modifiedHtml = preg_replace_callback(
-            $pattern,
-            static fn (array $matches) => '<' . $matches[1] . $matches[2] . ' ' . $attributes . $matches[3] . '>',
-            $html,
-            1
-        );
+        while (preg_match($skip, $html, $matches, 0, $offset)) {
+            $offset += strlen($matches[0]);
+        }
 
-        return $modifiedHtml ?? $html;
+        $tag = '/\G<([a-zA-Z0-9]+)((?:"[^"]*"|\'[^\']*\'|[^\'">])*?)(\s*\/?)>/s';
+
+        if (!preg_match($tag, $html, $matches, 0, $offset)) {
+            return $html;
+        }
+
+        return substr($html, 0, $offset)
+            . '<' . $matches[1] . $matches[2] . ' ' . $attributes . $matches[3] . '>'
+            . substr($html, $offset + strlen($matches[0]));
     }
 }

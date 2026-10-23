@@ -51,6 +51,10 @@ class BlockTest extends TestCase
                 "<!-- c --><script>if (a > b) {}</script>\n<ul class=\"flex\"><li>x</li></ul>",
                 "<!-- c --><script>if (a > b) {}</script>\n<ul class=\"flex\" " . self::ATTRIBUTES . '><li>x</li></ul>',
             ],
+            'markup inside a leading script, style or comment is skipped' => [
+                "<script>const t = '<div class=\"x\">';</script><style>a{}</style><!-- <span> -->\n<div>x</div>",
+                "<script>const t = '<div class=\"x\">';</script><style>a{}</style><!-- <span> -->\n<div " . self::ATTRIBUTES . '>x</div>',
+            ],
             'self-closing tag keeps its slash' => [
                 '<hr class="my-8" />',
                 '<hr class="my-8" ' . self::ATTRIBUTES . ' />',

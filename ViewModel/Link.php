@@ -93,7 +93,7 @@ class Link implements ArgumentInterface
     {
         $host = parse_url($this->getUrl($link), PHP_URL_HOST);
 
-        return $host && $host !== parse_url($this->urlBuilder->getBaseUrl(), PHP_URL_HOST);
+        return $host && strcasecmp($host, (string)parse_url($this->urlBuilder->getBaseUrl(), PHP_URL_HOST)) !== 0;
     }
 
     /**
@@ -164,6 +164,11 @@ class Link implements ArgumentInterface
      */
     private function isSafeScheme(string $url): bool
     {
+        // Browsers drop tabs/newlines when parsing, so "java\nscript:" would run as "javascript:".
+        if (preg_match('/[\x00-\x1F\x7F]/', $url)) {
+            return false;
+        }
+
         $scheme = parse_url($url, PHP_URL_SCHEME);
 
         return !$scheme || in_array(strtolower($scheme), ['http', 'https', 'mailto', 'tel'], true);
