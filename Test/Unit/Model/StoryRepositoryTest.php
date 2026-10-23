@@ -55,6 +55,20 @@ class StoryRepositoryTest extends TestCase
         $this->repository($cache, $this->apiThrowing(500), $logger)->getBySlug('broken');
     }
 
+    public function testCacheErrorsAreLoggedAndStillReportNotFound(): void
+    {
+        $cache = $this->createMock(StoryblokCacheService::class);
+        $cache->method('generateStoryCacheKey')->willReturn('key');
+        $cache->expects($this->once())->method('loadStoryResponse')
+            ->willThrowException(new \InvalidArgumentException('Unable to unserialize value.'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('warning')->with('Unable to unserialize value.');
+
+        $this->expectException(NoSuchEntityException::class);
+        $this->repository($cache, $this->createStub(StoryblokClientWrapper::class), $logger)->getBySlug('corrupt');
+    }
+
     private function cache(bool $isNotFound): StoryblokCacheService
     {
         $cache = $this->createMock(StoryblokCacheService::class);

@@ -151,33 +151,32 @@ class StoryRepository implements StoryRepositoryInterface
         callable $fetch,
         Phrase $notFound,
     ): StoryInterface {
-        if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
-            return $this->convertStoryResponse($cachedStory);
-        }
-
-        if ($this->cacheService->isStoryNotFound($cacheKey)) {
-            throw new NoSuchEntityException($notFound);
-        }
-
         try {
-            $response = $fetch();
-        } catch (ClientExceptionInterface $e) {
-            if ($e->getResponse()->getStatusCode() !== 404) {
-                $this->logger->warning($e->getMessage());
-            } else {
-                $this->cacheService->saveStoryNotFound($cacheKey);
+            if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
+                return $this->convertStoryResponse($cachedStory);
             }
 
-            throw new NoSuchEntityException($notFound);
-        } catch (Exception $e) {
-            $this->logger->warning($e->getMessage());
+            if (!$this->cacheService->isStoryNotFound($cacheKey)) {
+                try {
+                    $response = $fetch();
+                    $this->cacheService->saveStoryResponse($cacheKey, $response);
 
-            throw new NoSuchEntityException($notFound);
+                    return $this->convertStoryResponse($response);
+                } catch (ClientExceptionInterface $e) {
+                    if ($e->getResponse()->getStatusCode() !== 404) {
+                        throw $e;
+                    }
+
+                    $this->cacheService->saveStoryNotFound($cacheKey);
+                }
+            }
+        } catch (Exception $e) {
+            // Anything unexpected (API, cache or conversion) is logged; the router still gets a not-found.
+            $this->logger->warning($e->getMessage());
         }
 
-        $this->cacheService->saveStoryResponse($cacheKey, $response);
-
-        return $this->convertStoryResponse($response);
+        // API 404s and cached misses reach here without logging.
+        throw new NoSuchEntityException($notFound);
     }
 
     /**
