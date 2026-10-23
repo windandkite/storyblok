@@ -7,6 +7,7 @@ namespace WindAndKite\Storyblok\Service;
 use Magento\Framework\View\LayoutInterface;
 use Psr\Log\LoggerInterface;
 use Storyblok\Tiptap\Extension\Storyblok as StoryblokTipTapExtension;
+use Tiptap\Core\Extension;
 use Tiptap\Editor;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Model\BlockFactory;
@@ -27,12 +28,14 @@ class FieldRenderer implements FieldRendererInterface
      * @param LayoutInterface $layout
      * @param BlockFactory $blockFactory
      * @param BlockHydrationManager $blockHydrationManager
+     * @param Extension[] $overrideExtensions TipTap extensions replacing the defaults, keyed by node/mark name
      */
     public function __construct(
         private readonly LoggerInterface $logger,
         private readonly LayoutInterface $layout,
         private readonly BlockFactory $blockFactory,
         private readonly BlockHydrationManager $blockHydrationManager,
+        private readonly array $overrideExtensions = [],
     ) {}
 
     /**
@@ -123,6 +126,7 @@ class FieldRenderer implements FieldRendererInterface
             [
                 'extensions' => [
                     new StoryblokTipTapExtension([
+                        'override_extensions' => $this->overrideExtensions,
                         'blokOptions' => [
                             'renderer' => function (array $fieldValue) use ($story) {
                                 return $this->renderBlockField($fieldValue, $story);

@@ -36,7 +36,7 @@ $ajaxUrl = $storyblokConfig->getAjaxUrl();
         };
 
         const updateBlocksViaAjax = (story, signal) => {
-            fetch('<?= $escaper->escapeUrl($ajaxUrl) ?>', {
+            fetch('<?= $escaper->escapeJs($ajaxUrl) ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
