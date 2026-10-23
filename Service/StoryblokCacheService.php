@@ -21,6 +21,9 @@ class StoryblokCacheService
     private const CACHE_IDENTIFIER = 'storyblok_';
     private const STORY_CACHE_PREFIX = 'story_';
     private const STORY_LIST_CACHE_PREFIX = 'list_';
+    private const NOT_FOUND_SUFFIX = '_404';
+    private const NOT_FOUND_LIFETIME = 3600;
+    public const NOT_FOUND_TAG = 'storyblok_not_found';
 
     public function __construct(
         private CacheInterface $cache,
@@ -97,6 +100,34 @@ class StoryblokCacheService
                 'storyblok_cv_' . $storyResponse->cv,
             ]
         );
+    }
+
+    /**
+     * Whether the API returned 404 for this story request recently.
+     *
+     * @param string $cacheKey
+     *
+     * @return bool
+     */
+    public function isStoryNotFound(string $cacheKey): bool
+    {
+        return $this->isCacheEnabled() && (bool)$this->cache->load($cacheKey . self::NOT_FOUND_SUFFIX);
+    }
+
+    /**
+     * Remember a 404 for an hour, or until the next publish webhook clears it.
+     *
+     * @param string $cacheKey
+     *
+     * @return void
+     */
+    public function saveStoryNotFound(string $cacheKey): void
+    {
+        if (!$this->isCacheEnabled()) {
+            return;
+        }
+
+        $this->cache->save('1', $cacheKey . self::NOT_FOUND_SUFFIX, [self::NOT_FOUND_TAG], self::NOT_FOUND_LIFETIME);
     }
 
     public function removeStoryResponse(

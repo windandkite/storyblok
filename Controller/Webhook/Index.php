@@ -129,6 +129,9 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
             // Always invalidate all listing pages when a story is published
             $cacheTags[] = 'storyblok_lists';
 
+            // A published story may live at a slug that was cached as not found
+            $cacheTags[] = StoryblokCacheService::NOT_FOUND_TAG;
+
 
             // If cv is present, invalidate cache based on cv
             if ($cv) {

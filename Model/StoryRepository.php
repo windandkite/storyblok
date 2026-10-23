@@ -9,6 +9,7 @@ use Laminas\Http\Request;
 use Magento\Framework\Api\Filter;
 use Magento\Framework\Api\SearchResultsInterface;
 use Magento\Framework\Exception\InvalidArgumentException;
+use Magento\Framework\Phrase;
 use ReflectionClass;
 use Storyblok\Api\Domain\Value\Dto\Version;
 use Storyblok\Api\Domain\Value\Field\FieldCollection;
@@ -133,6 +134,53 @@ class StoryRepository implements StoryRepositoryInterface
     }
 
     /**
+     * Load a single story from the cache or the API, remembering 404s so missing stories don't hit the API again.
+     *
+     * 404s are expected (the router tries Storyblok for every URL Magento doesn't match), so they aren't logged.
+     * Other errors are logged and not cached.
+     *
+     * @param string $cacheKey
+     * @param callable $fetch Returns the StoryResponse from the API
+     * @param Phrase $notFound
+     *
+     * @return StoryInterface
+     * @throws NoSuchEntityException
+     */
+    private function fetchStory(
+        string $cacheKey,
+        callable $fetch,
+        Phrase $notFound,
+    ): StoryInterface {
+        if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
+            return $this->convertStoryResponse($cachedStory);
+        }
+
+        if ($this->cacheService->isStoryNotFound($cacheKey)) {
+            throw new NoSuchEntityException($notFound);
+        }
+
+        try {
+            $response = $fetch();
+        } catch (ClientExceptionInterface $e) {
+            if ($e->getResponse()->getStatusCode() !== 404) {
+                $this->logger->warning($e->getMessage());
+            } else {
+                $this->cacheService->saveStoryNotFound($cacheKey);
+            }
+
+            throw new NoSuchEntityException($notFound);
+        } catch (Exception $e) {
+            $this->logger->warning($e->getMessage());
+
+            throw new NoSuchEntityException($notFound);
+        }
+
+        $this->cacheService->saveStoryResponse($cacheKey, $response);
+
+        return $this->convertStoryResponse($response);
+    }
+
+    /**
      * Retrieve Story by slug.
      *
      * @param string $slug
@@ -145,22 +193,11 @@ class StoryRepository implements StoryRepositoryInterface
         string $slug,
         ?StoryRequest $request = null,
     ): StoryInterface {
-        try {
-            $cacheKey = $this->cacheService->generateStoryCacheKey($slug, $request);
-
-            if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
-                return $this->convertStoryResponse($cachedStory);
-            }
-
-            $response = $this->storyBlockClientWrapper->getStoriesApi()->bySlug($slug, $request);
-            $this->cacheService->saveStoryResponse($cacheKey, $response);
-
-            return $this->convertStoryResponse($response);
-        } catch (Exception $e) {
-            $this->logger->warning($e->getMessage());
-
-            throw new NoSuchEntityException(__('Story with slug "%1" not found.', $slug));
-        }
+        return $this->fetchStory(
+            $this->cacheService->generateStoryCacheKey($slug, $request),
+            fn () => $this->storyBlockClientWrapper->getStoriesApi()->bySlug($slug, $request),
+            __('Story with slug "%1" not found.', $slug),
+        );
     }
 
     /**
@@ -174,23 +211,11 @@ class StoryRepository implements StoryRepositoryInterface
         int $id,
         ?StoryRequest $request = null,
     ): StoryInterface {
-        try {
-            $cacheKey = $this->cacheService->generateStoryCacheKey((string)$id, $request);
-
-            if ($cachedStory = $this->cacheService->loadStoryResponse($cacheKey)) {
-                return $this->convertStoryResponse($cachedStory);
-            }
-
-            $storyId = new Id($id);
-            $response = $this->storyBlockClientWrapper->getStoriesApi()->byId($storyId, $request);
-            $this->cacheService->saveStoryResponse($cacheKey, $response);
-
-            return $this->convertStoryResponse($response);
-        } catch (Exception $e) {
-            $this->logger->warning($e->getMessage());
-
-            throw new NoSuchEntityException(__('Story with ID "%1" not found.', $id));
-        }
+        return $this->fetchStory(
+            $this->cacheService->generateStoryCacheKey((string)$id, $request),
+            fn () => $this->storyBlockClientWrapper->getStoriesApi()->byId(new Id($id), $request),
+            __('Story with ID "%1" not found.', $id),
+        );
     }
 
     public function getByUuid(
