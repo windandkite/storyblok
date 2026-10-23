@@ -1,0 +1,74 @@
+<?php
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\Storyblok\ViewModel\Variables;
+
+/**
+ * Editor reference listing every Magento variable usable in rich text. Keep the story using it unpublished.
+ * Unstyled on purpose: override it in your theme to match the design.
+ *
+ * @var Block $block
+ * @var Escaper $escaper
+ */
+
+/** @var Variables $variables */
+$variables = $block->getData('variables_view_model');
+$groups = $variables->getConfigVariables();
+$groups[] = [
+    'label' => __('Custom Variables (Content > Custom Variables in the Magento admin)'),
+    'value' => $variables->getCustomVariables(),
+];
+?>
+<section <?= /** @noEscape */ $block->getBlokEditableAttributes() ?>>
+    <h2><?= $escaper->escapeHtml(__('Magento variables')) ?></h2>
+    <p>
+        <?= $escaper->escapeHtml(__(
+            'Copy any directive below into a Rich Text field. It is replaced with the live value from Magento, '
+            . 'so the content stays correct when store details change.'
+        )) ?>
+    </p>
+    <ul>
+        <li>
+            <?= $escaper->escapeHtml(__(
+                'Type the directive exactly as shown and do not apply bold, italic or other formatting '
+                . 'to only part of it.'
+            )) ?>
+        </li>
+        <li>
+            <?= $escaper->escapeHtml(__(
+                'Directives also work in link URLs, e.g. mailto:{{config path="trans_email/ident_sales/email"}} '
+                . 'or tel:{{config path="general/store_information/phone"}}.'
+            )) ?>
+        </li>
+        <li><?= $escaper->escapeHtml(__('This story is a reference only and should stay unpublished.')) ?></li>
+    </ul>
+
+    <?php foreach ($groups as $group): ?>
+        <h3><?= $escaper->escapeHtml($group['label']) ?></h3>
+        <?php if (empty($group['value'])): ?>
+            <p><?= $escaper->escapeHtml(__('None defined.')) ?></p>
+            <?php continue ?>
+        <?php endif ?>
+        <table>
+            <thead>
+            <tr>
+                <th><?= $escaper->escapeHtml(__('Variable')) ?></th>
+                <th><?= $escaper->escapeHtml(__('Directive')) ?></th>
+                <th><?= $escaper->escapeHtml(__('Current value')) ?></th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($group['value'] as $variable): ?>
+                <tr>
+                    <td><?= $escaper->escapeHtml($variable['label']) ?></td>
+                    <td><code><?= $escaper->escapeHtml($variable['value']) ?></code></td>
+                    <td><?= $escaper->escapeHtml($variables->resolve($variable['value'])) ?></td>
+                </tr>
+            <?php endforeach ?>
+            </tbody>
+        </table>
+    <?php endforeach ?>
+</section>
