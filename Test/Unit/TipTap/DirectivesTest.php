@@ -9,6 +9,7 @@ use Magento\Framework\Filter\Template;
 use PHPUnit\Framework\TestCase;
 use Storyblok\Tiptap\Extension\Storyblok;
 use Tiptap\Editor;
+use WindAndKite\Storyblok\TipTap\CodeBlock;
 use WindAndKite\Storyblok\TipTap\DirectiveFilter;
 use WindAndKite\Storyblok\TipTap\Link;
 use WindAndKite\Storyblok\TipTap\Text;
@@ -64,6 +65,18 @@ class DirectivesTest extends TestCase
         );
     }
 
+    public function testDirectivesInCodeAreShownLiterally(): void
+    {
+        $this->assertSame(
+            '<p><code>' . htmlspecialchars(self::PHONE) . '</code></p>',
+            $this->render(['type' => 'text', 'text' => self::PHONE, 'marks' => [['type' => 'code']]])
+        );
+        $this->assertSame(
+            '<pre><code>' . htmlspecialchars(self::PHONE) . '</code></pre>',
+            $this->renderDoc([['type' => 'code_block', 'content' => [['type' => 'text', 'text' => self::PHONE]]]])
+        );
+    }
+
     public function testOnlyTheDirectiveInALinkUrlIsDecoded(): void
     {
         $html = $this->render([
@@ -101,13 +114,19 @@ class DirectivesTest extends TestCase
 
     private function render(array $textNode): string
     {
+        return $this->renderDoc([['type' => 'paragraph', 'content' => [$textNode]]]);
+    }
+
+    private function renderDoc(array $content): string
+    {
         $editor = new Editor(['extensions' => [new Storyblok([
             'override_extensions' => [
                 'text' => new Text($this->directiveFilter),
                 'link' => new Link($this->directiveFilter),
+                'code_block' => new CodeBlock(),
             ],
         ])]]);
-        $editor->setContent(['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [$textNode]]]]);
+        $editor->setContent(['type' => 'doc', 'content' => $content]);
 
         return $editor->getHtml();
     }

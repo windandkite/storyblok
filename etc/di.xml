@@ -25,6 +25,7 @@
             <argument name="overrideExtensions" xsi:type="array">
                 <item name="text" xsi:type="object">WindAndKite\Storyblok\TipTap\Text</item>
                 <item name="link" xsi:type="object">WindAndKite\Storyblok\TipTap\Link</item>
+                <item name="code_block" xsi:type="object">WindAndKite\Storyblok\TipTap\CodeBlock</item>
             </argument>
         </arguments>
     </type>

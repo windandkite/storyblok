@@ -10,10 +10,15 @@ use Tiptap\Nodes\Text as TextNode;
  * Renders Magento CMS directives ({{config}}, {{customVar}}, {{icon}} on Hyvä, ...) found in rich text.
  *
  * Plain text, and anything Magento doesn't resolve as a directive, is escaped as before. Directive output is
- * trusted the same as on a CMS page.
+ * trusted the same as on a CMS page. Inline code and code blocks are left literal, so guides can show directives.
  */
 class Text extends TextNode
 {
+    /**
+     * Node property set by CodeBlock on its text.
+     */
+    public const LITERAL = 'wkLiteral';
+
     /**
      * @param DirectiveFilter $directiveFilter
      * @param array $options
@@ -36,7 +41,7 @@ class Text extends TextNode
     {
         $text = (string)$node->text;
 
-        if (!str_contains($text, '{{')) {
+        if (!str_contains($text, '{{') || $this->isCode($node)) {
             return $this->escape($text);
         }
 
@@ -48,6 +53,28 @@ class Text extends TextNode
         }
 
         return $html;
+    }
+
+    /**
+     * Whether the text is inline code or inside a code block.
+     *
+     * @param object $node
+     *
+     * @return bool
+     */
+    private function isCode(object $node): bool
+    {
+        if (!empty($node->{self::LITERAL})) {
+            return true;
+        }
+
+        foreach ($node->marks ?? [] as $mark) {
+            if (($mark->type ?? null) === 'code') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
