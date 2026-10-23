@@ -9,6 +9,7 @@ use Magento\Framework\Filter\Template;
 use PHPUnit\Framework\TestCase;
 use Storyblok\Tiptap\Extension\Storyblok;
 use Tiptap\Editor;
+use WindAndKite\Storyblok\TipTap\DirectiveFilter;
 use WindAndKite\Storyblok\TipTap\Link;
 use WindAndKite\Storyblok\TipTap\Text;
 
@@ -17,18 +18,22 @@ class DirectivesTest extends TestCase
     private const PHONE = '{{config path="general/store_information/phone"}}';
 
     /**
-     * @var FilterProvider
+     * @var DirectiveFilter
      */
-    private FilterProvider $filterProvider;
+    private DirectiveFilter $directiveFilter;
 
     protected function setUp(): void
     {
         $filter = $this->createStub(Template::class);
-        $filter->method('filter')->willReturnCallback(
-            fn (string $value) => str_replace(self::PHONE, '01234 <b>5</b>', $value)
-        );
-        $this->filterProvider = $this->createStub(FilterProvider::class);
-        $this->filterProvider->method('getPageFilter')->willReturn($filter);
+        // Mirrors Magento: known directives resolve, unknown ones come back with "{{" in them, malformed ones throw.
+        $filter->method('filter')->willReturnCallback(fn (string $value) => match (true) {
+            $value === self::PHONE => '01234 <b>5</b>',
+            str_starts_with($value, '{{<') => throw new \TypeError('directiveName is null'),
+            default => 'signature' . $value . 'signature',
+        });
+        $filterProvider = $this->createStub(FilterProvider::class);
+        $filterProvider->method('getPageFilter')->willReturn($filter);
+        $this->directiveFilter = new DirectiveFilter($filterProvider);
     }
 
     public function testDirectivesInTextAreResolvedAndTheRestIsEscaped(): void
@@ -44,6 +49,40 @@ class DirectivesTest extends TestCase
     public function testTextWithoutDirectivesIsOnlyEscaped(): void
     {
         $this->assertSame('<p>a &amp; b</p>', $this->render(['type' => 'text', 'text' => 'a & b']));
+    }
+
+    public function testUnresolvedBraceFragmentsAreEscapedNotRendered(): void
+    {
+        $html = $this->render([
+            'type' => 'text',
+            'text' => '{{<img src=x onerror=alert(1)>}} {{foo <b>x</b>}}',
+        ]);
+
+        $this->assertSame(
+            '<p>{{&lt;img src=x onerror=alert(1)&gt;}} {{foo &lt;b&gt;x&lt;/b&gt;}}</p>',
+            $html
+        );
+    }
+
+    public function testOnlyTheDirectiveInALinkUrlIsDecoded(): void
+    {
+        $html = $this->render([
+            'type' => 'text',
+            'text' => 'Email',
+            'marks' => [[
+                'type' => 'link',
+                'attrs' => [
+                    'href' => 'mailto:a@b.test?subject=Sales%26Support&body=' . rawurlencode(self::PHONE) . '%23x',
+                    'linktype' => 'url',
+                ],
+            ]],
+        ]);
+
+        $this->assertSame(
+            '<p><a href="mailto:a@b.test?subject=Sales%26Support&amp;body=01234 &lt;b&gt;5&lt;/b&gt;%23x">'
+            . 'Email</a></p>',
+            $html
+        );
     }
 
     public function testDirectivesInLinkUrlsAreResolved(): void
@@ -64,8 +103,8 @@ class DirectivesTest extends TestCase
     {
         $editor = new Editor(['extensions' => [new Storyblok([
             'override_extensions' => [
-                'text' => new Text($this->filterProvider),
-                'link' => new Link($this->filterProvider),
+                'text' => new Text($this->directiveFilter),
+                'link' => new Link($this->directiveFilter),
             ],
         ])]]);
         $editor->setContent(['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [$textNode]]]]);

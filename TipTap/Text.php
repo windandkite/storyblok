@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\TipTap;
 
-use Magento\Cms\Model\Template\FilterProvider;
 use Tiptap\Nodes\Text as TextNode;
 
 /**
  * Renders Magento CMS directives ({{config}}, {{customVar}}, {{icon}} on Hyvä, ...) found in rich text.
  *
- * Plain text is escaped as before; directive output is trusted the same as on a CMS page.
+ * Plain text, and anything Magento doesn't resolve as a directive, is escaped as before. Directive output is
+ * trusted the same as on a CMS page.
  */
 class Text extends TextNode
 {
     /**
-     * @param FilterProvider $filterProvider
+     * @param DirectiveFilter $directiveFilter
      * @param array $options
      */
     public function __construct(
-        private readonly FilterProvider $filterProvider,
+        private readonly DirectiveFilter $directiveFilter,
         array $options = [],
     ) {
         parent::__construct($options);
@@ -40,12 +40,11 @@ class Text extends TextNode
             return $this->escape($text);
         }
 
-        $filter = $this->filterProvider->getPageFilter();
         $html = '';
 
         foreach (preg_split('/({{.*?}})/s', $text, -1, PREG_SPLIT_DELIM_CAPTURE) as $index => $part) {
             // Odd indexes are the captured directives.
-            $html .= $index % 2 ? $filter->filter($part) : $this->escape($part);
+            $html .= ($index % 2 ? $this->directiveFilter->resolve($part) : null) ?? $this->escape($part);
         }
 
         return $html;
