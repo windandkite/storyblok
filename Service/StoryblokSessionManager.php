@@ -64,7 +64,8 @@ class StoryblokSessionManager
 
         $expectedToken = sha1("{$spaceId}:{$previewApiToken}:{$timestamp}");
 
-        $tolerance = 300;
+        // Storyblok's documented validity window. The editor keeps using the same token for live updates and reloads.
+        $tolerance = 3600;
 
         if (abs(time() - $timestamp) > $tolerance) {
             return false;
@@ -75,6 +76,16 @@ class StoryblokSessionManager
         }
 
         return true;
+    }
+
+    /**
+     * The validated Visual Editor token parameters, to forward on follow-up requests (e.g. live preview AJAX).
+     *
+     * @return array{space_id?: string, timestamp?: string, token?: string}
+     */
+    public function getEditorTokenParams(): array
+    {
+        return $this->isValidEditorSession() ? (array)$this->request->getParam(self::STORYBLOK_TOKEN_PARAM) : [];
     }
 
     public function getStoryblokApiVersion(): Version
