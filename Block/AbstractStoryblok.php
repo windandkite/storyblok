@@ -9,7 +9,9 @@ use WindAndKite\Storyblok\Model\Story as StoryblokStory;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
 use WindAndKite\Storyblok\Service\StoryRequestService;
+use Magento\Framework\App\ObjectManager;
 use WindAndKite\Storyblok\ViewModel\Asset;
+use WindAndKite\Storyblok\ViewModel\Link;
 
 abstract class AbstractStoryblok extends Template
 {
@@ -201,6 +203,22 @@ abstract class AbstractStoryblok extends Template
     public function getAssetViewModel(): Asset
     {
         return $this->assetViewModel;
+    }
+
+    /**
+     * Retrieve the view-model that resolves Storyblok link (multilink) fields into URLs and attributes.
+     *
+     * A "link_view_model" block argument (e.g. from layout XML) takes precedence. Otherwise the shared
+     * instance is used, so DI preferences and plugins on the Link view-model still apply. It's looked up
+     * here, not injected, so this class's constructor (extended by other modules) doesn't change.
+     *
+     * @return Link
+     */
+    public function getLinkViewModel(): Link
+    {
+        $linkViewModel = $this->getData('link_view_model');
+
+        return $linkViewModel instanceof Link ? $linkViewModel : ObjectManager::getInstance()->get(Link::class);
     }
 
     /**
