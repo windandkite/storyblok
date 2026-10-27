@@ -295,6 +295,24 @@ class SchemaWorkflowTest extends TestCase
         ), 'kept settings aren\'t reported');
     }
 
+    public function testVerbatimFieldsAreComparedInFullAndKeptInTheSafeSchema(): void
+    {
+        $final = $this->build(['hero' => ['fields' => [
+            'colour' => ['storyblok' => ['type' => 'custom', 'field_type' => 'new-picker', 'options' => [['name' => 'a', 'value' => '1']]]],
+        ]]]);
+        $spaceField = ['type' => 'custom', 'field_type' => 'old-picker', 'options' => [['value' => '1', 'name' => 'a']], 'id' => 'x', 'pos' => 3];
+        $space = [['name' => 'hero', 'schema' => ['colour' => $spaceField]]];
+
+        $issues = (new ComponentSchemaComparer())->compare($final, $space);
+        $this->assertSame([['field type']], array_column($issues, 'values'), 'only the changed setting, in any key order');
+
+        $space[0]['schema']['colour']['field_type'] = 'new-picker';
+        $this->assertSame([], (new ComponentSchemaComparer())->compare($final, $space), 'id and pos aren\'t settings');
+
+        $safe = $this->generator()->buildSafe($final, [['name' => 'hero', 'schema' => ['colour' => $spaceField]]]);
+        $this->assertSame('old-picker', $safe['components'][0]['schema']['colour']['field_type'], 'pushed at the final push only');
+    }
+
     public function testSafeSchemaNeverRestrictsEditors(): void
     {
         $final = $this->build([

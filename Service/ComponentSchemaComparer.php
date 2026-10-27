@@ -52,6 +52,13 @@ class ComponentSchemaComparer
         'translatable' => 'translatable',
     ];
 
+    // Not settings, or compared on their own: ignored when comparing every setting of a "storyblok" field.
+    private const NOT_SETTINGS = ['id', 'pos', 'type'];
+    private const OPTION_KEYS = ['options', 'source'];
+    private const WHITELIST_KEYS = [
+        'restrict_components', 'restrict_type', 'component_whitelist', 'component_group_whitelist', 'component_tag_whitelist',
+    ];
+
     // Kinds that describe the space itself, not a difference the templates would push.
     private const NOT_A_CHANGE = [self::KIND_MISSING_TEMPLATE, self::KIND_UNTAGGED];
 
@@ -123,7 +130,7 @@ class ComponentSchemaComparer
             $issues = [
                 ...$issues,
                 ...$this->compareComponent($name, $component, $space[$name], $folders),
-                ...$this->compareFields($name, $component['schema'] ?? [], $space[$name]['schema'] ?? [], $templates, $renames[$name] ?? []),
+                ...$this->compareFields($name, $component['schema'] ?? [], $space[$name]['schema'] ?? [], $templates, $renames[$name] ?? [], $expected['verbatim'][$name] ?? []),
                 ...$this->compareLayout($name, $component['schema'] ?? [], $space[$name]['schema'] ?? []),
             ];
         }
@@ -196,6 +203,7 @@ class ComponentSchemaComparer
      * @param array $spaceFields
      * @param array $templates
      * @param array<string, string> $renames Old field name => new field name.
+     * @param array<string, true> $verbatim Fields defined with "storyblok".
      *
      * @return array
      */
@@ -205,6 +213,7 @@ class ComponentSchemaComparer
         array $spaceFields,
         array $templates,
         array $renames,
+        array $verbatim,
     ): array {
         $issues = [];
         $expectedFields = $this->contentFields($expectedFields);
@@ -232,7 +241,7 @@ class ComponentSchemaComparer
         foreach ($expectedFields as $field => $expected) {
             $field = (string)$field;
 
-            if (isset($spaceFields[$field]) && $differences = $this->settingDifferences($field, $expected, $spaceFields[$field])) {
+            if (isset($spaceFields[$field]) && $differences = $this->settingDifferences($field, $expected, $spaceFields[$field], isset($verbatim[$field]))) {
                 $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_SETTINGS, $component, $field, 'Settings differ from the space (' . implode(', ', $differences) . '). The next push updates them.', $differences);
             }
 
@@ -433,10 +442,11 @@ class ComponentSchemaComparer
      * @param string $field
      * @param array $expected
      * @param array $actual
+     * @param bool $verbatim A "storyblok" field: pushed exactly as written, so every setting is compared.
      *
      * @return string[] Editor-facing names of the settings that differ.
      */
-    private function settingDifferences(string $field, array $expected, array $actual): array
+    private function settingDifferences(string $field, array $expected, array $actual, bool $verbatim = false): array
     {
         $differences = [];
         // Storyblok stores unset values as null, empty strings or false; the generator omits them.
@@ -449,7 +459,22 @@ class ComponentSchemaComparer
             $differences[] = 'editor type';
         }
 
-        foreach (self::FIELD_SETTINGS as $key => $label) {
+        $settings = self::FIELD_SETTINGS;
+
+        if ($verbatim) {
+            $type = $expected['type'] ?? null;
+            $compared = [
+                ...self::NOT_SETTINGS,
+                ...($type === 'option' ? self::OPTION_KEYS : []),
+                ...($type === 'bloks' ? self::WHITELIST_KEYS : []),
+            ];
+
+            foreach (array_diff_key($expected + $actual, array_flip($compared), $settings) as $key => $_) {
+                $settings[$key] = str_replace('_', ' ', (string)$key);
+            }
+        }
+
+        foreach ($settings as $key => $label) {
             $want = $expected[$key] ?? null;
             $have = $actual[$key] ?? null;
 
@@ -459,7 +484,11 @@ class ComponentSchemaComparer
                 $have = $have === $this->label($field) ? null : $have;
             }
 
-            if ($normalise($want) !== $normalise($have)) {
+            $want = $normalise($want);
+            $have = $normalise($have);
+
+            // Loose for arrays, so the key order of pulled JSON objects doesn't count.
+            if (is_array($want) && is_array($have) ? $want != $have : $want !== $have) {
                 $differences[] = $label;
             }
         }

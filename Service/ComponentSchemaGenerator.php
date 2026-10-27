@@ -472,15 +472,16 @@ class ComponentSchemaGenerator
      * - fields only in the space stay (a renamed field's old name gets a "Deprecated" description);
      * - option values and allowed bloks are merged;
      * - a field whose type changed keeps the space's type (report it: types can't change additively);
+     * - an existing "storyblok" field stays as it is in the space until the final push;
      * - settings the template doesn't set are kept from the space;
      * - settings that would restrict editors don't apply yet: `required` only if the space has it (never on
      *   new fields), file types are merged, a story picker keeps the space's folder, folder or tag whitelists
      *   and translation stay, and existing components keep their content type and nestable settings.
      *
-     * @param array{components: array, component_groups: array, renames: array} $final
+     * @param array{components: array, component_groups: array, renames: array, verbatim?: array} $final
      * @param array $spaceComponents Components pulled from the space (items with a schema).
      *
-     * @return array{components: array, component_groups: array, renames: array}
+     * @return array{components: array, component_groups: array, renames: array, verbatim?: array}
      */
     public function buildSafe(array $final, array $spaceComponents): array
     {
@@ -536,8 +537,10 @@ class ComponentSchemaGenerator
                     continue;
                 }
 
-                // A different type or option source (e.g. a story picker becoming a fixed list) isn't additive.
-                if (($field['type'] ?? null) !== ($spaceField['type'] ?? null)
+                // A different type or option source (e.g. a story picker becoming a fixed list) isn't additive,
+                // and which "storyblok" field settings are additive isn't known: keep the space's field.
+                if (isset($final['verbatim'][$component['name']][$name])
+                    || ($field['type'] ?? null) !== ($spaceField['type'] ?? null)
                     || (($field['source'] ?? '') ?: 'self') !== (($spaceField['source'] ?? '') ?: 'self')
                 ) {
                     $component['schema'][$name] = ['pos' => $field['pos']] + $spaceField;
