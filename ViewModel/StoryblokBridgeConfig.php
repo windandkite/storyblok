@@ -43,7 +43,12 @@ class StoryblokBridgeConfig implements ArgumentInterface
     {
         return $this->urlBuilder->getUrl(
             'storyblok/story/ajax',
-            ['_query' => [StoryblokSessionManager::STORYBLOK_VISUAL_EDITOR_PARAM => true]]
+            ['_query' => [
+                StoryblokSessionManager::STORYBLOK_VISUAL_EDITOR_PARAM => true,
+                // The endpoint renders posted content, so it needs the editor's token too.
+                StoryblokSessionManager::STORYBLOK_TOKEN_PARAM
+                    => $this->storyblokSessionManager->getEditorTokenParams(),
+            ]]
         );
     }
 }

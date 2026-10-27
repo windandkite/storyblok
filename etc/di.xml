@@ -19,6 +19,26 @@
     <preference for="WindAndKite\Storyblok\Api\Data\StoryInterface"
                 type="WindAndKite\Storyblok\Model\Story"/>
 
+    <!-- Rich text runs {{...}} directives through the CMS page filter, in text and link URLs. -->
+    <type name="WindAndKite\Storyblok\Service\FieldRenderer">
+        <arguments>
+            <argument name="overrideExtensions" xsi:type="array">
+                <item name="text" xsi:type="object">WindAndKite\Storyblok\TipTap\Text</item>
+                <item name="link" xsi:type="object">WindAndKite\Storyblok\TipTap\Link</item>
+                <item name="code_block" xsi:type="object">WindAndKite\Storyblok\TipTap\CodeBlock</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="WindAndKite\Storyblok\Service\BlockHydrationManager">
+        <arguments>
+            <argument name="hydrators" xsi:type="array">
+                <item name="magento_variables" xsi:type="array">
+                    <item name="variables" xsi:type="object">WindAndKite\Storyblok\Model\Hydrator\MagentoVariables</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+
     <type name="Magento\Config\Model\Config\TypePool">
         <arguments>
             <argument name="sensitive" xsi:type="array">
