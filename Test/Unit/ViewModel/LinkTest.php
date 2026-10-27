@@ -48,6 +48,8 @@ class LinkTest extends TestCase
         $this->assertSame('', $this->link->getUrl(['linktype' => 'url', 'url' => 'javascript:alert(1)']));
         $this->assertSame('', $this->link->getUrl(['linktype' => 'url', 'url' => "java\nscript:alert(1)"]));
         $this->assertSame('', $this->link->getUrl(['linktype' => 'url', 'url' => "java\tscript:alert(1)"]));
+        $this->assertSame('', $this->link->getUrl(['linktype' => 'url', 'url' => 'javascript://x:bad/%0Aalert(1)']), 'unparseable URLs');
+        $this->assertSame('/faq', $this->link->getUrl(['linktype' => 'url', 'url' => '/faq']), 'relative URLs');
     }
 
     public function testAttributesAndExternal(): void

@@ -171,6 +171,8 @@ class Link implements ArgumentInterface
 
         $scheme = parse_url($url, PHP_URL_SCHEME);
 
-        return !$scheme || in_array(strtolower($scheme), ['http', 'https', 'mailto', 'tel'], true);
+        // Null is a relative URL; false is a URL PHP can't parse, which a browser may still run as javascript:.
+        return $scheme === null
+            || (is_string($scheme) && in_array(strtolower($scheme), ['http', 'https', 'mailto', 'tel'], true));
     }
 }
