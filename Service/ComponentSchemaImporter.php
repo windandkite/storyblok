@@ -90,7 +90,7 @@ class ComponentSchemaImporter
             foreach ($fieldNames as $fieldIndex => $fieldName) {
                 $lines[] = sprintf(
                     ' *     %s: %s%s',
-                    $encode($fieldName),
+                    $encode((string)$fieldName),
                     $encode($definition['fields'][$fieldName] ?: new \stdClass()),
                     $fieldIndex < count($fieldNames) - 1 ? ',' : ''
                 );
@@ -152,6 +152,8 @@ class ComponentSchemaImporter
         $comment = static fn (string $text) => str_replace('*/', '*\\/', $text);
 
         foreach ($definition['fields'] ?? [] as $name => $field) {
+            // Numeric names ("1") become integer array keys.
+            $name = (string)$name;
             $data = sprintf('$block->getData(%s)', var_export($name, true));
             $getter = 'get' . str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $name)));
             // The getter reads another key for names like "fooBar" (Magento reads "foo_bar"): render by name.

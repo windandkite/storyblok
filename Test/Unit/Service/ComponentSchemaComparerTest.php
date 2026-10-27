@@ -141,5 +141,6 @@ class ComponentSchemaComparerTest extends TestCase
             [['warning', 'section', 'body'], ['warning', 'hero', null]],
             array_map(static fn ($issue) => [$issue['level'], $issue['component'], $issue['field']], $issues)
         );
+        $this->assertTrue((new ComponentSchemaComparer())->isDestructive($issues[0]), 'restricting may exclude stored bloks');
     }
 }

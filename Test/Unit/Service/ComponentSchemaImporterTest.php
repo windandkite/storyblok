@@ -204,6 +204,16 @@ class ComponentSchemaImporterTest extends TestCase
         $this->assertStringContainsString('$block->getBodyHtml()', $source);
     }
 
+    public function testNumericFieldNames(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $definition = ['fields' => ['1' => ['type' => 'string']]];
+        $source = $importer->newTemplate('promo', $definition, $importer->formatTag($definition));
+
+        $this->assertStringContainsString('"1": {"type": "string"}', $source);
+        $this->assertNotNull((new ComponentSchemaGenerator($this->createStub(RulePool::class), new File()))->parse($source, 'promo.phtml'));
+    }
+
     public function testNewTemplateIsValidPhp(): void
     {
         $importer = new ComponentSchemaImporter();

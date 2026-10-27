@@ -178,10 +178,13 @@ class GenerateComponentSchema extends AbstractSchemaCommand
             && $this->writeChanges($output, $spaceComponents, $issues, $finalFile, $basePath, $storeCode);
 
         $migrations = $this->migrationBuilder->build($schema['renames']);
-        $this->writeMigrations($basePath . '/migrations/' . $storeCode, $migrations);
+        $kept = $this->writeMigrations($basePath . '/migrations/' . $storeCode, $migrations);
 
         foreach (array_keys($migrations) as $migration) {
-            $output->writeln('<info>Wrote migration ' . $this->cliContext->toDisplayPath($basePath . '/migrations/' . $storeCode . '/' . $migration) . '</info>');
+            $path = $this->cliContext->toDisplayPath($basePath . '/migrations/' . $storeCode . '/' . $migration);
+            $output->writeln(in_array($migration, $kept, true)
+                ? '<comment>Not overwriting hand-written migration ' . $path . ': copy the renamed content in it yourself, or delete it to generate one.</comment>'
+                : '<info>Wrote migration ' . $path . '</info>');
         }
 
         if (!$input->getOption(self::OPTION_NO_IDE_HELPER)) {
@@ -411,10 +414,12 @@ class GenerateComponentSchema extends AbstractSchemaCommand
      * @param string $directory
      * @param array<string, string> $migrations
      *
-     * @return void
+     * @return string[] Migrations not written because a hand-written file has the same name.
      */
-    private function writeMigrations(string $directory, array $migrations): void
+    private function writeMigrations(string $directory, array $migrations): array
     {
+        $kept = [];
+
         if ($this->file->isDirectory($directory)) {
             foreach ($this->file->readDirectory($directory) as $path) {
                 if (str_ends_with($path, ComponentMigrationBuilder::FILE_SUFFIX)
@@ -427,14 +432,23 @@ class GenerateComponentSchema extends AbstractSchemaCommand
         }
 
         if (!$migrations) {
-            return;
+            return $kept;
         }
 
         $this->file->createDirectory($directory);
 
         foreach ($migrations as $name => $source) {
-            $this->file->filePutContents($directory . '/' . $name, $source);
+            $path = $directory . '/' . $name;
+
+            if ($this->file->isExists($path) && !str_contains($this->file->fileGetContents($path), ComponentMigrationBuilder::MARKER)) {
+                $kept[] = $name;
+                continue;
+            }
+
+            $this->file->filePutContents($path, $source);
         }
+
+        return $kept;
     }
 
     /**

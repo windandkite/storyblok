@@ -74,8 +74,12 @@ class ComponentUsageCounter
                     continue;
                 }
 
-                // Option values / bloks: only count content that actually uses the affected values.
-                if ($issue['values'] && !$this->usesValues($value, $issue['values'])) {
+                // Option values / bloks: only count content that actually uses the affected values, or for a new
+                // whitelist, bloks outside it. Settings issues list setting names, so any content counts.
+                if ($issue['values']
+                    && $issue['kind'] !== ComponentSchemaComparer::KIND_FIELD_SETTINGS
+                    && !$this->usesValues($value, $issue['values'], $issue['kind'] === ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED)
+                ) {
                     continue;
                 }
 
@@ -114,17 +118,18 @@ class ComponentUsageCounter
     /**
      * @param mixed $value
      * @param string[] $values
+     * @param bool $outside Look for bloks not in $values instead.
      *
      * @return bool
      */
-    private function usesValues(mixed $value, array $values): bool
+    private function usesValues(mixed $value, array $values, bool $outside = false): bool
     {
         if (is_scalar($value)) {
             return in_array((string)$value, $values, true);
         }
 
         foreach ((array)$value as $child) {
-            if (is_array($child) && in_array($child['component'] ?? null, $values, true)) {
+            if (is_array($child) && in_array($child['component'] ?? null, $values, true) !== $outside) {
                 return true;
             }
         }

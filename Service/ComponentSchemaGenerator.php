@@ -623,6 +623,8 @@ class ComponentSchemaGenerator
         $classes = [];
 
         foreach ($components as $name => $component) {
+            // Numeric names ("404") become integer array keys.
+            $name = (string)$name;
             $lines = [];
 
             $methods = [];

@@ -68,6 +68,7 @@ class ComponentSchemaComparer
         self::KIND_OPTION_SOURCE_CHANGED,
         self::KIND_OPTION_VALUES_REMOVED,
         self::KIND_WHITELIST_REMOVED,
+        self::KIND_WHITELIST_UNRESTRICTED,
     ];
 
     // Storyblok layout-only schema entries, not content fields.
@@ -364,7 +365,8 @@ class ComponentSchemaComparer
 
         if ($actualAllowed === null) {
             if ($expectedAllowed !== null) {
-                $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_UNRESTRICTED, $component, $field, 'Any blok can be added in the space, but the template restricts it: push to apply the whitelist.');
+                // Values are the bloks still allowed: stored children outside them are what the push affects.
+                $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_UNRESTRICTED, $component, $field, 'Any blok can be added in the space, but the template restricts it (existing bloks outside the whitelist stay, editors can\'t add more): push to apply the whitelist.', $expectedAllowed);
             }
 
             return $issues;

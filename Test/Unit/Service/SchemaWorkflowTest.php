@@ -179,10 +179,13 @@ class SchemaWorkflowTest extends TestCase
         file_put_contents($this->root . '/stories/b.json', json_encode(['uuid' => 'b', 'content' => ['_uid' => '4', 'component' => 'section', 'padding' => 'xl']]));
 
         $issues = [
-            ['component' => 'section', 'field' => 'padding', 'values' => ['xl']],
-            ['component' => 'section', 'field' => 'legacy', 'values' => []],
-            ['component' => 'section', 'field' => null, 'values' => []],
-            ['component' => 'section', 'field' => 'sticky', 'values' => []],
+            ['kind' => '', 'component' => 'section', 'field' => 'padding', 'values' => ['xl']],
+            ['kind' => '', 'component' => 'section', 'field' => 'legacy', 'values' => []],
+            ['kind' => '', 'component' => 'section', 'field' => null, 'values' => []],
+            ['kind' => '', 'component' => 'section', 'field' => 'sticky', 'values' => []],
+            ['kind' => ComponentSchemaComparer::KIND_FIELD_SETTINGS, 'component' => 'section', 'field' => 'padding', 'values' => ['label']],
+            ['kind' => ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED, 'component' => 'page', 'field' => 'body', 'values' => ['section']],
+            ['kind' => ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED, 'component' => 'page', 'field' => 'body', 'values' => ['hero']],
         ];
         $annotated = (new ComponentUsageCounter(new File()))->annotate($this->root . '/stories', $issues);
 
@@ -190,6 +193,9 @@ class SchemaWorkflowTest extends TestCase
         $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[1]['usage'], 'empty values are not usage');
         $this->assertArrayNotHasKey('usage', $annotated[2]);
         $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[3]['usage'], 'a stored false is content');
+        $this->assertSame(['stories' => 2, 'bloks' => 3], $annotated[4]['usage'], 'settings names aren\'t content values');
+        $this->assertSame(['stories' => 0, 'bloks' => 0], $annotated[5]['usage'], 'every child is still allowed');
+        $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[6]['usage'], 'children outside the new whitelist');
         $this->assertNull((new ComponentUsageCounter(new File()))->annotate($this->root . '/missing', $issues));
 
         // Zero usage is only reported when stories were actually read.
@@ -346,6 +352,7 @@ class SchemaWorkflowTest extends TestCase
         $schema = $this->build(['404' => ['fields' => ['1' => ['type' => 'string']]]]);
 
         $this->assertSame('404', $schema['components'][0]['name']);
+        $this->assertStringContainsString('class _404Blok', $this->generator()->buildIdeHelper(['404' => ['file' => '404.phtml', 'definition' => ['fields' => []]]]));
         $this->assertSame('_3ColumnGridBlok', ComponentSchemaGenerator::ideClassName('3_column_grid'));
         $this->assertSame('FormInputBlok', ComponentSchemaGenerator::ideClassName('form-input'));
         $this->assertSame([], (new ComponentSchemaComparer())->compare($schema, [['name' => '404', 'schema' => ['1' => ['type' => 'text', 'display_name' => '1']]]]));
