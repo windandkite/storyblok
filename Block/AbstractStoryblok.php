@@ -176,14 +176,16 @@ abstract class AbstractStoryblok extends Template
      */
     public function getStory(): ?StoryblokStory
     {
-        if (!$this->getData('story')) {
+        if (!$this->getData('story') instanceof StoryblokStory) {
             $storyRequest = $this->storyRequestService->getStoryRequest($this->getData());
 
             try {
                 if ($slug = $this->getSlug()) {
                     $this->setData('story', $this->storyRepository->getBySlug($slug, $storyRequest));
-                } else if ($this->getRequest()->getParam('story')) {
-                    $this->setData('story', $this->getRequest()->getParam('story'));
+                } else {
+                    // Set by the router; a "story" query parameter is just a string.
+                    $story = $this->getRequest()->getParam('story');
+                    $this->setData('story', $story instanceof StoryblokStory ? $story : null);
                 }
             } catch (\Exception) {
                 $this->setData('story', null);
