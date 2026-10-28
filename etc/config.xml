@@ -9,7 +9,6 @@
                 <share_link_days>7</share_link_days>
                 <api_token backend_model="Magento\Config\Model\Config\Backend\Encrypted"/>
                 <asset_token backend_model="Magento\Config\Model\Config\Backend\Encrypted"/>
-                <webhook_secret backend_model="Magento\Config\Model\Config\Backend\Encrypted"/>
                 <region>eu</region>
             </general>
             <page_routing>

@@ -44,8 +44,8 @@ class GenerateWebhookSecret implements DataPatchInterface
                 ->where('scope = ?', ScopeConfigInterface::SCOPE_TYPE_DEFAULT)
         );
 
-        // The database is checked directly: config may be cached from before the secret was encrypted.
-        // ScopeConfig covers a secret set in env.php or config.php.
+        // The database is checked directly, as config may be cached from before this upgrade. ScopeConfig covers a
+        // secret set in env.php or config.php.
         if (!$defaultSecret && !$this->scopeConfig->getValue(Config::XML_PATH_WEBHOOK_SECRET)) {
             $select = $connection->select()->from($table, ['value'])->where("value IS NOT NULL AND value != ''");
 

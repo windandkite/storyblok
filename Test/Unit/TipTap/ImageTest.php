@@ -46,6 +46,23 @@ class ImageTest extends TestCase
         $this->assertStringNotContainsString('srcset', $html);
     }
 
+    public function testQueryStringsGoAfterTheTransformation(): void
+    {
+        $html = $this->render(self::SRC . '?cv=123');
+
+        $this->assertStringContainsString('src="' . self::SRC . '/m/1200x0?cv=123"', $html);
+        $this->assertStringContainsString(self::SRC . '/m/400x0?cv=123 400w', $html);
+    }
+
+    public function testAlreadyTransformedImagesAreLeftAsTheyAre(): void
+    {
+        $src = self::SRC . '/m/600x300/filters:focal(10x10:20x20)';
+        $html = $this->render($src);
+
+        $this->assertStringContainsString('src="' . $src . '"', $html);
+        $this->assertStringNotContainsString('srcset', $html);
+    }
+
     private function render(string $src): string
     {
         $editor = new Editor(['extensions' => [new Storyblok([

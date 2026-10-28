@@ -41,17 +41,27 @@ class Image extends ImageNode
         $attributes += ['loading' => 'lazy', 'decoding' => 'async'];
         $src = (string)($attributes['src'] ?? '');
 
-        // Only Storyblok assets carry their size in the URL, e.g. https://a.storyblok.com/f/123/1920x1080/abc/a.jpg
-        if (!preg_match('#^https://a\.storyblok\.com/f/\d+/(\d+)x(\d+)/#', $src, $size) || !(int)$size[1]) {
+        // Only original Storyblok assets, which carry their size in the URL, e.g.
+        // https://a.storyblok.com/f/123/1920x1080/abc/a.jpg?cv=1. Already transformed URLs (…/a.jpg/m/600x0) are
+        // left as they are. A query string or fragment goes after the transformation.
+        if (
+            !preg_match('#^(https://a\.storyblok\.com/f/\d+/(\d+)x(\d+)/[^/?\#]+/[^/?\#]+)([?\#].*)?$#', $src, $match)
+            || !(int)$match[2]
+        ) {
             return [$tag, $attributes, 0];
         }
 
-        [, $width, $height] = array_map('intval', $size);
+        $src = $match[1];
+        $suffix = $match[4] ?? '';
+        [$width, $height] = [(int)$match[2], (int)$match[3]];
         $displayWidth = min($width, self::MAX_WIDTH);
         $widths = array_unique([...array_filter(self::SRCSET_WIDTHS, fn (int $w) => $w < $displayWidth), $displayWidth]);
 
-        $attributes['src'] = $this->resize($src, $displayWidth);
-        $attributes['srcset'] = implode(', ', array_map(fn (int $w) => $this->resize($src, $w) . ' ' . $w . 'w', $widths));
+        $attributes['src'] = $this->resize($src, $displayWidth) . $suffix;
+        $attributes['srcset'] = implode(', ', array_map(
+            fn (int $w) => $this->resize($src, $w) . $suffix . ' ' . $w . 'w',
+            $widths
+        ));
         $attributes['sizes'] = '(min-width: ' . $displayWidth . 'px) ' . $displayWidth . 'px, 100vw';
         $attributes['width'] = $displayWidth;
         $attributes['height'] = (int)round($height * $displayWidth / $width);

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 /** @var \WindAndKite\Storyblok\Block\Block $block */
 /** @var \Magento\Framework\Escaper $escaper */
+
+// Shoppers see nothing: bloks can reach Storyblok before their template is deployed, and pages are cached.
+if (!$block->isEditorPreview()) {
+    return;
+}
 ?>
 <div <?= /** @noEscape */ $block->getBlokEditableAttributes() ?>>
     <?= $escaper->escapeHtml(__('Missing Template %1', $block->getStoryblokTemplate())) ?>
