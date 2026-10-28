@@ -89,7 +89,7 @@ To contribute code, please follow these steps:
     Implement your code changes, ensuring they align with the proposed bug fix or feature.
 
 9.  **Update Documentation:**
-    If your changes affect functionality or configuration, update the relevant documentation pages within this wiki.
+    If your changes affect functionality or configuration, update the relevant pages in `docs/wiki/` in the same pull request. They are published to this wiki when the pull request is merged. Edits made directly in the wiki are overwritten.
 
 10. **Commit Your Changes:**
     Write clear, concise commit messages. Follow conventional commits if possible (e.g., `feat: Add new feature`, `fix: Resolve bug`).
