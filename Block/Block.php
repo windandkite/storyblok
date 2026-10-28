@@ -90,7 +90,8 @@ class Block extends AbstractStoryblok
             return '';
         }
 
-        $dataBlokUid = $this->getStory()?->getId() . '-' . $editableData['uid'];
+        // The _editable "id" is the story ID, for bloks rendered without their story.
+        $dataBlokUid = ($this->getStory()?->getId() ?? $editableData['id']) . '-' . $editableData['uid'];
 
         return sprintf("data-blok-c='%s' data-blok-uid='%s'", $dataBlokC, $dataBlokUid);
     }
