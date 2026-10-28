@@ -58,7 +58,7 @@
                        showInStore="0">
                     <label>Developer Mode</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment><![CDATA[If set to "Yes", every visitor sees draft content, page caching is turned off and the live preview endpoint accepts any request. <strong>Never enable this in production.</strong>]]></comment>
+                    <comment><![CDATA[If set to "Yes", every visitor sees draft content and page caching is turned off. <strong>Never enable this in production.</strong>]]></comment>
                 </field>
                 <field id="share_link_days"
                        translate="label comment"
