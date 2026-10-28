@@ -41,7 +41,8 @@ class Block extends AbstractStoryblok
             $scopeConfig,
             $storyRequestService,
             $context,
-            $data
+            $data,
+            $storyblokSessionManager,
         );
     }
 
@@ -63,7 +64,7 @@ class Block extends AbstractStoryblok
 
     public function getBlokEditableAttributes(): string
     {
-        if (!$this->scopeConfig->isDevModeEnabled() && !$this->storyblokSessionManager->isValidEditorSession() && !$this->getStory()?->getForceBridge()) {
+        if (!$this->isEditorPreview()) {
             return '';
         }
 
@@ -93,7 +94,11 @@ class Block extends AbstractStoryblok
         // The _editable "id" is the story ID, for bloks rendered without their story.
         $dataBlokUid = ($this->getStory()?->getId() ?? $editableData['id']) . '-' . $editableData['uid'];
 
-        return sprintf("data-blok-c='%s' data-blok-uid='%s'", $dataBlokC, $dataBlokUid);
+        return sprintf(
+            'data-blok-c="%s" data-blok-uid="%s"',
+            $this->_escaper->escapeHtmlAttr($dataBlokC),
+            $this->_escaper->escapeHtmlAttr($dataBlokUid)
+        );
     }
 
     public function renderField(string $fieldName): ?string
