@@ -12,7 +12,8 @@ class Config
 {
     private const XML_PATH_ENABLED = 'storyblok/general/enabled';
     private const XML_PATH_API_TOKEN = 'storyblok/general/api_token';
-    private const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
+    public const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
+    private const XML_PATH_SHARE_LINK_DAYS = 'storyblok/general/share_link_days';
     private const XML_PATH_DEV_MODE = 'storyblok/general/dev_mode';
     private const XML_PATH_PAGE_ROUTING_ENABLED = 'storyblok/page_routing/enabled';
     private const XML_PATH_RESTRICT_FOLDER = 'storyblok/page_routing/restrict_folder';
@@ -74,6 +75,20 @@ class Config
             $scopeType,
             $scopeCode,
         );
+    }
+
+    /**
+     * How long a draft share link stays valid, in days.
+     */
+    public function getShareLinkDays(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): int {
+        return max(1, (int)$this->scopeConfig->getValue(
+            self::XML_PATH_SHARE_LINK_DAYS,
+            $scopeType,
+            $scopeCode,
+        ));
     }
 
     public function isDevModeEnabled(

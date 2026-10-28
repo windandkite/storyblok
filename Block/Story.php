@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Block;
 
 use Magento\Framework\DataObject\IdentityInterface;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
+use WindAndKite\Storyblok\Service\StoryblokCacheService;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 
 class Story extends AbstractStoryblok implements IdentityInterface
@@ -61,6 +63,11 @@ class Story extends AbstractStoryblok implements IdentityInterface
             'storyblok_cv_' . $this->getStory()->getCacheVersion(),
             'storyblok_story_id_' . $this->getStory()->getId(),
             'storyblok_slug_' . $this->getStory()->getSlug(),
+            // Resolved relations and links, so publishing one of those stories refreshes this page too.
+            ...StoryblokCacheService::getRelatedStoryTags(
+                $this->getStory()->getData(StoryInterface::KEY_RELS) ?? [],
+                $this->getStory()->getData(StoryInterface::KEY_LINKS) ?? [],
+            ),
         ];
     }
 

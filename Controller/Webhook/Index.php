@@ -16,6 +16,8 @@ use WindAndKite\Storyblok\Service\StoryblokCacheService;
 
 class Index implements CsrfAwareActionInterface, HttpPostActionInterface
 {
+    // Lower Storyblok plans can't sign webhooks, so the secret can also be passed in the webhook URL.
+    public const KEY_PARAM = 'key';
 
     /**
      * @param JsonFactory $resultJsonFactory
@@ -44,12 +46,18 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
         $resultJson = $this->resultJsonFactory->create();
 
         try {
-            $payload = $this->request->getContent();
+            $payload = (string)$this->request->getContent();
+
+            if (!$this->isValidRequest()) {
+                // Only the size: the body is untrusted and unbounded.
+                $this->logger->warning(sprintf('Invalid webhook request (%d bytes).', strlen($payload)));
+                throw new WebapiException(__('Invalid request'), 0, WebapiException::HTTP_UNAUTHORIZED);
+            }
+
             $data = $this->serializer->unserialize($payload);
 
-            if (!$this->isValidRequest($data)) {
-                $this->logger->error('Invalid webhook request: ' . $payload);
-                throw new WebapiException(__('Invalid request'), WebapiException::HTTP_UNAUTHORIZED);
+            if (!is_array($data)) {
+                throw new WebapiException(__('Invalid request'), 0, WebapiException::HTTP_BAD_REQUEST);
             }
 
             $this->processWebhook($data);
@@ -62,7 +70,7 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
             $resultJson->setData(['error' => $e->getMessage()]);
             return $resultJson;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->critical($e->getMessage());
             $resultJson->setHttpResponseCode(500);
             $resultJson->setData(['error' => 'Internal Server Error']);
@@ -71,35 +79,39 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
     }
 
     /**
-     * Validates if the request is valid.
+     * Whether the request comes from Storyblok: a valid "webhook-signature" (plans that can sign webhooks), else the
+     * secret as the "key" URL parameter. Nothing is accepted until a secret has been generated.
      *
-     * @param array $data
      * @return bool
      */
-    private function isValidRequest(array $data): bool
+    private function isValidRequest(): bool
     {
-        $signatureHeader = $this->request->getHeader('webhook-signature');
         $developerValidationKeyHeader = $this->request->getHeader('developer-validation-key');
 
-        if ($developerValidationKeyHeader) {
+        if (is_string($developerValidationKeyHeader) && $developerValidationKeyHeader !== '') {
             $developerSecret = $this->config->getDeveloperWebhookSecret();
 
-            if ($developerSecret && hash_equals($developerValidationKeyHeader, $developerSecret)) {
+            if ($developerSecret && hash_equals($developerSecret, $developerValidationKeyHeader)) {
                 $this->logger->info('Webhook validated via developer key.');
                 return true;
             }
         }
 
-        if (!$signatureHeader) {
+        $secret = (string)$this->config->getWebhookSecret();
+
+        if ($secret === '') {
             return false;
         }
 
-        $payload = $this->request->getContent();
-        $secret = $this->config->getWebhookSecret();
+        $signatureHeader = $this->request->getHeader('webhook-signature');
 
-        $calculatedSignature = hash_hmac('sha1', $payload, $secret);
+        if (is_string($signatureHeader) && $signatureHeader !== '') {
+            return hash_equals(hash_hmac('sha1', (string)$this->request->getContent(), $secret), $signatureHeader);
+        }
 
-        return hash_equals($signatureHeader, $calculatedSignature);
+        $key = $this->request->getParam(self::KEY_PARAM);
+
+        return is_string($key) && hash_equals($secret, $key);
     }
 
     /**
@@ -110,7 +122,11 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
      */
     private function processWebhook(array $data): void
     {
-        $this->logger->info('Webhook received and processed: ' . $this->serializer->serialize($data));
+        $this->logger->info(sprintf(
+            'Storyblok webhook: %s story %s.',
+            is_scalar($data['action'] ?? null) ? $data['action'] : 'unknown action',
+            is_scalar($data['story_id'] ?? null) ? $data['story_id'] : '?'
+        ));
 
         try {
             $storyId = $data['story_id'] ?? null;
@@ -127,7 +143,7 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
             $cacheTags = ['storyblok_story_id_' . $storyId];
 
             // Always invalidate all listing pages when a story is published
-            $cacheTags[] = 'storyblok_lists';
+            $cacheTags[] = StoryblokCacheService::LISTS_TAG;
 
             // A published story may live at a slug that was cached as not found
             $cacheTags[] = StoryblokCacheService::NOT_FOUND_TAG;

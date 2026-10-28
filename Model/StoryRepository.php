@@ -20,6 +20,7 @@ use Storyblok\Api\Request\StoryRequest;
 use Storyblok\Api\Response\StoriesResponse;
 use Storyblok\Api\Response\StoryResponse;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
@@ -27,6 +28,8 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
+use WindAndKite\Storyblok\Exception\StoryblokUnavailableException;
+use WindAndKite\Storyblok\Service\PageCacheability;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Psr\Log\LoggerInterface;
 use Magento\Framework\Api\SearchCriteriaInterface;
@@ -68,6 +71,7 @@ class StoryRepository implements StoryRepositoryInterface
      * @param SearchResultsInterfaceFactory $searchResultsFactory
      * @param SearchCriteriaConverter $searchCriteriaConverter
      * @param StoryblokCacheService $cacheService
+     * @param PageCacheability $pageCacheability
      */
     public function __construct(
         private StoryblokClientWrapper $storyBlockClientWrapper,
@@ -76,6 +80,7 @@ class StoryRepository implements StoryRepositoryInterface
         private SearchResultsInterfaceFactory $searchResultsFactory,
         private SearchCriteriaConverter $searchCriteriaConverter,
         private StoryblokCacheService $cacheService,
+        private PageCacheability $pageCacheability,
     ) {}
 
     private function rawRequest(
@@ -106,6 +111,7 @@ class StoryRepository implements StoryRepositoryInterface
         $storyData = $response->story;
         $storyData[StoryInterface::KEY_CACHE_VERSION] = $response->cv;
         $storyData[StoryInterface::KEY_RELS] = $response->rels;
+        $storyData[StoryInterface::KEY_LINKS] = $response->links;
         $story = $this->storyFactory->create();
         $story->setData($storyData);
 
@@ -137,7 +143,8 @@ class StoryRepository implements StoryRepositoryInterface
      * Load a single story from the cache or the API, remembering 404s so missing stories don't hit the API again.
      *
      * 404s are expected (the router tries Storyblok for every URL Magento doesn't match), so they aren't logged.
-     * Other errors are logged and not cached.
+     * API failures (outage, timeout, rate limit, bad token) throw StoryblokUnavailableException, so they aren't served
+     * as 404s, and mark the page uncacheable. Other errors (cache, conversion) are logged and reported as not found.
      *
      * @param string $cacheKey
      * @param callable $fetch Returns the StoryResponse from the API
@@ -145,6 +152,7 @@ class StoryRepository implements StoryRepositoryInterface
      *
      * @return StoryInterface
      * @throws NoSuchEntityException
+     * @throws StoryblokUnavailableException
      */
     private function fetchStory(
         string $cacheKey,
@@ -162,14 +170,19 @@ class StoryRepository implements StoryRepositoryInterface
                     $this->cacheService->saveStoryResponse($cacheKey, $response);
 
                     return $this->convertStoryResponse($response);
-                } catch (ClientExceptionInterface $e) {
-                    if ($e->getResponse()->getStatusCode() !== 404) {
-                        throw $e;
+                } catch (HttpClientExceptionInterface $e) {
+                    if (!$e instanceof ClientExceptionInterface || $e->getResponse()->getStatusCode() !== 404) {
+                        $this->logger->error('Storyblok API unavailable: ' . $e->getMessage());
+                        $this->pageCacheability->markUncacheable();
+
+                        throw new StoryblokUnavailableException(__('Storyblok is unavailable.'), $e);
                     }
 
                     $this->cacheService->saveStoryNotFound($cacheKey);
                 }
             }
+        } catch (StoryblokUnavailableException $e) {
+            throw $e;
         } catch (Exception $e) {
             // Anything unexpected (API, cache or conversion) is logged; the router still gets a not-found.
             $this->logger->warning($e->getMessage());

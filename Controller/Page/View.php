@@ -36,7 +36,7 @@ class View implements HttpGetActionInterface
     {
         $story = $this->request->getParam('story');
 
-        if (!$story || !$story->getId()) {
+        if (!$story instanceof StoryInterface || !$story->getId()) {
             throw new NotFoundException(__('Story not found.'));
         }
 
