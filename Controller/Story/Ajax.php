@@ -19,7 +19,6 @@ use Magento\Framework\View\LayoutInterface;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Block\Story;
 use WindAndKite\Storyblok\Model\StoryFactory;
-use WindAndKite\Storyblok\Scope\Config;
 use WindAndKite\Storyblok\Service\StoryblokSessionManager;
 
 class Ajax extends Action implements CsrfAwareActionInterface, HttpPostActionInterface
@@ -30,16 +29,15 @@ class Ajax extends Action implements CsrfAwareActionInterface, HttpPostActionInt
         private JsonFactory $resultJsonFactory,
         private StoryFactory $storyFactory,
         private StoryblokSessionManager $storyblokSessionManager,
-        private Config $config,
     ) {
         parent::__construct($context);
     }
 
     public function execute(): Json|ResultInterface|ResponseInterface
     {
-        // Renders caller-supplied content (including CMS directives), so only for the Visual Editor, or dev mode
-        // where the bridge runs for everyone.
-        if (!$this->storyblokSessionManager->isValidEditorSession() && !$this->config->isDevModeEnabled()) {
+        // Renders caller-supplied content (including CMS directives), so only for the Visual Editor. Dev mode isn't
+        // enough: it may be on for every visitor, and live updates only come from the editor.
+        if (!$this->storyblokSessionManager->isValidEditorSession()) {
             return $this->resultJsonFactory->create()->setHttpResponseCode(403)->setData([]);
         }
 

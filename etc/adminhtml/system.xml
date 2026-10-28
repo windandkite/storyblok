@@ -43,7 +43,7 @@
                        type="text"
                        sortOrder="20"
                        showInDefault="1"
-                       showInWebsite="1"
+                       showInWebsite="0"
                        showInStore="0">
                     <label>Webhook Secret</label>
                     <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\System\Config\Form\Field\WebhookSecret</frontend_model>
@@ -58,7 +58,18 @@
                        showInStore="0">
                     <label>Developer Mode</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment>If set to "Yes", the latest draft version of content will be fetched.</comment>
+                    <comment><![CDATA[If set to "Yes", every visitor sees draft content and page caching is turned off. <strong>Never enable this in production.</strong>]]></comment>
+                </field>
+                <field id="share_link_days"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="40"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Draft Share Link Lifetime (days)</label>
+                    <validate>validate-digits validate-greater-than-zero</validate>
+                    <comment>In the Visual Editor, "Copy share link" creates a link to the current page's draft for people without a Storyblok account. It stops working after this many days.</comment>
                 </field>
             </group>
             <group id="page_routing"

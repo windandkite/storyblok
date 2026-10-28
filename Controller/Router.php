@@ -85,7 +85,6 @@ class Router implements RouterInterface
             }
 
             $request->setParams(['story' => $storyData]);
-            $request->setParam(StoryblokSessionManager::STORYBLOK_VERSION_PARAM, $version->value);
             $request->setParam(StoryblokSessionManager::STORYBLOK_LANGUAGE_PARAM, $language);
 
 

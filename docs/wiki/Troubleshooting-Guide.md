@@ -36,9 +36,13 @@ If your Storyblok content isn't showing up as expected:
     * **Issue:** The Storyblok module or its page routing feature is disabled.
     * **Solution:** In Magento config (`Stores` > `Configuration` > `WindAndKite` > `Storyblok`), ensure **"General Settings" > "Module Enabled"** is "Yes" and **"Page Routing" > "Enable Page Routing"** is "Yes".
 
-* **Developer Mode / `_storyblok` Parameter:**
-    * **Issue:** You're expecting to see draft content but it's not appearing, or you're debugging.
-    * **Solution:** For developers, enable **"General Settings" > "Developer Mode"** to "Yes" to always fetch draft content. For editors using the Visual Editor, ensure the `_storyblok` query parameter is present in the URL.
+* **Draft Content Not Showing:**
+    * **Issue:** You're expecting to see draft content but the published version appears.
+    * **Solution:** Drafts are only shown in the Visual Editor (with a valid `_storyblok_tk` token), through a valid [share link](Working-With-Storyblok-Visual-Editor#-sharing-drafts), or with **"General Settings" > "Developer Mode"** set to "Yes" (development environments only). Adding `_storyblok` or `_storyblok_version=draft` to a URL by hand shows the published version. If a share link shows the published version, it has expired, was created for a different page or store view, or was altered.
+
+* **Storyblok API Errors:**
+    * **Issue:** A page fails to load, or a Storyblok block on a Magento page renders empty.
+    * **Solution:** Check `var/log/system.log` and `var/log/exception.log` for Storyblok API errors. When the API fails (anything other than "not found"), the module logs it and doesn't cache the page, so it recovers once the API is back.
 
 * **Storyblok Slug Mismatch / Folder Restriction:**
     * **Issue:** The URL slug in Magento doesn't match the Storyblok story's full slug, or the "Folder Path" configuration is incorrect.
@@ -56,20 +60,21 @@ If your Storyblok content isn't showing up as expected:
 
 If you publish content in Storyblok but it doesn't appear on your live Magento storefront:
 
-* **Webhook Secret Misconfiguration:**
-    * **Issue:** The "Webhook Secret" in Magento and/or Storyblok's webhook configuration doesn't match, preventing cache invalidation.
+* **Webhook Rejected:**
+    * **Issue:** Storyblok shows the webhook failing with `401 Unauthorized`, so the cache isn't cleared.
     * **Solution:**
-        1.  In Magento, go to **Stores** > **Configuration** > **WindAndKite** > **Storyblok** > **General Settings**. Copy the "Webhook Secret".
-        2.  In your Storyblok space, go to **Settings** > **Webhooks**. Find the webhook configured for your Magento instance (or create a new one for `Content Published`). Paste the exact secret from Magento into the webhook's "Secret" field. Ensure the webhook URL is correctly pointing to your Magento webhook endpoint (i.e., `{{BASE_URL}}/storyblok/webhook`).
-        3.  Test the webhook from Storyblok's webhook settings.
+        1.  In Magento, go to **Stores** > **Configuration** > **WindAndKite** > **Storyblok** > **General Settings** (default scope). Copy the webhook URL shown under "Webhook Secret". It ends in `storyblok/webhook?key=...`.
+        2.  In your Storyblok space, go to **Settings** > **Webhooks**, and set the webhook's endpoint to that exact URL. If you generated a new secret, the old URL no longer works.
+        3.  If you have also filled in the webhook's "Secret" field in Storyblok, it must match the Magento secret exactly, or remove it.
+        4.  Test the webhook from Storyblok's webhook settings. `400 Bad Request` means the request was authorised but its body wasn't valid JSON.
 
 * **Magento Cache Not Flushing:**
     * **Issue:** Despite the webhook being triggered, Magento's cache isn't actually clearing for the relevant Storyblok entries.
-    * **Solution:** Manually clear cache from Magento Admin (**System** > **Cache Management**) or via CLI (`php bin/magento cache:clean full_page block_html`).
+    * **Solution:** The webhook clears only the pages showing the published story (or stories that reference or link to it) and story lists, not the whole page cache. Check `var/log/system.log` for the "Storyblok webhook" entry to confirm it arrived. To clear everything manually, use **System** > **Cache Management** or `php bin/magento cache:clean full_page block_html`.
 
 * **External Caching Layers:**
-    * **Issue:** A CDN (like Cloudflare) or Varnish is caching the Magento page, and is not configured to respect cache invalidation requests from Magento.
-    * **Solution:** This requires configuration outside of Magento. Consult your CDN or Varnish documentation to ensure it honors cache invalidation headers (e.g., `Cache-Control: no-cache`, `Pragma: no-cache`, `Expires: Sat, 26 Jul 1997 05:00:00 GMT`) or that you have a custom invalidation mechanism in place.
+    * **Issue:** A CDN (like Cloudflare) or Varnish keeps serving the old page.
+    * **Solution:** The module purges pages by cache tag, using Magento's standard purge, so Varnish works when it is configured as Magento's full page cache (**Stores** > **Configuration** > **Advanced** > **System** > **Full Page Cache**). Other CDNs need their own Magento integration to purge by tag.
 
 ## 👁️ Storyblok Visual Editor Issues
 
@@ -79,9 +84,9 @@ If the Visual Editor isn't loading or highlighting components correctly:
     * **Issue:** The "Location" URL in your Storyblok space doesn't exactly match your Magento storefront URL, preventing the iframe from loading.
     * **Solution:** In your Storyblok space, go to **Settings** > **General**. Ensure the "Location" field is precisely `https://your-magento-domain.com/` (or your exact development URL).
 
-* **CORS (Cross-Origin Resource Sharing) Errors:**
-    * **Issue:** Your browser console shows CORS errors, typically preventing `app.storyblok.com` from embedding your Magento site in an iframe.
-    * **Solution:** This usually requires server-level configuration. For Apache, you might add headers like `Header always set X-Frame-Options "ALLOWALL"` (use with caution, consider specific domains) or configure CORS specifically for requests from `app.storyblok.com`. For Nginx, similar configurations are needed. Consult your web server's documentation or your hosting provider.
+* **Page Refused in the Iframe:**
+    * **Issue:** The Visual Editor shows a blank or "refused to connect" preview, and the browser console mentions `X-Frame-Options` or `frame-ancestors`.
+    * **Solution:** The module removes Magento's `X-Frame-Options` header for requests with a valid Visual Editor token, so check that the token is valid (the API Token must be the space's Preview token). If the header is still there, your web server, CDN or another module is adding it. Don't remove it for every request: allow framing only for the Visual Editor, or by `app.storyblok.com` with `Content-Security-Policy: frame-ancestors`.
 
 * **`_editable` HTML Comment Missing/Incorrect:**
     * **Issue:** The `_editable` HTML comment that Storyblok uses to identify blocks is not present in your rendered HTML, or it's incorrectly placed.

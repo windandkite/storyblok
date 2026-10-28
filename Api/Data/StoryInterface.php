@@ -47,6 +47,7 @@ interface StoryInterface
 
     // Relations
     public const KEY_RELS = 'rels';
+    public const KEY_LINKS = 'links';
     public const KEY_RELATED_STORIES = 'related_stories';
 
     /**
