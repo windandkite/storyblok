@@ -66,15 +66,14 @@ class Config
         );
     }
 
-    public function getWebhookSecret(
-        string $scopeType = ScopeInterface::SCOPE_STORE,
-        null|int|string $scopeCode = null,
-    ): ?string {
-        return $this->scopeConfig->getValue(
-            self::XML_PATH_WEBHOOK_SECRET,
-            $scopeType,
-            $scopeCode,
-        );
+    /**
+     * One secret for the whole install: the webhook URL and the regenerate button only manage the default scope.
+     *
+     * @return string|null
+     */
+    public function getWebhookSecret(): ?string
+    {
+        return $this->scopeConfig->getValue(self::XML_PATH_WEBHOOK_SECRET);
     }
 
     /**

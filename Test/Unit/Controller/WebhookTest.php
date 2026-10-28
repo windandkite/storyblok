@@ -59,6 +59,7 @@ class WebhookTest extends TestCase
             'wrong signature' => ['secret', 'forged', 'secret', self::BODY, 401],
             'no secret generated, empty-key signature' => [null, hash_hmac('sha1', self::BODY, ''), '', self::BODY, 401],
             'not a JSON object' => ['secret', null, 'secret', '"x"', 400],
+            'invalid JSON' => ['secret', null, 'secret', '{', 400],
         ];
     }
 }

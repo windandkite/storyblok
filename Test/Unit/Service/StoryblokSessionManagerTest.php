@@ -87,6 +87,15 @@ class StoryblokSessionManagerTest extends TestCase
         ];
     }
 
+    public function testShareLinksKeepTheEditorsLanguage(): void
+    {
+        $param = $this->session([], '/about/')->createShareParam('about', time() + 60);
+        $lang = [StoryblokSessionManager::STORYBLOK_LANGUAGE_PARAM => 'de'];
+
+        $this->assertSame('de', $this->session([StoryblokSessionManager::SHARE_PARAM => $param] + $lang, '/about/')->getRequestedLanguage());
+        $this->assertSame('en', $this->session($lang)->getRequestedLanguage());
+    }
+
     public function testShareParamMustBeAString(): void
     {
         $this->assertFalse($this->session([StoryblokSessionManager::SHARE_PARAM => ['1.x']])->isValidShareLink());
@@ -99,6 +108,7 @@ class StoryblokSessionManagerTest extends TestCase
         $request->method('getPathInfo')->willReturn($pathInfo);
         $config = $this->createStub(Config::class);
         $config->method('getApiToken')->willReturn(self::PREVIEW_TOKEN);
+        $config->method('getLanguage')->willReturn('en');
         $encryptor = $this->createStub(EncryptorInterface::class);
         $encryptor->method('hash')->willReturnCallback(static fn ($data) => hash_hmac('sha256', $data, 'crypt-key'));
 

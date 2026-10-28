@@ -140,6 +140,7 @@ class StoryblokSessionManager
 
     private function signSharePath(string $path, int $expires): string
     {
+        // hash() is an HMAC-SHA256 keyed with the crypt key from env.php, and throws if there isn't one.
         return $this->encryptor->hash(
             'storyblok-share|' . $this->storeManager->getStore()->getId() . '|' . $path . '|' . $expires
         );
@@ -162,7 +163,8 @@ class StoryblokSessionManager
 
     public function getRequestedLanguage(): ?string
     {
-        if ($this->isValidEditorSession() || $this->config->isDevModeEnabled()) {
+        // A share link carries the language the editor was viewing.
+        if ($this->isValidEditorSession() || $this->isValidShareLink() || $this->config->isDevModeEnabled()) {
             $language = $this->request->getParam(self::STORYBLOK_LANGUAGE_PARAM);
 
             if (is_string($language) && !empty($language)) {

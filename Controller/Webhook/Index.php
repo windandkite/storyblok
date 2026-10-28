@@ -54,7 +54,11 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
                 throw new WebapiException(__('Invalid request'), 0, WebapiException::HTTP_UNAUTHORIZED);
             }
 
-            $data = $this->serializer->unserialize($payload);
+            try {
+                $data = $this->serializer->unserialize($payload);
+            } catch (\InvalidArgumentException) {
+                $data = null;
+            }
 
             if (!is_array($data)) {
                 throw new WebapiException(__('Invalid request'), 0, WebapiException::HTTP_BAD_REQUEST);

@@ -55,14 +55,15 @@ class Story extends AbstractStoryblok implements IdentityInterface
     public function getIdentities(): array
     {
         if (!$this->getStory()) {
-            return [];
+            // Not published yet: refresh the page when it is.
+            return [StoryblokCacheService::NOT_FOUND_TAG];
         }
 
         return [
             'storyblok_story',
             'storyblok_cv_' . $this->getStory()->getCacheVersion(),
             'storyblok_story_id_' . $this->getStory()->getId(),
-            'storyblok_slug_' . $this->getStory()->getSlug(),
+            'storyblok_story_slug_' . $this->getStory()->getSlug(),
             // Resolved relations and links, so publishing one of those stories refreshes this page too.
             ...StoryblokCacheService::getRelatedStoryTags(
                 $this->getStory()->getData(StoryInterface::KEY_RELS) ?? [],

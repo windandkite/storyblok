@@ -48,9 +48,10 @@ class StoryblokBridgeConfig implements ArgumentInterface
         $path = $this->storyblokSessionManager->getSharePath();
         $expires = time() + $this->scopeConfig->getShareLinkDays() * 86400;
 
-        return $this->urlBuilder->getDirectUrl($path, ['_query' => [
+        return $this->urlBuilder->getDirectUrl($path, ['_query' => array_filter([
             StoryblokSessionManager::SHARE_PARAM => $this->storyblokSessionManager->createShareParam($path, $expires),
-        ]]);
+            StoryblokSessionManager::STORYBLOK_LANGUAGE_PARAM => $this->storyblokSessionManager->getRequestedLanguage(),
+        ])]);
     }
 
     /**
