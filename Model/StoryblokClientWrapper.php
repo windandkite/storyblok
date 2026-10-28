@@ -39,13 +39,15 @@ class StoryblokClientWrapper
      * The client for the current store's space. Resolved on each call, so store emulation (e.g. sitemaps) uses the
      * emulated store's token.
      *
+     * @param string|null $apiToken A different token for the same space, e.g. the asset token.
+     *
      * @return StoryblokClient
      *
      * @throws Exception
      */
-    private function getClient(): StoryblokClient
+    private function getClient(?string $apiToken = null): StoryblokClient
     {
-        $apiToken = $this->config->isModuleEnabled() ? (string)$this->config->getApiToken() : '';
+        $apiToken ??= $this->config->isModuleEnabled() ? (string)$this->config->getApiToken() : '';
 
         if ($apiToken === '') {
             throw new Exception('Storyblok API Token is not configured.');
@@ -73,7 +75,14 @@ class StoryblokClientWrapper
      */
     public function getAssetsApi(): AssetsApi
     {
-        return new AssetsApi($this->getClient());
+        // Private assets need a token with the "Asset" access level.
+        $assetToken = $this->config->isModuleEnabled() ? (string)$this->config->getAssetToken() : '';
+
+        if ($assetToken === '') {
+            throw new Exception('Storyblok Asset Token is not configured.');
+        }
+
+        return new AssetsApi($this->getClient($assetToken));
     }
 
     /**

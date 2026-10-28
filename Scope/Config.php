@@ -13,6 +13,7 @@ class Config
 {
     private const XML_PATH_ENABLED = 'storyblok/general/enabled';
     private const XML_PATH_API_TOKEN = 'storyblok/general/api_token';
+    private const XML_PATH_ASSET_TOKEN = 'storyblok/general/asset_token';
     private const XML_PATH_REGION = 'storyblok/general/region';
     public const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
     private const XML_PATH_SHARE_LINK_DAYS = 'storyblok/general/share_link_days';
@@ -73,6 +74,21 @@ class Config
      *
      * @return string|null
      */
+    /**
+     * Access token with the "Asset" access level, for private assets.
+     *
+     * @param string $scopeType
+     * @param int|string|null $scopeCode
+     *
+     * @return string|null
+     */
+    public function getAssetToken(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): ?string {
+        return $this->scopeConfig->getValue(self::XML_PATH_ASSET_TOKEN, $scopeType, $scopeCode);
+    }
+
     /**
      * The Content Delivery API host for the space's region.
      *

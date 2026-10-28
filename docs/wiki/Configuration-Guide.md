@@ -17,6 +17,10 @@ These settings control the core functionality of the module.
     - How to get it: Refer to the official Storyblok guide on retrieving access tokens. Ensure you copy the Preview token.
     - Input Type: This field is obscured for security, as it stores a sensitive API key.
     - Scope: Can be set per website, so each website can use its own Storyblok space.
+- Asset Token
+    - Description: Optional. Only needed to load private assets through the asset repository (`AssetRepositoryInterface`). Public assets don't need it.
+    - How to get it: In Storyblok, go to Settings > Access Tokens and create a token with the "Asset" access level.
+    - Scope: Can be set per website, like the API Token.
 - Space Region
     - Description: The region your Storyblok space was created in (Europe, United States, Canada, Australia or China). The module uses that region's API, so a wrong region makes every request fail.
     - How to find it: In Storyblok, go to Settings > Space.
