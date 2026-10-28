@@ -19,7 +19,7 @@ if (!$story) {
     return;
 }
 ?>
-<?php if ($block->isEditorPreview()): ?>
+<?php if ($block->isDevMode()): ?>
     <?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryblokTemplate())) ?>
 <?php endif ?>
 <div class="story_item">

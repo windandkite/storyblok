@@ -44,8 +44,18 @@ abstract class AbstractStoryblok extends Template
     }
 
     /**
+     * Whether developer mode is on, for output only developers need, e.g. which template is missing.
+     *
+     * @return bool
+     */
+    public function isDevMode(): bool
+    {
+        return $this->scopeConfig->isDevModeEnabled();
+    }
+
+    /**
      * Whether the page is being previewed by an editor or developer: the Visual Editor, its live preview, or dev mode.
-     * Debug output (e.g. missing templates) is only shown then.
+     * Used for output editors need, e.g. a blok whose template isn't deployed yet.
      *
      * @return bool
      */
