@@ -93,7 +93,20 @@ $shareUrl = $storyblokConfig->getShareUrl();
                             const elementToUpdate = document.querySelector(selector);
 
                             if (elementToUpdate) {
-                                elementToUpdate.outerHTML = newHtml;
+                                const template = document.createElement('template');
+                                template.innerHTML = newHtml;
+                                const nodes = [...template.content.childNodes];
+                                elementToUpdate.replaceWith(...nodes);
+
+                                // Scripts inserted as HTML don't run: re-create them so the blok's Alpine code loads.
+                                nodes.flatMap(node => node.nodeType !== Node.ELEMENT_NODE ? []
+                                    : node.matches('script') ? [node] : [...node.querySelectorAll('script')]
+                                ).forEach(oldScript => {
+                                    const script = document.createElement('script');
+                                    [...oldScript.attributes].forEach(({ name, value }) => script.setAttribute(name, value));
+                                    script.textContent = oldScript.textContent;
+                                    oldScript.replaceWith(script);
+                                });
                             } else {
                                 console.warn(`Storyblok Bridge: Element with selector ${selector} not found for update.`);
                             }
@@ -136,7 +149,8 @@ $shareUrl = $storyblokConfig->getShareUrl();
                 controller = new AbortController();
                 const { signal } = controller;
 
-                let currentBlokIds = story.content.body.map(el => el['_uid'])
+                // Content types without a body field have no top-level bloks to add or remove.
+                let currentBlokIds = (story.content.body || []).map(el => el['_uid']);
 
                 const previousBlokIds = lastBlockIds[story.id] || [];
 
