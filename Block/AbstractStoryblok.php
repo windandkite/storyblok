@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Block;
 
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Model\Story as StoryblokStory;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\StoryblokSessionManager;
 use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
@@ -16,6 +18,8 @@ abstract class AbstractStoryblok extends Template
     protected const TEMPLATE_DIR = '';
     protected const TEMPLATE_SUFFIX = '';
 
+    protected readonly StoryblokSessionManager $storyblokSession;
+
     /**
      * @param StoryRepository $storyRepository
      * @param Asset $assetViewModel
@@ -23,6 +27,7 @@ abstract class AbstractStoryblok extends Template
      * @param StoryRequestService $storyRequestService
      * @param Template\Context $context
      * @param array $data
+     * @param StoryblokSessionManager|null $storyblokSession Optional, so subclasses' constructors keep working.
      */
     public function __construct(
         protected readonly StoryRepository $storyRepository,
@@ -31,8 +36,24 @@ abstract class AbstractStoryblok extends Template
         protected readonly StoryRequestService $storyRequestService,
         Template\Context $context,
         array $data = [],
+        ?StoryblokSessionManager $storyblokSession = null,
     ) {
+        $this->storyblokSession = $storyblokSession
+            ?? ObjectManager::getInstance()->get(StoryblokSessionManager::class);
         parent::__construct($context, $data);
+    }
+
+    /**
+     * Whether the page is being previewed by an editor or developer: the Visual Editor, its live preview, or dev mode.
+     * Debug output (e.g. missing templates) is only shown then.
+     *
+     * @return bool
+     */
+    public function isEditorPreview(): bool
+    {
+        return $this->scopeConfig->isDevModeEnabled()
+            || $this->storyblokSession->isValidEditorSession()
+            || (bool)$this->getStory()?->getForceBridge();
     }
 
     /**
