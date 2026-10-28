@@ -101,6 +101,20 @@ class Block extends AbstractStoryblok
         );
     }
 
+    /**
+     * Whether this blok or one it's nested in is marked "above_the_fold", e.g. the first section on the page. Templates
+     * use it to load images eagerly, which helps LCP.
+     *
+     * @return bool
+     */
+    public function isAboveTheFold(): bool
+    {
+        $parent = $this->getData('parent_blok');
+
+        return (bool)$this->getBlock()->getData('above_the_fold')
+            || ($parent instanceof self && $parent->isAboveTheFold());
+    }
+
     public function renderField(string $fieldName): ?string
     {
         $story = $this->getStory();
@@ -111,14 +125,15 @@ class Block extends AbstractStoryblok
 
         return $this->fieldRenderer->renderField(
             $this->getBlock()->getData($fieldName),
-            $story
+            $story,
+            $this
         );
     }
 
     public function renderRichTextField(
         string $fieldName,
     ): string {
-        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName), $this->getStory());
+        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName), $this->getStory(), $this);
     }
 
     /**
