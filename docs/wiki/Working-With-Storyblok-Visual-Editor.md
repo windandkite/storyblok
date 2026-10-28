@@ -1,9 +1,14 @@
 The Storyblok Visual Editor is a powerful tool that allows content creators to manage and preview content in real-time, directly on your Magento storefront. This guide will explain how your `WindAndKite_Storyblok` module integrates with this editor and what you, as a developer, need to know to ensure a seamless experience.
 
 ## 👁️ How the Visual Editor Integrates
-When a content editor opens a page in the Storyblok Visual Editor, Storyblok injects a special query parameter, _`storyblok`, into the URL (e.g., `{{YOUR_MAGENTO_URL}}/content-page?_storyblok=...`).
+When a content editor opens a page in the Storyblok Visual Editor, Storyblok adds query parameters to the URL, including a `_storyblok_tk` token signed with your space's preview token (e.g., `{{YOUR_MAGENTO_URL}}/content-page?_storyblok=...&_storyblok_tk[token]=...`).
 
-Our module's custom router (`WindAndKite\Storyblok\Controller\Router`) detects this _`storyblok` parameter. When present, it automatically triggers the fetching of the draft version of the Storyblok content, bypassing the cached published version. This allows content editors to see their changes instantly as they type or arrange components.
+The module checks that token. When it is valid, the page:
+- shows the draft version of the content, so editors see their changes as they type or arrange components;
+- is not stored in the page cache, and is sent with `X-Robots-Tag: noindex, nofollow`;
+- is sent without the `X-Frame-Options` header, so the Visual Editor can show it in its iframe.
+
+Draft content can't be requested any other way, apart from Developer Mode and [share links](#-sharing-drafts). Adding `_storyblok` or `_storyblok_version=draft` to a URL yourself shows the published version.
 
 ## ⚙️ Essential Prerequisites
 To ensure the Visual Editor functions correctly, please ensure the following:
@@ -46,15 +51,28 @@ $altText = $rawHeroImageData['alt'] ?? 'Hero Image';
 **Explanation:**
 - **Root Element Automatic `_editable` Comment:** The `WindAndKite\Storyblok\Block\Block` class automatically handles adding the necessary `_editable` HTML comment (e.g., `<!--#storyblok#{"name":"hero", ...}-->`) immediately before the _first_ direct child _HTML element_ of your template when it renders. This is how Storyblok identifies and highlights the entire component, making it clickable for editing. You do not need to explicitly add this comment to your component template.
 
+## 🔗 Sharing Drafts
+Editors can share a draft with people who don't have a Storyblok account, for example to get sign-off.
+
+1. Open the page in the Visual Editor and save your changes (no need to publish).
+2. Click "Copy share link" in the bottom-right corner of the preview. If the browser blocks clipboard access, the link is shown so you can copy it.
+3. Send the link. Anyone with it sees the latest saved draft of that page.
+
+Share links:
+- only work for the page and store view they were created on;
+- expire after the number of days set in General Settings > Draft Share Link Lifetime (default 7);
+- can't be edited: changing the page or expiry makes the link show the published version instead;
+- are never cached, and tell search engines not to index the page.
+
 ## ⚠️ Troubleshooting the Visual Editor
 If you're experiencing issues with the Storyblok Visual Editor:
 - **Cache:** Ensure your Magento cache is cleared after any configuration changes (`php bin/magento cache:clean`).
 - **API Token:** Verify your Storyblok API Token is correct and is the Preview token.
 - **Storyblok Location:** Confirm that the "Location" URL in your Storyblok space settings exactly matches your Magento storefront URL.
-- **CORS Issues:** If you see "Cross-Origin" errors in your browser console, ensure your web server configuration (Apache/Nginx) allows embedding your Magento site in an iframe from `app.storyblok.com`.
+- **Page Blocked in the Iframe:** The module removes Magento's `X-Frame-Options` header for valid editor requests. If the browser still refuses to frame the page, check that your web server, CDN or another module doesn't add its own `X-Frame-Options` or `Content-Security-Policy: frame-ancestors` header.
 - **`_editable` Comment:** Inspect your rendered HTML source to ensure the `_editable` HTML comments are correctly appearing before your component's root elements.
 - **Webhook Secret (for Cache Invalidation):** While not required for the Visual Editor's real-time preview, configuring the Webhook Secret in Magento and Storyblok is crucial for ensuring that published content updates are quickly reflected on your live Magento storefront.
-- **Developer Mode (for Theme Development):** Remember that the Magento "Developer Mode" setting in Stores > Configuration > WindAndKite > Storyblok > General Settings (when set to "Yes") forces the module to always fetch the latest draft content. While not essential for the Visual Editor itself, it's beneficial for developers working on theme templates to always see the most up-to-date content without needing to open the Visual Editor.
+- **Developer Mode (for Theme Development):** The "Developer Mode" setting in Stores > Configuration > WindAndKite > Storyblok > General Settings shows draft content to every visitor and turns off page caching. It is useful on a local or development environment, but never enable it in production.
 
 ## ➡️ What's Next
 Now that you know how to integrate with the Visual Editor, you can move on to other aspects of rendering Storyblok content:
