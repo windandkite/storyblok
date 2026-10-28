@@ -21,14 +21,10 @@ use WindAndKite\Storyblok\Scope\Config;
 
 class StoryblokClientWrapper
 {
-    private ?StoryblokClient $client = null;
-    private ?StoriesApi $storiesApi = null;
-    private ?AssetsApi $assetsApi = null;
-    private ?DatasourcesApi $dataSourceApi = null;
-    private ?DatasourceEntriesApi $dataSourceEntriesApi = null;
-    private ?LinksApi $linksApi = null;
-    private ?SpacesApi $spacesApi = null;
-    private ?TagsApi $tagsApi = null;
+    /**
+     * @var StoryblokClient[] One per token and region, so each website can use its own space.
+     */
+    private array $clients = [];
 
     /**
      * @param Config $config
@@ -37,34 +33,29 @@ class StoryblokClientWrapper
     public function __construct(
         private Config $config,
         private LoggerInterface $logger
-    ) {
-        if (!$this->config->isModuleEnabled()) {
-            return;
-        }
-
-        $apiToken = $this->config->getApiToken();
-
-        if (!$apiToken) {
-            $this->logger->warning('Storyblok API Token is not configured.');
-
-            return;
-        }
-
-        $this->client = new StoryblokClient('https://api.storyblok.com', $apiToken);
-    }
+    ) {}
 
     /**
+     * The client for the current store's space. Resolved on each call, so store emulation (e.g. sitemaps) uses the
+     * emulated store's token.
+     *
+     * @param string|null $apiToken A different token for the same space, e.g. the asset token.
+     *
      * @return StoryblokClient
      *
      * @throws Exception
      */
-    private function getClient(): StoryblokClient
+    private function getClient(?string $apiToken = null): StoryblokClient
     {
-        if (!$this->client) {
-            throw new Exception('Storyblok client is not initialized.');
+        $apiToken ??= $this->config->isModuleEnabled() ? (string)$this->config->getApiToken() : '';
+
+        if ($apiToken === '') {
+            throw new Exception('Storyblok API Token is not configured.');
         }
 
-        return $this->client;
+        $baseUrl = $this->config->getApiBaseUrl();
+
+        return $this->clients[$baseUrl . '|' . $apiToken] ??= new StoryblokClient($baseUrl, $apiToken);
     }
 
     /**
@@ -74,13 +65,7 @@ class StoryblokClientWrapper
      */
     public function getStoriesApi(): StoriesApi
     {
-        if (!$this->storiesApi) {
-            $version = $this->config->isDevModeEnabled() ? Version::Draft->value : Version::Published->value;
-
-            $this->storiesApi = new StoriesApi($this->getClient(), $version);
-        }
-
-        return $this->storiesApi;
+        return new StoriesApi($this->getClient(), $this->getDefaultVersion());
     }
 
     /**
@@ -90,11 +75,14 @@ class StoryblokClientWrapper
      */
     public function getAssetsApi(): AssetsApi
     {
-        if (!$this->assetsApi) {
-            $this->assetsApi = new AssetsApi($this->getClient());
+        // Private assets need a token with the "Asset" access level.
+        $assetToken = $this->config->isModuleEnabled() ? (string)$this->config->getAssetToken() : '';
+
+        if ($assetToken === '') {
+            throw new Exception('Storyblok Asset Token is not configured.');
         }
 
-        return $this->assetsApi;
+        return new AssetsApi($this->getClient($assetToken));
     }
 
     /**
@@ -104,11 +92,7 @@ class StoryblokClientWrapper
      */
     public function getDataSourceApi(): DatasourcesApi
     {
-        if (!$this->dataSourceApi) {
-            $this->dataSourceApi = new DatasourcesApi($this->getClient());
-        }
-
-        return $this->dataSourceApi;
+        return new DatasourcesApi($this->getClient());
     }
 
     /**
@@ -118,11 +102,7 @@ class StoryblokClientWrapper
      */
     public function getDataSourceEntriesApi(): DataSourceEntriesApi
     {
-        if (!$this->dataSourceEntriesApi) {
-            $this->dataSourceEntriesApi = new DataSourceEntriesApi($this->getClient());
-        }
-
-        return $this->dataSourceEntriesApi;
+        return new DataSourceEntriesApi($this->getClient());
     }
 
     /**
@@ -132,12 +112,7 @@ class StoryblokClientWrapper
      */
     public function getLinksApi(): LinksApi
     {
-        if (!$this->linksApi) {
-            $version = $this->config->isDevModeEnabled() ? Version::Draft->value : Version::Published->value;
-            $this->linksApi = new LinksApi($this->getClient(), $version);
-        }
-
-        return $this->linksApi;
+        return new LinksApi($this->getClient(), $this->getDefaultVersion());
     }
 
     /**
@@ -147,11 +122,7 @@ class StoryblokClientWrapper
      */
     public function getSpacesApi(): SpacesApi
     {
-        if (!$this->spacesApi) {
-           $this->spacesApi = new SpacesApi($this->getClient());
-        }
-
-        return $this->spacesApi;
+        return new SpacesApi($this->getClient());
     }
 
     /**
@@ -161,11 +132,12 @@ class StoryblokClientWrapper
      */
     public function getTagsApi(): TagsApi
     {
-        if (!$this->tagsApi) {
-            $this->tagsApi = new TagsApi($this->getClient());
-        }
+        return new TagsApi($this->getClient());
+    }
 
-        return $this->tagsApi;
+    private function getDefaultVersion(): string
+    {
+        return $this->config->isDevModeEnabled() ? Version::Draft->value : Version::Published->value;
     }
 
     /**

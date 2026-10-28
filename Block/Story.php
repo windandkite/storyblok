@@ -63,7 +63,7 @@ class Story extends AbstractStoryblok implements IdentityInterface
             'storyblok_story',
             'storyblok_cv_' . $this->getStory()->getCacheVersion(),
             'storyblok_story_id_' . $this->getStory()->getId(),
-            'storyblok_story_slug_' . $this->getStory()->getSlug(),
+            'storyblok_story_slug_' . $this->getStory()->getFullSlug(),
             // Resolved relations and links, so publishing one of those stories refreshes this page too.
             ...StoryblokCacheService::getRelatedStoryTags(
                 $this->getStory()->getData(StoryInterface::KEY_RELS) ?? [],
