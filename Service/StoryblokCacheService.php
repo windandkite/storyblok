@@ -94,7 +94,7 @@ class StoryblokCacheService
             $cacheKey,
             [
                 'storyblok_story_id_' . $storyResponse->story['id'],
-                'storyblok_story_slug_' . $storyResponse->story['slug'],
+                'storyblok_story_slug_' . $storyResponse->story['full_slug'],
                 'storyblok_cv_' . $storyResponse->cv,
                 ...self::getRelatedStoryTags($storyResponse->rels, $storyResponse->links),
             ]
@@ -219,7 +219,7 @@ class StoryblokCacheService
 
         foreach ($response->stories as $story) {
             $cacheTags[] = 'storyblok_story_id_' . $story['id'];
-            $cacheTags[] = 'storyblok_story_slug_' . $story['slug'];
+            $cacheTags[] = 'storyblok_story_slug_' . $story['full_slug'];
         }
 
         $this->cache->save(
