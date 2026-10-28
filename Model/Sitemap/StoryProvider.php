@@ -70,7 +70,7 @@ class StoryProvider implements ItemProviderInterface
             foreach ($stories as $story) {
                 $items[] = $this->sitemapItemFactory->create([
                     'id' => $story->getId(),
-                    'url' => $story->getFullSlug(),
+                    'url' => $this->config->getStoryUrlPath((string)$story->getFullSlug(), scopeCode: $storeId),
                     'updated_at' => new DateTime($story->getUpdatedAt()),
                     'priority' => $priority,
                     'changeFrequency' => $changefreq,

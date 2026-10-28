@@ -164,7 +164,7 @@ abstract class AbstractStoryblok extends Template
         }
 
         return $this->_urlBuilder->getDirectUrl(
-            $story->getFullSlug(),
+            $this->scopeConfig->getStoryUrlPath((string)$story->getFullSlug()),
             $params
         );
     }

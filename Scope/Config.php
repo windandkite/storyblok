@@ -123,6 +123,30 @@ class Config
         );
     }
 
+    /**
+     * The URL path for a story: its full slug, without the routing folder the router adds back.
+     *
+     * @param string $fullSlug
+     * @param string $scopeType
+     * @param int|string|null $scopeCode
+     *
+     * @return string
+     */
+    public function getStoryUrlPath(
+        string $fullSlug,
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): string {
+        $fullSlug = trim($fullSlug, '/');
+        $folder = $this->isRestrictFolderEnabled($scopeType, $scopeCode)
+            ? trim((string)$this->getFolderPath($scopeType, $scopeCode), '/')
+            : '';
+
+        return $folder !== '' && str_starts_with($fullSlug . '/', $folder . '/')
+            ? ltrim(substr($fullSlug, strlen($folder)), '/')
+            : $fullSlug;
+    }
+
     public function getFolderPath(
         string $scopeType = ScopeInterface::SCOPE_STORE,
         null|int|string $scopeCode = null
