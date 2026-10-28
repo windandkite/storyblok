@@ -7,11 +7,13 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Store\Model\ScopeInterface;
 use WindAndKite\Storyblok\Config\OptionSource\DefaultSort;
+use WindAndKite\Storyblok\Config\OptionSource\Region;
 
 class Config
 {
     private const XML_PATH_ENABLED = 'storyblok/general/enabled';
     private const XML_PATH_API_TOKEN = 'storyblok/general/api_token';
+    private const XML_PATH_REGION = 'storyblok/general/region';
     public const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
     private const XML_PATH_SHARE_LINK_DAYS = 'storyblok/general/share_link_days';
     private const XML_PATH_DEV_MODE = 'storyblok/general/dev_mode';
@@ -71,6 +73,23 @@ class Config
      *
      * @return string|null
      */
+    /**
+     * The Content Delivery API host for the space's region.
+     *
+     * @param string $scopeType
+     * @param int|string|null $scopeCode
+     *
+     * @return string
+     */
+    public function getApiBaseUrl(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): string {
+        $region = (string)$this->scopeConfig->getValue(self::XML_PATH_REGION, $scopeType, $scopeCode);
+
+        return Region::BASE_URLS[$region] ?? Region::BASE_URLS['eu'];
+    }
+
     public function getWebhookSecret(): ?string
     {
         return $this->scopeConfig->getValue(self::XML_PATH_WEBHOOK_SECRET);

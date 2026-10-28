@@ -38,6 +38,17 @@
                     <label>API Token</label>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                 </field>
+                <field id="region"
+                       translate="label comment"
+                       type="select"
+                       sortOrder="15"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Space Region</label>
+                    <source_model>WindAndKite\Storyblok\Config\OptionSource\Region</source_model>
+                    <comment>The region chosen when the space was created, shown in Storyblok under Settings > Space.</comment>
+                </field>
                 <field id="webhook_secret"
                        translate="label"
                        type="text"
