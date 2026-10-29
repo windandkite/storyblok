@@ -63,6 +63,16 @@ class ImageTest extends TestCase
         $this->assertStringNotContainsString('srcset', $html);
     }
 
+    public function testSvgsKeepTheirUrlButGetDimensions(): void
+    {
+        $src = 'https://a.storyblok.com/f/123/600x300/abc/icon.SVG?cv=1';
+        $html = $this->render($src);
+
+        $this->assertStringContainsString('src="' . $src . '"', $html);
+        $this->assertStringContainsString('width="600" height="300"', $html);
+        $this->assertStringNotContainsString('srcset', $html);
+    }
+
     private function render(string $src): string
     {
         $editor = new Editor(['extensions' => [new Storyblok([

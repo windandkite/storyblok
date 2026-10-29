@@ -55,6 +55,14 @@ class Image extends ImageNode
         $suffix = $match[4] ?? '';
         [$width, $height] = [(int)$match[2], (int)$match[3]];
         $displayWidth = min($width, self::MAX_WIDTH);
+        $attributes['width'] = $displayWidth;
+        $attributes['height'] = (int)round($height * $displayWidth / $width);
+
+        // The image service can't resize SVGs: keep the original URL, with just the dimensions.
+        if (str_ends_with(strtolower($src), '.svg')) {
+            return [$tag, $attributes, 0];
+        }
+
         $widths = array_unique([...array_filter(self::SRCSET_WIDTHS, fn (int $w) => $w < $displayWidth), $displayWidth]);
 
         $attributes['src'] = $this->resize($src, $displayWidth) . $suffix;
@@ -63,8 +71,6 @@ class Image extends ImageNode
             $widths
         ));
         $attributes['sizes'] = '(min-width: ' . $displayWidth . 'px) ' . $displayWidth . 'px, 100vw';
-        $attributes['width'] = $displayWidth;
-        $attributes['height'] = (int)round($height * $displayWidth / $width);
 
         return [$tag, $attributes, 0];
     }

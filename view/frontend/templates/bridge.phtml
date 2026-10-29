@@ -66,6 +66,23 @@ $shareUrl = $storyblokConfig->getShareUrl();
             return proxy;
         };
 
+        // Re-created scripts are async, so run them in order as the page would: wait for each external script
+        // (unless it's marked async) before the next one, e.g. a library before the inline code that uses it.
+        const runScripts = async (scripts) => {
+            for (const oldScript of scripts) {
+                const script = document.createElement('script');
+                [...oldScript.attributes].forEach(({ name, value }) => script.setAttribute(name, value));
+                script.textContent = oldScript.textContent;
+
+                const loaded = script.src && !oldScript.hasAttribute('async')
+                    ? new Promise(resolve => script.onload = script.onerror = resolve)
+                    : null;
+
+                oldScript.replaceWith(script);
+                await loaded;
+            }
+        };
+
         const updateBlocksViaAjax = (story, signal) => {
             fetch('<?= $escaper->escapeJs($ajaxUrl) ?>', {
                 method: 'POST',
@@ -99,14 +116,9 @@ $shareUrl = $storyblokConfig->getShareUrl();
                                 elementToUpdate.replaceWith(...nodes);
 
                                 // Scripts inserted as HTML don't run: re-create them so the blok's Alpine code loads.
-                                nodes.flatMap(node => node.nodeType !== Node.ELEMENT_NODE ? []
+                                runScripts(nodes.flatMap(node => node.nodeType !== Node.ELEMENT_NODE ? []
                                     : node.matches('script') ? [node] : [...node.querySelectorAll('script')]
-                                ).forEach(oldScript => {
-                                    const script = document.createElement('script');
-                                    [...oldScript.attributes].forEach(({ name, value }) => script.setAttribute(name, value));
-                                    script.textContent = oldScript.textContent;
-                                    oldScript.replaceWith(script);
-                                });
+                                ));
                             } else {
                                 console.warn(`Storyblok Bridge: Element with selector ${selector} not found for update.`);
                             }
