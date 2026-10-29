@@ -111,10 +111,6 @@ Bloks render through `WindAndKite_Storyblok`, so an override under `WindAndKite_
 - **Keep class maps literal:** don't build class names from strings (`'md:col-span-' . $n`), or Tailwind won't generate them.
 - **Adding a blok:** a new `block/<component>.phtml` with a `@storyblok` docblock in your theme is picked up by `storyblok:schema:generate`.
 
-## The grid-control field type
-
-`storyblok/field-types/grid-control.js` is a Storyblok field type plugin for setting a column's start and span per viewport on the section's grid, by dragging. Storyblok field types are hosted by Storyblok: paste the file into the field type editor (Partner Portal > Field types > `grid-control`) and publish it. The file's header lists its options and the value it stores.
-
 ## Content Security Policy
 
 `etc/csp_whitelist.xml` allows the hosts these bloks use:
