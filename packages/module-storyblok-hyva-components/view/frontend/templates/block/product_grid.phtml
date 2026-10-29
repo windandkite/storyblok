@@ -1,0 +1,72 @@
+<?php
+/**
+ * Hand-picked product bloks with ItemList JSON-LD. For category / newest / recently viewed
+ * sources use product_list.
+ *
+ * @storyblok {
+ *   "folder": "Commerce",
+ *   "description": "Grid container for multiple SKU-backed product cards.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "products": {"type": "array", "allowed": ["product"], "description": "Array of product blocks"},
+ *     "columns_desktop": {"type": "number", "enum": [2, 3, 4], "default": 4}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Catalog\Model\Product;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\JsonLd;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ProductGridBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$jsonLd = $viewModels->require(JsonLd::class);
+
+$cards = [];
+$listItems = [];
+
+foreach ((array)$block->getData('products') as $blok) {
+    if (!is_array($blok) || empty($blok['_uid']) || empty($blok['component'])) {
+        continue;
+    }
+
+    // Created (and hydrated) first so the product is available for the ItemList.
+    $child = $block->createBlokInstance($blok);
+    $html = $child->toHtml();
+
+    if (trim($html) === '') {
+        continue;
+    }
+
+    $cards[] = $html;
+    $product = $child->getData('product');
+
+    if ($product instanceof Product) {
+        $listItems[] = ['@type' => 'ListItem', 'position' => count($listItems) + 1, 'url' => $product->getProductUrl()];
+    }
+}
+
+if (!$cards) {
+    return;
+}
+
+$columns = [
+    2 => 'sm:grid-cols-2',
+    3 => 'sm:grid-cols-2 lg:grid-cols-3',
+    4 => 'sm:grid-cols-2 lg:grid-cols-4',
+][(int)$block->getData('columns_desktop')] ?? 'sm:grid-cols-2 lg:grid-cols-4';
+?>
+<ul class="grid grid-cols-1 gap-4 <?= $escaper->escapeHtmlAttr($columns) ?>">
+    <?php foreach ($cards as $card): ?>
+        <li class="flex [&>*]:w-full"><?= /** @noEscape */ $card ?></li>
+    <?php endforeach ?>
+</ul>
+<?php if ($listItems): ?>
+    <?= /** @noEscape */ $jsonLd->render(['@type' => 'ItemList', 'itemListElement' => $listItems]) ?>
+<?php endif ?>

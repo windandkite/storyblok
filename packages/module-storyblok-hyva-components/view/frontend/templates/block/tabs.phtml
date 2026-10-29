@@ -1,0 +1,91 @@
+<?php
+/**
+ * WAI-ARIA tabs. The tablist is built from the raw tab_panel data; each panel blok is rendered
+ * into a role="tabpanel" wrapper owned by this template. Automatic activation, roving tabindex,
+ * arrow keys (per orientation), Home and End.
+ *
+ * @storyblok {
+ *   "folder": "Interactive",
+ *   "description": "Accessible tab switcher container passing tab state to tab_panel children.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "items": {"type": "array", "allowed": ["tab_panel"], "description": "Array of tab_panel blocks"},
+ *     "orientation": {"type": "string", "enum": ["horizontal", "vertical"], "default": "horizontal"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\TabsBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+
+$items = array_values(array_filter((array)$block->getData('items'), static fn ($item) => !empty($item['_uid'])));
+
+if (!$items) {
+    return;
+}
+
+$vertical = $block->getData('orientation') === 'vertical';
+
+$layout = [
+    // overflow-y-hidden: with overflow-x-auto alone, the tabs' -mb-px underline overlap creates a 1px vertical scroll.
+    'horizontal' => ['root' => 'flex flex-col gap-4', 'list' => 'flex gap-2 overflow-x-auto overflow-y-hidden border-b'],
+    'vertical' => ['root' => 'flex flex-col gap-4 md:flex-row md:gap-8', 'list' => 'flex gap-2 overflow-x-auto overflow-y-hidden border-b md:flex-col md:overflow-visible md:border-b-0 md:border-e'],
+][$vertical ? 'vertical' : 'horizontal'];
+
+$idPrefix = 'sb-tabs-' . preg_replace('/[^\w-]/', '', (string)$block->getBlock()->getUid()) . '-';
+?>
+<div class="<?= $escaper->escapeHtmlAttr($layout['root']) ?>" x-data="initStoryblokTabs">
+    <div role="tablist"
+         aria-orientation="<?= $vertical ? 'vertical' : 'horizontal' ?>"
+         class="<?= $escaper->escapeHtmlAttr($layout['list']) ?>"
+         data-orientation="<?= $vertical ? 'vertical' : 'horizontal' ?>"
+         x-on:keydown="onKeydown">
+        <?php foreach ($items as $index => $item): ?>
+            <?php $uid = preg_replace('/[^\w-]/', '', $item['_uid']) ?>
+            <button type="button"
+                    role="tab"
+                    id="<?= $escaper->escapeHtmlAttr($idPrefix . 'tab-' . $uid) ?>"
+                    aria-controls="<?= $escaper->escapeHtmlAttr($idPrefix . 'panel-' . $uid) ?>"
+                    aria-selected="<?= $index === 0 ? 'true' : 'false' ?>"
+                    tabindex="<?= $index === 0 ? '0' : '-1' ?>"
+                    data-panel-id="<?= $escaper->escapeHtmlAttr($uid) ?>"
+                    x-bind:aria-selected="isTabSelected"
+                    x-bind:tabindex="tabIndex"
+                    x-on:click="select"
+                    class="-mb-px flex shrink-0 items-center gap-2 border-b-2 border-transparent px-4 py-2 whitespace-nowrap aria-selected:border-current aria-selected:font-semibold">
+                <?= /** @noEscape */ $partial->render('picture', [
+                    'asset' => $item['icon'] ?? null,
+                    'alt' => '',
+                    'widths' => [24, 48],
+                    'sizes' => '24px',
+                    'class' => 'size-6 object-contain',
+                ]) ?>
+                <?= $escaper->escapeHtml($item['title'] ?? '') ?>
+            </button>
+        <?php endforeach ?>
+    </div>
+    <?php foreach ($items as $index => $item): ?>
+        <?php $uid = preg_replace('/[^\w-]/', '', $item['_uid']) ?>
+        <div role="tabpanel"
+             id="<?= $escaper->escapeHtmlAttr($idPrefix . 'panel-' . $uid) ?>"
+             aria-labelledby="<?= $escaper->escapeHtmlAttr($idPrefix . 'tab-' . $uid) ?>"
+             tabindex="0"
+             data-panel-id="<?= $escaper->escapeHtmlAttr($uid) ?>"
+             x-show="isPanelActive"
+             class="min-w-0 flex-1"
+             <?php if ($index > 0): ?>style="display: none"<?php endif ?>>
+            <?= /** @noEscape */ $block->renderBlok($item) ?>
+        </div>
+    <?php endforeach ?>
+</div>
+<?= /** @noEscape */ $partial->renderScriptOnce('tabs') ?>

@@ -1,0 +1,106 @@
+<?php
+/**
+ * Content card (category tile, promo, teaser). With a link the whole card is clickable via a
+ * stretched link on the title, so there is one link per card for screen readers and keyboards.
+ *
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Image, eyebrow, title, text and link; the whole card is clickable when linked. Category tiles, promos, teasers.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "image": {"type": "asset"},
+ *     "eyebrow": {"type": "string"},
+ *     "title": {"type": "string", "required": true},
+ *     "text": {"type": "string", "format": "textarea"},
+ *     "link": {"type": "multilink"},
+ *     "link_label": {"type": "string", "description": "Optional visual call to action, e.g. \"Shop now\""},
+ *     "layout": {"type": "string", "enum": ["stacked", "horizontal"], "default": "stacked", "tab": "Settings"},
+ *     "image_ratio": {"type": "string", "enum": ["auto", "square", "landscape", "portrait"], "default": "landscape", "tab": "Settings"},
+ *     "title_tag": {"type": "string", "enum": ["h2", "h3", "h4", "p"], "default": "h3", "tab": "Settings"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\CardBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$linkViewModel = $block->getLinkViewModel();
+
+$title = trim((string)$block->getData('title'));
+
+if ($title === '') {
+    return;
+}
+
+$link = $block->getData('link');
+$hasLink = $linkViewModel->getUrl($link) !== '';
+$eyebrow = trim((string)$block->getData('eyebrow'));
+$text = trim((string)$block->getData('text'));
+$linkLabel = trim((string)$block->getData('link_label'));
+$horizontal = $block->getData('layout') === 'horizontal';
+
+$tag = in_array($block->getData('title_tag'), ['h2', 'h3', 'h4', 'p'], true) ? $block->getData('title_tag') : 'h3';
+
+$ratio = [
+    'auto' => null,
+    'square' => 1,
+    'landscape' => 3 / 4,
+    'portrait' => 5 / 4,
+][(string)$block->getData('image_ratio')] ?? 3 / 4;
+
+$aspect = [
+    'auto' => '',
+    'square' => 'aspect-square',
+    'landscape' => 'aspect-4/3',
+    'portrait' => 'aspect-4/5',
+][(string)$block->getData('image_ratio')] ?? 'aspect-4/3';
+
+$layout = $horizontal
+    ? ['root' => 'flex-col sm:flex-row sm:items-center', 'image' => 'sm:w-1/3 sm:shrink-0']
+    : ['root' => 'flex-col', 'image' => ''];
+?>
+<article class="group relative flex h-full gap-4 <?= $escaper->escapeHtmlAttr($layout['root']) ?>">
+    <?= /** @noEscape */ $partial->render('picture', [
+        'asset' => $block->getData('image'),
+        'ratio' => $ratio,
+        'widths' => [320, 480, 768, 1024],
+        'picture_class' => $layout['image'],
+        'class' => trim('block h-auto w-full object-cover ' . $aspect),
+    ]) ?>
+    <div class="flex grow flex-col gap-2">
+        <?php if ($eyebrow !== ''): ?>
+            <p class="text-sm font-semibold uppercase tracking-wide"><?= $escaper->escapeHtml($eyebrow) ?></p>
+        <?php endif ?>
+        <<?= /** @noEscape */ $tag ?> class="text-lg font-semibold">
+            <?php if ($hasLink): ?>
+                <a <?= /** @noEscape */ $linkViewModel->getAttributes($link) ?>
+                   class="after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-current group-hover:underline">
+                    <?= $escaper->escapeHtml($title) ?>
+                    <?php if ($linkViewModel->getTarget($link) === '_blank'): ?>
+                        <span class="sr-only"><?= $escaper->escapeHtml(__('(opens in a new tab)')) ?></span>
+                    <?php endif ?>
+                </a>
+            <?php else: ?>
+                <?= $escaper->escapeHtml($title) ?>
+            <?php endif ?>
+        </<?= /** @noEscape */ $tag ?>>
+        <?php if ($text !== ''): ?>
+            <p><?= $escaper->escapeHtml($text) ?></p>
+        <?php endif ?>
+        <?php if ($hasLink && $linkLabel !== ''): ?>
+            <?php /* Visual call to action only: the stretched title link is the accessible link. */ ?>
+            <span class="mt-auto font-semibold underline underline-offset-4 group-hover:no-underline" aria-hidden="true">
+                <?= $escaper->escapeHtml($linkLabel) ?>
+            </span>
+        <?php endif ?>
+    </div>
+</article>

@@ -1,0 +1,112 @@
+<?php
+/**
+ * Google Map, loaded with hyva.loadScript() when scrolled into view (immediately when above_the_fold).
+ * Markers are passed as a JSON payload, no child templates. Without an API key only the placeholder
+ * and an "Open in Google Maps" link are shown.
+ *
+ * @storyblok {
+ *   "folder": "Media",
+ *   "description": "Interactive Google Map container using hyva.loadScript() with deferred loading and inline multi-marker payloads.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "latitude": {"type": "string", "required": true},
+ *     "longitude": {"type": "string", "required": true},
+ *     "markers": {"type": "array", "allowed": ["map_marker"], "description": "Array of map_marker blocks"},
+ *     "zoom": {"type": "number", "default": 14, "tab": "Settings", "group": "Map"},
+ *     "map_height": {"type": "string", "enum": ["small", "medium", "large"], "default": "medium", "tab": "Settings", "group": "Map"},
+ *     "placeholder_image": {"type": "asset", "tab": "Settings", "group": "Loading"},
+ *     "above_the_fold": {"type": "boolean", "default": false, "tab": "Settings", "group": "Loading"},
+ *     "api_key": {"type": "string", "description": "Optional override. Defaults to the PageBuilder Google Maps API key in store config.", "tab": "Advanced"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\GoogleMapsApi;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\GoogleMapBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$assetViewModel = $block->getAssetViewModel();
+
+$latitude = (float)$block->getData('latitude');
+$longitude = (float)$block->getData('longitude');
+
+if (!$latitude && !$longitude) {
+    return;
+}
+
+$apiKey = trim((string)$block->getData('api_key'));
+
+if ($apiKey === '') {
+    try {
+        $apiKey = (string)$viewModels->require(GoogleMapsApi::class)->getApiKey();
+    } catch (\RuntimeException) {
+        // PageBuilder not installed: no store-level key available.
+        $apiKey = '';
+    }
+}
+
+$markers = [];
+
+foreach ((array)$block->getData('markers') as $marker) {
+    if (!is_array($marker) || !is_numeric($marker['latitude'] ?? null) || !is_numeric($marker['longitude'] ?? null)) {
+        continue;
+    }
+
+    $markers[] = [
+        'lat' => (float)$marker['latitude'],
+        'lng' => (float)$marker['longitude'],
+        'title' => (string)($marker['title'] ?? ''),
+        'info' => (string)($marker['info_window_text'] ?? ''),
+        'icon' => $assetViewModel->isValidAsset($marker['custom_icon'] ?? null) ? $marker['custom_icon']['filename'] : null,
+    ];
+}
+
+$height = [
+    'small' => 'h-64',
+    'medium' => 'h-96',
+    'large' => 'h-128',
+][(string)$block->getData('map_height')] ?? 'h-96';
+
+$aboveTheFold = (bool)$block->getData('above_the_fold');
+$zoom = max(1, min(21, (int)($block->getData('zoom') ?: 14)));
+$externalUrl = 'https://www.google.com/maps/search/?' . http_build_query(['api' => 1, 'query' => $latitude . ',' . $longitude]);
+?>
+<div class="relative w-full overflow-hidden <?= $escaper->escapeHtmlAttr($height) ?>"
+     <?php if ($apiKey !== ''): ?>
+         x-data="initStoryblokMap"
+         data-lat="<?= $escaper->escapeHtmlAttr((string)$latitude) ?>"
+         data-lng="<?= $escaper->escapeHtmlAttr((string)$longitude) ?>"
+         data-zoom="<?= (int)$zoom ?>"
+         data-api-key="<?= $escaper->escapeHtmlAttr($apiKey) ?>"
+         data-eager="<?= $aboveTheFold ? 'true' : 'false' ?>"
+     <?php endif ?>>
+    <?= /** @noEscape */ $partial->render('picture', [
+        'asset' => $block->getData('placeholder_image'),
+        'alt' => '',
+        'eager' => $aboveTheFold,
+        'class' => 'absolute inset-0 size-full object-cover',
+    ]) ?>
+    <div x-ref="canvas" class="absolute inset-0" role="region" aria-label="<?= $escaper->escapeHtmlAttr(__('Map')) ?>"></div>
+    <a href="<?= $escaper->escapeUrl($externalUrl) ?>"
+       target="_blank"
+       rel="noopener noreferrer"
+       class="absolute start-2 bottom-2 z-10 bg-white px-3 py-1 text-sm <?= $apiKey !== '' ? 'sr-only focus:not-sr-only' : '' ?>">
+        <?= $escaper->escapeHtml(__('Open in Google Maps')) ?>
+    </a>
+    <?php if ($apiKey !== ''): ?>
+        <script type="application/json" x-ref="markersData"><?= /** @noEscape */ json_encode($markers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) ?></script>
+    <?php endif ?>
+</div>
+<?php if ($apiKey !== ''): ?>
+    <?= /** @noEscape */ $partial->renderScriptOnce('core') ?>
+    <?= /** @noEscape */ $partial->renderScriptOnce('google-map') ?>
+<?php endif ?>

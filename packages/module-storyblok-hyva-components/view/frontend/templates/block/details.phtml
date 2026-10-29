@@ -1,0 +1,62 @@
+<?php
+/**
+ * Accordion group. Items are native <details> elements (keyboard and screen reader support for free);
+ * Alpine only closes open siblings when allow_multiple is off.
+ *
+ * faq_schema adds FAQPage JSON-LD (question = item title, answer = item content as plain text).
+ * Only enable it where the page's main content is FAQs: Google ignores or penalises it elsewhere.
+ *
+ * @storyblok {
+ *   "folder": "Interactive",
+ *   "description": "Semantic <details> and <summary> accordion block using grid-rows CSS transitions and CSP-compliant Alpine state.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "items": {"type": "array", "allowed": ["details_item"], "description": "Child accordion items"},
+ *     "allow_multiple": {"type": "boolean", "default": false},
+ *     "faq_schema": {"type": "boolean", "default": false, "description": "Output FAQPage structured data. Only for pages whose main content is FAQs.", "tab": "SEO"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\JsonLd;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\DetailsBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$faqs = [];
+
+if ($block->getData('faq_schema')) {
+    $jsonLd = $viewModels->require(JsonLd::class);
+
+    foreach ((array)$block->getData('items') as $item) {
+        $question = trim((string)($item['title'] ?? ''));
+        $answer = $jsonLd->toPlainText($block->renderBlok($item['content'] ?? []));
+
+        if ($question !== '' && $answer !== '') {
+            $faqs[] = [
+                '@type' => 'Question',
+                'name' => $question,
+                'acceptedAnswer' => ['@type' => 'Answer', 'text' => $answer],
+            ];
+        }
+    }
+}
+?>
+<div class="flex flex-col"
+     x-data="initStoryblokDetails"
+     x-on:toggle.capture="onToggle"
+     data-allow-multiple="<?= $block->getData('allow_multiple') ? 'true' : 'false' ?>">
+    <?= /** @noEscape */ $block->getItemsHtml() ?>
+</div>
+<?php if ($faqs): ?>
+    <?= /** @noEscape */ $jsonLd->render(['@type' => 'FAQPage', 'mainEntity' => $faqs]) ?>
+<?php endif ?>
+<?= /** @noEscape */ $partial->renderScriptOnce('details') ?>

@@ -1,0 +1,46 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Navigational link (<a>) styled as a text link or CTA, resolved with the Link ViewModel.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "label": {"type": "string", "required": true},
+ *     "link": {"type": "multilink", "required": true},
+ *     "style": {"type": "string", "enum": ["primary", "secondary", "outline", "link"], "default": "primary"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\LinkBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$linkViewModel = $block->getLinkViewModel();
+$link = $block->getData('link');
+$label = trim((string)$block->getData('label'));
+
+if ($label === '' || $linkViewModel->getUrl($link) === '') {
+    return;
+}
+
+// Builds on the theme's own btn utilities so buttons match the rest of the store.
+$style = [
+    'primary' => 'btn btn-primary',
+    'secondary' => 'btn btn-secondary',
+    'outline' => 'btn border border-current bg-transparent',
+    'link' => 'inline-flex items-center gap-1 underline underline-offset-4 hover:no-underline',
+][(string)$block->getData('style')] ?? 'btn btn-primary';
+?>
+<a <?= /** @noEscape */ $linkViewModel->getAttributes($link) ?> class="<?= $escaper->escapeHtmlAttr($style) ?>">
+    <?= $escaper->escapeHtml($label) ?>
+    <?php if ($linkViewModel->getTarget($link) === '_blank'): ?>
+        <span class="sr-only"><?= $escaper->escapeHtml(__('(opens in a new tab)')) ?></span>
+    <?php endif ?>
+</a>

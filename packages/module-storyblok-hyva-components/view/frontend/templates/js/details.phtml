@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokDetails', () => ({
+            // x-on:toggle.capture: toggle doesn't bubble, so listen in the capture phase.
+            onToggle(event) {
+                const opened = event.target;
+                const group = this.$el;
+
+                if (
+                    group.dataset.allowMultiple === 'true'
+                    || !(opened instanceof HTMLDetailsElement)
+                    || !opened.open
+                    || opened.closest('[data-allow-multiple]') !== group
+                ) {
+                    return;
+                }
+
+                group.querySelectorAll('details[open]').forEach((details) => {
+                    if (details !== opened && details.closest('[data-allow-multiple]') === group) {
+                        details.open = false;
+                    }
+                });
+            },
+        }));
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

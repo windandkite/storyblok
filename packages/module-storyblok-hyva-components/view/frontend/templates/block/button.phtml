@@ -1,0 +1,59 @@
+<?php
+/**
+ * An action button (not a link). Clicking dispatches a window CustomEvent (default "storyblok-open")
+ * with { target } in its detail. A modal whose anchor_id matches target opens itself; any other
+ * component can listen for the same event. Use the "link" component for navigation.
+ *
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Action <button> (not navigation). Dispatches a window CustomEvent; a modal with a matching anchor_id opens on \"storyblok-open\".",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "label": {"type": "string", "required": true},
+ *     "style": {"type": "string", "enum": ["primary", "secondary", "outline", "link"], "default": "primary"},
+ *     "target_id": {"type": "string", "description": "anchor_id of the modal (or other element) to act on"},
+ *     "event": {"type": "string", "default": "storyblok-open", "description": "Window event to dispatch: storyblok-open, storyblok-close or a custom name", "tab": "Advanced"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ButtonBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$label = trim((string)$block->getData('label'));
+
+if ($label === '') {
+    return;
+}
+
+$target = preg_replace('/[^\w-]/', '', (string)$block->getData('target_id'));
+$event = preg_replace('/[^\w:.-]/', '', (string)$block->getData('event')) ?: 'storyblok-open';
+
+$style = [
+    'primary' => 'btn btn-primary',
+    'secondary' => 'btn btn-secondary',
+    'outline' => 'btn border border-current bg-transparent',
+    'link' => 'inline-flex items-center gap-1 underline underline-offset-4 hover:no-underline',
+][(string)$block->getData('style')] ?? 'btn btn-primary';
+?>
+<button type="button"
+        class="<?= $escaper->escapeHtmlAttr($style) ?>"
+        x-data="initStoryblokButton"
+        x-on:click="dispatch"
+        data-event="<?= $escaper->escapeHtmlAttr($event) ?>"
+        <?php if ($target !== ''): ?>
+            data-target="<?= $escaper->escapeHtmlAttr($target) ?>"
+            aria-controls="<?= $escaper->escapeHtmlAttr($target) ?>"
+        <?php endif ?>>
+    <?= $escaper->escapeHtml($label) ?>
+</button>
+<?= /** @noEscape */ $partial->renderScriptOnce('button') ?>

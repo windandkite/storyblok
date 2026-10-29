@@ -1,0 +1,42 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Individual value proposition item inside a usp_bar.",
+ *   "fields": {
+ *     "icon": {"type": "asset"},
+ *     "title": {"type": "string", "required": true},
+ *     "text": {"type": "string", "format": "textarea"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\UspItemBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$text = trim((string)$block->getData('text'));
+?>
+<div class="flex items-center gap-3">
+    <?= /** @noEscape */ $partial->render('picture', [
+        'asset' => $block->getData('icon'),
+        'alt' => '',
+        'widths' => [48, 96],
+        'sizes' => '48px',
+        'class' => 'size-12 shrink-0 object-contain',
+    ]) ?>
+    <div class="flex flex-col">
+        <p class="font-semibold"><?= $escaper->escapeHtml($block->getData('title')) ?></p>
+        <?php if ($text !== ''): ?>
+            <p class="text-sm"><?= $escaper->escapeHtml($text) ?></p>
+        <?php endif ?>
+    </div>
+</div>

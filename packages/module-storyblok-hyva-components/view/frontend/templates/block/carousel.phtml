@@ -1,0 +1,40 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Media",
+ *   "description": "Lightweight responsive slider using CSS scroll-snap and Alpine controls.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "items": {"type": "array", "allowed": ["@content"], "description": "Child blocks"},
+ *     "show_arrows": {"type": "boolean", "default": true},
+ *     "show_dots": {"type": "boolean", "default": true}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\CarouselBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+
+$slides = array_map(
+    static fn ($item) => $block->renderBlok($item),
+    array_filter((array)$block->getData('items'))
+);
+?>
+<div>
+    <?= /** @noEscape */ $partial->render('carousel', [
+        'slides' => $slides,
+        'slide_class' => 'basis-full',
+        'show_arrows' => $block->getData('show_arrows') ?? true,
+        'show_dots' => $block->getData('show_dots') ?? true,
+    ]) ?>
+</div>

@@ -1,0 +1,24 @@
+<?php
+/**
+ * Panel content only: the role="tabpanel" wrapper, title and icon are rendered by tabs.phtml.
+ *
+ * @storyblok {
+ *   "folder": "Interactive",
+ *   "description": "Individual panel inside a tabs container.",
+ *   "fields": {
+ *     "title": {"type": "string", "required": true},
+ *     "icon": {"type": "asset"},
+ *     "content": {"type": "array", "allowed": ["@content"], "description": "Child bloks"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\TabPanelBlok $block */
+?>
+<div class="flex flex-col gap-4">
+    <?= /** @noEscape */ $block->getContentHtml() ?>
+</div>

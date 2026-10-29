@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokModal', () => ({
+            // Opened / closed from "button" bloks: storyblok-open / storyblok-close with detail.target = dialog id.
+            init() {
+                const dialog = this.$refs.dialog;
+
+                window.addEventListener('storyblok-open', (event) => {
+                    if (event.detail && event.detail.target === dialog.id && !dialog.open) {
+                        this.open();
+                    }
+                });
+                window.addEventListener('storyblok-close', (event) => {
+                    if (event.detail && event.detail.target === dialog.id) {
+                        this.close();
+                    }
+                });
+            },
+            open() {
+                this.$refs.dialog.showModal();
+                document.documentElement.classList.add('overflow-hidden');
+            },
+            close() {
+                this.$refs.dialog.close();
+            },
+            // Fires for the close button, ESC and backdrop clicks alike.
+            onClose() {
+                if (!document.querySelector('dialog[open]')) {
+                    document.documentElement.classList.remove('overflow-hidden');
+                }
+            },
+            // The dialog itself only receives the click when the backdrop was clicked.
+            onDialogClick(event) {
+                if (event.target === this.$refs.dialog) {
+                    this.close();
+                }
+            },
+        }));
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

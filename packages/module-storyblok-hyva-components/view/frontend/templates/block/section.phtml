@@ -1,0 +1,118 @@
+<?php
+/**
+ * Section: establishes the 4 / 8 / 12 column page grid, with optional viewport breakouts.
+ *
+ * bleed_target "background": only the background layer breaks out; content stays on the grid.
+ * bleed_target "content": the grid gets a has-content-bleed-* class and the first / last child column
+ * breaks out itself (see column.phtml), so children never need to inspect their parent in PHP.
+ *
+ * @storyblok {
+ *   "folder": "Layout",
+ *   "description": "Root grid wrapper aware of 100vw full-bleed breakouts, handling background colors/images, overlay layers, padding, and inner width constraints.",
+ *   "fields": {
+ *     "body": {"type": "array", "allowed": ["column", "@content"], "description": "Child bloks"},
+ *     "container_width": {"type": "string", "enum": ["full", "boxed", "narrow"], "default": "boxed", "tab": "Layout", "group": "Width"},
+ *     "full_bleed": {"type": "string", "enum": ["none", "full", "left", "right"], "default": "none", "description": "Edge breakout behavior", "tab": "Layout", "group": "Breakout"},
+ *     "bleed_target": {"type": "string", "enum": ["background", "content"], "default": "background", "description": "Controls whether breakout applies only to the background layer or extends to grid column content", "tab": "Layout", "group": "Breakout"},
+ *     "padding_top": {"type": "string", "enum": ["none", "small", "medium", "large"], "default": "medium", "tab": "Layout", "group": "Spacing"},
+ *     "padding_bottom": {"type": "string", "enum": ["none", "small", "medium", "large"], "default": "medium", "tab": "Layout", "group": "Spacing"},
+ *     "background_image": {"type": "asset", "description": "Storyblok image asset object", "tab": "Background"},
+ *     "background_color": {"type": "string", "default": "transparent", "description": "Tailwind bg color class or hex value", "tab": "Background"},
+ *     "above_the_fold": {"type": "boolean", "default": false, "description": "Load the background image eagerly with high fetch priority. Enable for the first section on the page (LCP).", "tab": "Background"},
+ *     "anchor_id": {"type": "string", "description": "Id for in-page links: a link with anchor \"delivery\" scrolls to anchor_id \"delivery\"", "tab": "Advanced"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\SectionBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+
+$bleed = (string)$block->getData('full_bleed');
+$bleed = in_array($bleed, ['full', 'left', 'right'], true) ? $bleed : 'none';
+$contentBleed = $bleed !== 'none' && $block->getData('bleed_target') === 'content';
+
+$paddingTop = [
+    'none' => '',
+    'small' => 'pt-6 md:pt-8',
+    'medium' => 'pt-10 md:pt-16',
+    'large' => 'pt-16 md:pt-24',
+][(string)$block->getData('padding_top')] ?? 'pt-10 md:pt-16';
+
+$paddingBottom = [
+    'none' => '',
+    'small' => 'pb-6 md:pb-8',
+    'medium' => 'pb-10 md:pb-16',
+    'large' => 'pb-16 md:pb-24',
+][(string)$block->getData('padding_bottom')] ?? 'pb-10 md:pb-16';
+
+// "container" neutralises itself when already inside the Hyvä page container (.columns) to avoid double gutters.
+$containerWidth = [
+    'full' => 'w-full',
+    'boxed' => 'container [.columns_&]:max-w-none [.columns_&]:px-0',
+    'narrow' => 'container [.columns_&]:max-w-none [.columns_&]:px-0',
+][(string)$block->getData('container_width')] ?? 'container [.columns_&]:max-w-none [.columns_&]:px-0';
+
+$narrow = $block->getData('container_width') === 'narrow' ? 'mx-auto max-w-4xl' : '';
+
+// 100% is the section width, so (100% - 100vw) / 2 is the negative distance to the viewport edge.
+$backgroundInset = $contentBleed ? 'inset-x-0' : [
+    'none' => 'inset-x-0',
+    'full' => 'left-[calc((100%-100vw)/2)] right-[calc((100%-100vw)/2)]',
+    'left' => 'left-[calc((100%-100vw)/2)] right-0',
+    'right' => 'left-0 right-[calc((100%-100vw)/2)]',
+][$bleed];
+
+$contentBleedClass = $contentBleed ? [
+    'full' => 'has-content-bleed-full',
+    'left' => 'has-content-bleed-left',
+    'right' => 'has-content-bleed-right',
+][$bleed] : '';
+
+$backgroundColor = trim((string)$block->getData('background_color'));
+$backgroundStyle = '';
+$backgroundClass = '';
+
+if (preg_match('/^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i', $backgroundColor)) {
+    $backgroundStyle = 'background-color: ' . $backgroundColor;
+} elseif ($backgroundColor !== '' && $backgroundColor !== 'transparent') {
+    // Class names typed in the CMS are not seen by the Tailwind scanner: use classes the theme already generates.
+    $backgroundClass = $backgroundColor;
+}
+
+// Target for in-page links (#delivery). --sb-anchor-offset lets the theme clear a sticky header.
+$anchorId = preg_replace('/[^\w-]/', '', strtolower(str_replace(' ', '-', trim((string)$block->getData('anchor_id')))));
+
+$backgroundImage = $block->getData('background_image');
+$hasBackground = $backgroundStyle || $backgroundClass || $block->getAssetViewModel()->isValidAsset($backgroundImage);
+?>
+<section class="relative isolate scroll-mt-[var(--sb-anchor-offset,6rem)] <?= $escaper->escapeHtmlAttr(trim($paddingTop . ' ' . $paddingBottom . ($bleed !== 'none' ? ' sb-bleed' : ''))) ?>"
+         <?php if ($anchorId !== ''): ?>id="<?= $escaper->escapeHtmlAttr($anchorId) ?>"<?php endif ?>>
+    <?php if ($hasBackground): ?>
+        <div class="absolute inset-y-0 -z-10 overflow-hidden <?= $escaper->escapeHtmlAttr(trim($backgroundInset . ' ' . $backgroundClass)) ?>"
+             <?php if ($backgroundStyle): ?>style="<?= $escaper->escapeHtmlAttr($backgroundStyle) ?>"<?php endif ?>
+             aria-hidden="true">
+            <?= /** @noEscape */ $partial->render('picture', [
+                'asset' => $backgroundImage,
+                'alt' => '',
+                'widths' => [768, 1280, 1920, 2560],
+                'class' => 'absolute inset-0 size-full object-cover',
+                'eager' => (bool)$block->getData('above_the_fold'),
+            ]) ?>
+        </div>
+    <?php endif ?>
+    <div class="<?= $escaper->escapeHtmlAttr($containerWidth) ?>">
+        <div class="@container grid grid-cols-4 gap-6 md:grid-cols-8 lg:grid-cols-12 [&>:not(.sb-column)]:col-span-full <?= $escaper->escapeHtmlAttr(trim($narrow . ' ' . $contentBleedClass)) ?>">
+            <?= /** @noEscape */ $block->getBodyHtml() ?>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,43 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Directional group of links or CTA actions.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "links": {"type": "array", "allowed": ["link", "button"], "description": "Array of link or button blocks"},
+ *     "alignment": {"type": "string", "enum": ["left", "center", "right"], "default": "left"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\LinkListBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$links = array_filter((array)$block->getData('links'));
+
+if (!$links) {
+    return;
+}
+
+$alignment = [
+    'left' => 'justify-start',
+    'center' => 'justify-center',
+    'right' => 'justify-end',
+][(string)$block->getData('alignment')] ?? 'justify-start';
+?>
+<ul class="flex flex-wrap items-center gap-4 <?= $escaper->escapeHtmlAttr($alignment) ?>">
+    <?php foreach ($links as $link): ?>
+        <?php $html = $block->renderBlok($link) ?>
+        <?php if (trim($html) !== ''): ?>
+            <li><?= /** @noEscape */ $html ?></li>
+        <?php endif ?>
+    <?php endforeach ?>
+</ul>

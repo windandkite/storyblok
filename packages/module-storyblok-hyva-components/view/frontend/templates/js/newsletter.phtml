@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+use Hyva\Theme\ViewModel\ReCaptcha;
+use Magento\Framework\View\Element\Template;
+
+/** @var Template $block */
+/** @var HyvaCsp $hyvaCsp */
+
+// Same reCAPTCHA view model the theme passes to its footer newsletter form.
+$subscribe = $block->getLayout()->getBlock('form.subscribe');
+/** @var ReCaptcha|null $recaptcha */
+$recaptcha = $subscribe ? $subscribe->getData('viewModelRecaptcha') : null;
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokNewsletter', () => ({
+            // errors / hasCaptchaToken / setErrorMessages are the API Hyvä's reCAPTCHA snippet expects.
+            errors: 0,
+            hasCaptchaToken: 0,
+            errorMessages: [],
+
+            setErrorMessages(messages) {
+                this.errorMessages = [messages];
+            },
+            errorText() {
+                return this.errorMessages.join(' ');
+            },
+            submitForm() {
+                // Do not rename $form: the reCAPTCHA snippet refers to it.
+                const $form = this.$el;
+
+                this.errors = 0;
+                this.errorMessages = [];
+                <?= /** @noEscape */ $recaptcha ? $recaptcha->getValidationJsHtml(ReCaptcha::RECAPTCHA_FORM_ID_NEWSLETTER) : '' ?>
+
+                if (this.errors === 0) {
+                    $form.submit();
+                }
+            },
+        }));
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

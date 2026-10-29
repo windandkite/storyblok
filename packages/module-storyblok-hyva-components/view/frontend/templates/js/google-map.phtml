@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokMap', () => ({
+            init() {
+                const root = this.$el;
+                const canvas = this.$refs.canvas;
+                let markers = [];
+
+                try {
+                    markers = JSON.parse(this.$refs.markersData.textContent || '[]');
+                } catch (error) {
+                    markers = [];
+                }
+
+                window.wkStoryblok.whenVisible(root, async () => {
+                    // With loading=async the API is only usable once its callback fires.
+                    window.wkStoryblok.mapsReady = window.wkStoryblok.mapsReady || new Promise((resolve) => {
+                        window.wkStoryblokMapsReady = resolve;
+                    });
+
+                    const url = 'https://maps.googleapis.com/maps/api/js?' + new URLSearchParams({
+                        key: root.dataset.apiKey,
+                        v: 'weekly',
+                        loading: 'async',
+                        callback: 'wkStoryblokMapsReady',
+                    });
+
+                    try {
+                        await hyva.loadScript(url);
+                        await window.wkStoryblok.mapsReady;
+
+                        const { Map, InfoWindow } = await google.maps.importLibrary('maps');
+                        // ponytail: classic Marker (deprecated, still supported). AdvancedMarkerElement needs a Map ID.
+                        const { Marker } = await google.maps.importLibrary('marker');
+                        const center = { lat: Number(root.dataset.lat), lng: Number(root.dataset.lng) };
+                        const map = new Map(canvas, { center, zoom: Number(root.dataset.zoom) || 14 });
+                        const infoWindow = new InfoWindow();
+
+                        (markers.length ? markers : [{ lat: center.lat, lng: center.lng }]).forEach((data) => {
+                            const marker = new Marker({
+                                map,
+                                position: { lat: data.lat, lng: data.lng },
+                                title: data.title || undefined,
+                                icon: data.icon || undefined,
+                            });
+
+                            if (!data.title && !data.info) {
+                                return;
+                            }
+
+                            // Built with textContent: editor text is never parsed as HTML.
+                            marker.addListener('click', () => {
+                                const content = document.createElement('div');
+
+                                if (data.title) {
+                                    const title = document.createElement('strong');
+                                    title.textContent = data.title;
+                                    content.append(title);
+                                }
+
+                                if (data.info) {
+                                    const text = document.createElement('p');
+                                    text.style.whiteSpace = 'pre-line';
+                                    text.textContent = data.info;
+                                    content.append(text);
+                                }
+
+                                infoWindow.setContent(content);
+                                infoWindow.open({ map, anchor: marker });
+                            });
+                        });
+                    } catch (error) {
+                        console.error('Google Maps could not be loaded', error);
+                    }
+                }, root.dataset.eager === 'true');
+            },
+        }));
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

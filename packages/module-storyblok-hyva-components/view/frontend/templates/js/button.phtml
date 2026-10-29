@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokButton', () => ({
+            dispatch() {
+                window.dispatchEvent(new CustomEvent(this.$el.dataset.event, {
+                    detail: { target: this.$el.dataset.target || null, trigger: this.$el },
+                }));
+            },
+        }));
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

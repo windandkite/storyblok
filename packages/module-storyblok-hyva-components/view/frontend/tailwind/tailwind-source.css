@@ -1,0 +1,18 @@
+/*
+ * Imported automatically into Hyvä theme builds via hyva-modules.
+ *
+ * Section breakouts use 100vw, which includes the scrollbar gutter (Hyvä sets scrollbar-gutter: stable).
+ * Clipping on the section itself would cut off the breakout, so clip horizontally at the body instead,
+ * and only on pages that actually contain a bleeding section. overflow-x: clip does not create a
+ * scroll container, so position: sticky keeps working.
+ */
+
+/* Providing this file replaces hyva-modules' automatic @source for the module, so declare it here. */
+@source "../templates";
+@source "../layout";
+
+@layer base {
+    body:has(.sb-bleed) {
+        overflow-x: clip;
+    }
+}

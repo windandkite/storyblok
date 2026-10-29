@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [module-storyblok]
+        package: [module-storyblok, module-storyblok-components-common, module-storyblok-hyva-components]
     # One run per package and ref at a time. For master only the newest run matters, so it replaces older ones;
     # each tag has its own group, so no release is dropped.
     concurrency:

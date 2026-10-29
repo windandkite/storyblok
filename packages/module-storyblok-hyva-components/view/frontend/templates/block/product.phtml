@@ -1,0 +1,45 @@
+<?php
+/**
+ * Renders the product loaded by Hydrator\Product with Hyvä's own product_list_item renderer,
+ * so price, add to cart, wishlist / compare and item caching behave exactly like category pages.
+ *
+ * @storyblok {
+ *   "folder": "Commerce",
+ *   "description": "SKU-backed catalog card with native Hyvä price and add-to-cart (ATC) integration.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "sku": {"type": "string", "required": true}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\ProductListItem;
+use Magento\Catalog\Model\Product;
+use Magento\Framework\Escaper;
+use Magento\Catalog\Block\Product\ReviewRendererInterface;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ProductBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$product = $block->getData('product');
+// Provided by the catalog_list_item handle (see layout/storyblok_page_view.xml).
+$renderer = $block->getLayout()->getBlock('product_list_item');
+
+if (!$product instanceof Product || !$renderer) {
+    return;
+}
+?>
+<?= /** @noEscape */ $viewModels->require(ProductListItem::class)->getItemHtmlWithRenderer(
+    $renderer,
+    $product,
+    $block,
+    'grid',
+    ReviewRendererInterface::SHORT_VIEW,
+    'category_page_grid',
+    false
+) ?>

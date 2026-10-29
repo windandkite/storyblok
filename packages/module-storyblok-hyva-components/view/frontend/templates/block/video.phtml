@@ -1,0 +1,134 @@
+<?php
+/**
+ * Native: <video preload="none">. YouTube / Vimeo: poster facade, the iframe is only injected on click
+ * (or when scrolled into view for autoplay), so no third-party requests happen before user intent.
+ * Starting any player pauses every other one (storyblok-video-play window event).
+ *
+ * VideoObject JSON-LD is output when title, upload_date and a thumbnail (poster, or YouTube's) exist.
+ *
+ * @storyblok {
+ *   "folder": "Media",
+ *   "description": "Multi-source player (native MP4, YouTube, Vimeo) with CSP compliance, lazy loading, and active-state registry control.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "source_type": {"type": "string", "enum": ["native", "youtube", "vimeo"], "required": true},
+ *     "video_url": {"type": "string"},
+ *     "video_asset": {"type": "asset", "filetypes": ["videos"]},
+ *     "poster_image": {"type": "asset"},
+ *     "title": {"type": "string", "description": "Accessible name for the player"},
+ *     "autoplay": {"type": "boolean", "default": false, "tab": "Settings", "group": "Playback"},
+ *     "muted": {"type": "boolean", "default": false, "tab": "Settings", "group": "Playback"},
+ *     "controls": {"type": "boolean", "default": true, "tab": "Settings", "group": "Playback"},
+ *     "description": {"type": "string", "format": "textarea", "description": "Used for VideoObject structured data", "tab": "SEO"},
+ *     "upload_date": {"type": "datetime", "description": "Required for VideoObject structured data", "tab": "SEO"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\JsonLd;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\Video;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\VideoBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$videoViewModel = $viewModels->require(Video::class);
+$assetViewModel = $block->getAssetViewModel();
+
+$type = $block->getData('source_type');
+$autoplay = (bool)$block->getData('autoplay');
+// Browsers only allow muted autoplay.
+$muted = $autoplay || $block->getData('muted');
+$controls = $block->getData('controls') ?? true;
+$title = trim((string)$block->getData('title')) ?: (string)__('Video');
+$poster = $block->getData('poster_image');
+$hasPoster = $assetViewModel->isValidAsset($poster);
+
+if ($type === Video::TYPE_NATIVE) {
+    $videoAsset = $block->getData('video_asset');
+    $src = $assetViewModel->isValidAsset($videoAsset) ? $videoAsset['filename'] : trim((string)$block->getData('video_url'));
+    $embedUrl = null;
+} else {
+    $src = null;
+    $embedUrl = $videoViewModel->getEmbedUrl((string)$type, $block->getData('video_url'), $muted, $controls);
+}
+
+if (!$src && !$embedUrl) {
+    return;
+}
+
+$fallbackPoster = $hasPoster ? null : $videoViewModel->getFallbackPosterUrl((string)$type, $block->getData('video_url'));
+$thumbnail = $hasPoster ? $assetViewModel->transformImage($poster, ['width' => 1280]) : $fallbackPoster;
+$uploadDate = trim((string)$block->getData('upload_date'));
+// Storyblok stores datetime fields in UTC as "Y-m-d H:i".
+$uploadDate = $uploadDate !== '' ? strtotime($uploadDate . ' UTC') : false;
+$videoSchema = [];
+
+if (trim((string)$block->getData('title')) !== '' && $uploadDate && $thumbnail) {
+    $videoSchema = array_filter([
+        '@type' => 'VideoObject',
+        'name' => trim((string)$block->getData('title')),
+        'description' => trim((string)$block->getData('description')) ?: null,
+        'thumbnailUrl' => $thumbnail,
+        'uploadDate' => gmdate('c', $uploadDate),
+        'contentUrl' => $src ?: null,
+        'embedUrl' => $embedUrl ? strtok($embedUrl, '?') : null,
+    ]);
+}
+?>
+<div class="relative aspect-video w-full overflow-hidden bg-black"
+     x-data="initStoryblokVideo"
+     data-type="<?= $escaper->escapeHtmlAttr($type) ?>"
+     data-autoplay="<?= $autoplay ? 'true' : 'false' ?>"
+     <?php if ($embedUrl): ?>
+         data-embed-url="<?= $escaper->escapeUrl($embedUrl) ?>"
+         data-title="<?= $escaper->escapeHtmlAttr($title) ?>"
+     <?php endif ?>>
+    <?php if ($src): ?>
+        <video x-ref="video"
+               class="size-full"
+               preload="<?= $hasPoster ? 'none' : 'metadata' ?>"
+               playsinline
+               <?= $controls ? 'controls' : '' ?>
+               <?= $muted ? 'muted' : '' ?>
+               <?= $autoplay ? 'loop' : '' ?>
+               <?php if ($hasPoster): ?>poster="<?= $escaper->escapeUrl($assetViewModel->transformImage($poster, ['width' => 1280])) ?>"<?php endif ?>
+               aria-label="<?= $escaper->escapeHtmlAttr($title) ?>"
+               x-on:play="onPlay">
+            <source src="<?= $escaper->escapeUrl($src) ?>">
+        </video>
+    <?php else: ?>
+        <button type="button"
+                x-ref="facade"
+                class="group absolute inset-0 size-full"
+                aria-label="<?= $escaper->escapeHtmlAttr(__('Play video: %1', $title)) ?>"
+                x-on:click="load">
+            <?php if ($hasPoster): ?>
+                <?= /** @noEscape */ $partial->render('picture', [
+                    'asset' => $poster,
+                    'alt' => '',
+                    'ratio' => 9 / 16,
+                    'class' => 'absolute inset-0 size-full object-cover',
+                ]) ?>
+            <?php elseif ($fallbackPoster): ?>
+                <img src="<?= $escaper->escapeUrl($fallbackPoster) ?>" alt="" loading="lazy" decoding="async" width="480" height="360"
+                     class="absolute inset-0 size-full object-cover">
+            <?php endif ?>
+            <span class="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-black/60 text-white group-hover:bg-black/80 group-focus-visible:bg-black/80" aria-hidden="true">
+                <svg class="ms-1 size-8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+        </button>
+    <?php endif ?>
+</div>
+<?php if ($videoSchema): ?>
+    <?= /** @noEscape */ $viewModels->require(JsonLd::class)->render($videoSchema) ?>
+<?php endif ?>
+<?= /** @noEscape */ $partial->renderScriptOnce('core') ?>
+<?= /** @noEscape */ $partial->renderScriptOnce('video') ?>

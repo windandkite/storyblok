@@ -1,0 +1,37 @@
+<?php
+/**
+ * Mobile: horizontal scroll-snap strip. Desktop: equal-width row.
+ *
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Modular value propositions bar featuring desktop row/grid layouts and mobile CSS scroll-snap carousel.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "items": {"type": "array", "allowed": ["usp_item"], "description": "Array of usp_item blocks"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\UspBarBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$items = array_filter((array)$block->getData('items'));
+
+if (!$items) {
+    return;
+}
+?>
+<ul class="flex snap-x snap-mandatory gap-6 overflow-x-auto overscroll-x-contain md:grid md:auto-cols-fr md:grid-flow-col md:overflow-visible">
+    <?php foreach ($items as $item): ?>
+        <li class="shrink-0 basis-4/5 snap-start sm:basis-1/2 md:basis-auto">
+            <?= /** @noEscape */ $block->renderBlok($item) ?>
+        </li>
+    <?php endforeach ?>
+</ul>

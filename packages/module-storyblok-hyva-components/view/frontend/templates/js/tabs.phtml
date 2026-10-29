@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokTabs', () => ({
+            active: null,
+
+            init() {
+                const firstTab = this.$el.querySelector('[role="tab"]');
+
+                this.active = firstTab ? firstTab.dataset.panelId : null;
+            },
+            // Evaluated per element: this.$el is the tab / panel carrying the directive.
+            isTabSelected() {
+                return this.$el.dataset.panelId === this.active ? 'true' : 'false';
+            },
+            tabIndex() {
+                return this.$el.dataset.panelId === this.active ? '0' : '-1';
+            },
+            isPanelActive() {
+                return this.$el.dataset.panelId === this.active;
+            },
+            select() {
+                this.active = this.$el.dataset.panelId;
+            },
+            // Both axes are accepted: vertical tabs render horizontally on mobile.
+            onKeydown(event) {
+                const tabs = Array.from(this.$el.querySelectorAll(':scope > [role="tab"]'));
+                const current = tabs.indexOf(document.activeElement);
+                const moves = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
+                let next;
+
+                if (current === -1) {
+                    return;
+                }
+
+                if (event.key in moves) {
+                    next = (current + moves[event.key] + tabs.length) % tabs.length;
+                } else if (event.key === 'Home') {
+                    next = 0;
+                } else if (event.key === 'End') {
+                    next = tabs.length - 1;
+                } else {
+                    return;
+                }
+
+                event.preventDefault();
+                tabs[next].focus();
+                this.active = tabs[next].dataset.panelId;
+            },
+        }));
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

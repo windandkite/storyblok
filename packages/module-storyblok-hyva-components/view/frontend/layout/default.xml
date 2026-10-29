@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <!--
+            Site-wide announcement bar from the Storyblok story at the slug below (content type: announcement_bar).
+            Change the slug with a referenceBlock + argument, or remove it with <referenceBlock remove="true"/>
+            in projects that don't use it (a missing story costs one API lookup per uncached page).
+        -->
+        <referenceContainer name="header.container">
+            <block class="WindAndKite\Storyblok\Block\Story"
+                   name="storyblok.announcement_bar"
+                   before="header-content"
+                   template="WindAndKite_StoryblokHyvaComponents::announcement-bar.phtml">
+                <arguments>
+                    <argument name="slug" xsi:type="string">global/announcement-bar</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+    </body>
+</page>

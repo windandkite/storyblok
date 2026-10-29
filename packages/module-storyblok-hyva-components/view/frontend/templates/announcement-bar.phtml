@@ -1,0 +1,18 @@
+<?php
+/**
+ * Layout wrapper for the site-wide announcement bar (see layout/default.xml). Renders nothing when the
+ * story doesn't exist; otherwise its announcement_bar content blok renders via block/announcement_bar.phtml.
+ * Block\Story tags the page with the story, so publishing it purges cached pages.
+ */
+
+declare(strict_types=1);
+
+use WindAndKite\Storyblok\Block\Story;
+
+/** @var Story $block */
+
+if (!$block->getStory()) {
+    return;
+}
+?>
+<?= /** @noEscape */ $block->getContentHtml() ?>

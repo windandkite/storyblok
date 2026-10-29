@@ -1,0 +1,115 @@
+<?php
+/**
+ * Products from a source (see Hydrator\ProductList) as a grid or carousel of Hyvä product cards,
+ * with ItemList JSON-LD. "recently_viewed" is per visitor, so it uses Hyvä's client-side widget
+ * (GraphQL + localStorage); its product count comes from Catalog > Recently Viewed config.
+ *
+ * @storyblok {
+ *   "folder": "Commerce",
+ *   "description": "Products from a category, SKU list, newest, or the visitor's recently viewed, as a grid or carousel.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "title": {"type": "string", "description": "Only shown when there are products"},
+ *     "source": {"type": "string", "enum": ["category", "skus", "newest", "recently_viewed"], "default": "category"},
+ *     "category_id": {"type": "string", "description": "Magento category ID (source: category)"},
+ *     "skus": {"type": "string", "format": "textarea", "description": "One SKU per line, shown in this order (source: skus)"},
+ *     "limit": {"type": "number", "default": 8, "description": "1-48. Recently viewed uses the store config count instead."},
+ *     "sort": {"type": "string", "enum": ["position", "newest", "price_asc", "price_desc", "name"], "default": "position", "description": "position = category position / SKU order / newest first", "tab": "Settings"},
+ *     "display": {"type": "string", "enum": ["grid", "carousel"], "default": "grid", "tab": "Settings"},
+ *     "columns_desktop": {"type": "number", "enum": [2, 3, 4], "default": 4, "tab": "Settings"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\ProductListItem;
+use Magento\Catalog\Block\Product\ReviewRendererInterface;
+use Magento\Catalog\Block\Widget\RecentlyViewed;
+use Magento\Catalog\Model\Product;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokComponentsCommon\Hydrator\ProductList;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\JsonLd;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ProductListBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$title = trim((string)$block->getData('title'));
+
+if ($block->getData('source') === ProductList::SOURCE_RECENTLY_VIEWED) {
+    $recentlyViewed = $block->getLayout()->createBlock(RecentlyViewed::class, '', ['data' => [
+        'title' => $title ?: __('Recently Viewed Products'),
+        'show_attributes' => 'name,image,price,learn_more',
+        'show_buttons' => 'add_to_compare,add_to_wishlist',
+    ]])->setTemplate('Magento_Catalog::product/widget/viewed/grid.phtml');
+    ?>
+    <div><?= /** @noEscape */ $recentlyViewed->toHtml() ?></div>
+    <?php
+    return;
+}
+
+/** @var Product[] $products */
+$products = (array)$block->getData('product_items');
+// Provided by the catalog_list_item handle (see layout/storyblok_page_view.xml).
+$renderer = $block->getLayout()->getBlock('product_list_item');
+
+if (!$products || !$renderer) {
+    return;
+}
+
+$productListItem = $viewModels->require(ProductListItem::class);
+$partial = $viewModels->require(Partial::class);
+$jsonLd = $viewModels->require(JsonLd::class);
+
+$cards = [];
+
+foreach ($products as $product) {
+    $cards[] = $productListItem->getItemHtmlWithRenderer(
+        $renderer,
+        $product,
+        $block,
+        'grid',
+        ReviewRendererInterface::SHORT_VIEW,
+        'category_page_grid',
+        false
+    );
+}
+
+$columns = [
+    2 => ['grid' => 'sm:grid-cols-2', 'slide' => 'basis-4/5 sm:basis-1/2'],
+    3 => ['grid' => 'sm:grid-cols-2 lg:grid-cols-3', 'slide' => 'basis-4/5 sm:basis-1/2 lg:basis-1/3'],
+    4 => ['grid' => 'sm:grid-cols-2 lg:grid-cols-4', 'slide' => 'basis-4/5 sm:basis-1/2 lg:basis-1/4'],
+][(int)$block->getData('columns_desktop')] ?? ['grid' => 'sm:grid-cols-2 lg:grid-cols-4', 'slide' => 'basis-4/5 sm:basis-1/2 lg:basis-1/4'];
+
+$listItems = [];
+
+foreach ($products as $position => $product) {
+    $listItems[] = ['@type' => 'ListItem', 'position' => $position + 1, 'url' => $product->getProductUrl()];
+}
+?>
+<div class="flex flex-col gap-4">
+    <?php if ($title !== ''): ?>
+        <h2 class="text-2xl font-semibold"><?= $escaper->escapeHtml($title) ?></h2>
+    <?php endif ?>
+    <?php if ($block->getData('display') === 'carousel'): ?>
+        <?= /** @noEscape */ $partial->render('carousel', [
+            'slides' => $cards,
+            // Padding instead of gap keeps each slide an exact fraction of the track.
+            'slide_class' => 'flex px-2 [&>*]:w-full ' . $columns['slide'],
+            'gap_class' => '-mx-2',
+            'label' => $title ?: __('Products'),
+            'show_dots' => false,
+        ]) ?>
+    <?php else: ?>
+        <ul class="grid grid-cols-1 gap-4 <?= $escaper->escapeHtmlAttr($columns['grid']) ?>">
+            <?php foreach ($cards as $card): ?>
+                <li class="flex [&>*]:w-full"><?= /** @noEscape */ $card ?></li>
+            <?php endforeach ?>
+        </ul>
+    <?php endif ?>
+</div>
+<?= /** @noEscape */ $jsonLd->render(['@type' => 'ItemList', 'itemListElement' => $listItems]) ?>

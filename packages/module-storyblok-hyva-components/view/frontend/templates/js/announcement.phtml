@@ -1,0 +1,74 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokAnnouncement', () => {
+            let timer = null;
+            let key = null;
+
+            return {
+                visible: true,
+                countdown: '',
+
+                // ponytail: dismissed bars render, then hide on Alpine init (a brief flash). Hiding before paint
+                // would need an inline head script reading localStorage.
+                init() {
+                    key = this.$el.dataset.dismissKey;
+
+                    try {
+                        if (key && window.localStorage.getItem(key)) {
+                            this.visible = false;
+                            return;
+                        }
+                    } catch (error) {
+                        // Storage unavailable (privacy mode): keep showing the bar.
+                    }
+
+                    const endsAt = Date.parse(this.$el.dataset.endsAt || '');
+
+                    if (!endsAt) {
+                        return;
+                    }
+
+                    const pad = (value) => String(value).padStart(2, '0');
+                    const tick = () => {
+                        const seconds = Math.floor((endsAt - Date.now()) / 1000);
+
+                        if (seconds <= 0) {
+                            this.visible = false;
+                            window.clearInterval(timer);
+                            return;
+                        }
+
+                        const days = Math.floor(seconds / 86400);
+
+                        this.countdown = (days ? days + 'd ' : '')
+                            + pad(Math.floor(seconds % 86400 / 3600)) + ':'
+                            + pad(Math.floor(seconds % 3600 / 60)) + ':'
+                            + pad(seconds % 60);
+                    };
+
+                    tick();
+                    timer = window.setInterval(tick, 1000);
+                },
+                dismiss() {
+                    this.visible = false;
+                    window.clearInterval(timer);
+
+                    try {
+                        window.localStorage.setItem(key, '1');
+                    } catch (error) {
+                        // Storage unavailable: dismissed for this page view only.
+                    }
+                },
+            };
+        });
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

@@ -1,0 +1,81 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokVideo', () => {
+            // Kept out of Alpine's reactive state: DOM nodes and ids don't need to be proxied.
+            const id = Math.random().toString(36).slice(2);
+            let root = null;
+            let iframe = null;
+
+            return {
+                init() {
+                    root = this.$el;
+
+                    window.addEventListener('storyblok-video-play', (event) => {
+                        if (event.detail.id !== id) {
+                            this.pause();
+                        }
+                    });
+
+                    if (root.dataset.autoplay === 'true') {
+                        window.wkStoryblok.whenVisible(root, () => {
+                            this.$refs.video ? this.$refs.video.play().catch(() => {}) : this.load();
+                        });
+                    }
+                },
+                announce() {
+                    window.dispatchEvent(new CustomEvent('storyblok-video-play', { detail: { id } }));
+                },
+                onPlay() {
+                    this.announce();
+                },
+                load() {
+                    if (iframe) {
+                        return;
+                    }
+
+                    iframe = document.createElement('iframe');
+                    iframe.src = root.dataset.embedUrl;
+                    iframe.title = root.dataset.title || '';
+                    iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+                    iframe.className = 'absolute inset-0 size-full border-0';
+                    root.append(iframe);
+
+                    if (this.$refs.facade) {
+                        this.$refs.facade.remove();
+                    }
+
+                    iframe.focus();
+                    this.announce();
+                },
+                // ponytail: players started from inside an iframe's own controls don't announce themselves;
+                // listen to the YouTube / Vimeo postMessage APIs if that matters.
+                pause() {
+                    if (this.$refs.video) {
+                        this.$refs.video.pause();
+                        return;
+                    }
+
+                    if (!iframe || !iframe.contentWindow) {
+                        return;
+                    }
+
+                    const vimeo = root.dataset.type === 'vimeo';
+
+                    iframe.contentWindow.postMessage(
+                        JSON.stringify(vimeo ? { method: 'pause' } : { event: 'command', func: 'pauseVideo', args: [] }),
+                        vimeo ? 'https://player.vimeo.com' : 'https://www.youtube-nocookie.com'
+                    );
+                },
+            };
+        });
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

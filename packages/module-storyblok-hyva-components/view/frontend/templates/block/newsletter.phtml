@@ -1,0 +1,79 @@
+<?php
+/**
+ * Newsletter signup posting to Magento's own newsletter controller. Settings come from the theme's
+ * "form.subscribe" block, so it follows newsletter/general/active (no block = nothing rendered) and
+ * Hyvä's reCAPTCHA integration. Own markup and unique ids, so it can sit on a page next to the footer form.
+ *
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Newsletter signup using Magento's newsletter controller and Hyvä reCAPTCHA.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "title": {"type": "string"},
+ *     "text": {"type": "string", "format": "textarea"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\ReCaptcha;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\NewsletterBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$subscribe = $block->getLayout()->getBlock('form.subscribe');
+
+if (!$subscribe) {
+    return;
+}
+
+/** @var ReCaptcha|null $recaptcha */
+$recaptcha = $subscribe->getData('viewModelRecaptcha');
+$partial = $viewModels->require(Partial::class);
+
+$id = 'sb-newsletter-' . preg_replace('/[^\w-]/', '', (string)$block->getBlock()->getUid());
+$title = trim((string)$block->getData('title'));
+$text = trim((string)$block->getData('text'));
+?>
+<div class="flex flex-col gap-2">
+    <form action="<?= $escaper->escapeUrl($subscribe->getFormActionUrl()) ?>"
+          method="post"
+          class="flex flex-col gap-4"
+          x-data="initStoryblokNewsletter"
+          x-on:submit.prevent="submitForm"
+          <?php if ($title !== ''): ?>
+              aria-labelledby="<?= $escaper->escapeHtmlAttr($id) ?>-title"
+          <?php else: ?>
+              aria-label="<?= $escaper->escapeHtmlAttr(__('Subscribe to Newsletter')) ?>"
+          <?php endif ?>>
+        <?php if ($title !== ''): ?>
+            <h2 id="<?= $escaper->escapeHtmlAttr($id) ?>-title" class="text-2xl font-semibold"><?= $escaper->escapeHtml($title) ?></h2>
+        <?php endif ?>
+        <?php if ($text !== ''): ?>
+            <p><?= $escaper->escapeHtml($text) ?></p>
+        <?php endif ?>
+        <div class="flex flex-wrap gap-2">
+            <label for="<?= $escaper->escapeHtmlAttr($id) ?>-email" class="sr-only"><?= $escaper->escapeHtml(__('Email Address')) ?></label>
+            <input type="email"
+                   name="email"
+                   id="<?= $escaper->escapeHtmlAttr($id) ?>-email"
+                   required
+                   autocomplete="email"
+                   class="form-input min-w-0 grow"
+                   placeholder="<?= $escaper->escapeHtmlAttr(__('Enter your email address')) ?>"
+                   aria-describedby="<?= $escaper->escapeHtmlAttr($id) ?>-error">
+            <?= /** @noEscape */ $block->getBlockHtml('formkey') ?>
+            <?= /** @noEscape */ $recaptcha ? $recaptcha->getInputHtml(ReCaptcha::RECAPTCHA_FORM_ID_NEWSLETTER) : '' ?>
+            <button type="submit" class="btn btn-primary shrink-0"><?= $escaper->escapeHtml(__('Subscribe')) ?></button>
+        </div>
+        <p id="<?= $escaper->escapeHtmlAttr($id) ?>-error" role="alert" class="text-sm" x-text="errorText"></p>
+    </form>
+    <?= /** @noEscape */ $recaptcha ? $recaptcha->getLegalNoticeHtml(ReCaptcha::RECAPTCHA_FORM_ID_NEWSLETTER) : '' ?>
+</div>
+<?= /** @noEscape */ $partial->renderScriptOnce('newsletter') ?>

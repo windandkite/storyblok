@@ -1,0 +1,63 @@
+<?php
+/**
+ * Column: spans tracks of the parent section grid and is itself a subgrid, so nested columns
+ * stay aligned to the page grid. Non-column children span the full column.
+ *
+ * Content bleed: the parent section adds has-content-bleed-{left,right,full} to its grid; the static
+ * parent-variant classes below let the first / last direct column break out to the viewport edge.
+ * 100cqw is the section grid width (the grid is an @container).
+ *
+ * @storyblok {
+ *   "folder": "Layout",
+ *   "description": "Grid cell with responsive span attributes and automatic breakout inheritance from parent section.",
+ *   "fields": {
+ *     "body": {"type": "array", "allowed": ["@content"], "description": "Child bloks", "required": true},
+ *     "span_mobile": {"type": "number", "enum": [1, 2, 3, 4], "default": 4, "tab": "Responsive", "group": "Mobile"},
+ *     "span_tablet": {"type": "number", "enum": [1, 2, 3, 4, 6, 8], "default": 8, "tab": "Responsive", "group": "Tablet"},
+ *     "span_desktop": {"type": "number", "enum": [1, 2, 3, 4, 6, 8, 12], "default": 12, "tab": "Responsive", "group": "Desktop"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ColumnBlok $block */
+/** @var Escaper $escaper */
+
+$spanMobile = [
+    1 => 'col-span-1',
+    2 => 'col-span-2',
+    3 => 'col-span-3',
+    4 => 'col-span-4',
+][(int)$block->getData('span_mobile')] ?? 'col-span-4';
+
+$spanTablet = [
+    1 => 'md:col-span-1',
+    2 => 'md:col-span-2',
+    3 => 'md:col-span-3',
+    4 => 'md:col-span-4',
+    6 => 'md:col-span-6',
+    8 => 'md:col-span-8',
+][(int)$block->getData('span_tablet')] ?? 'md:col-span-8';
+
+$spanDesktop = [
+    1 => 'lg:col-span-1',
+    2 => 'lg:col-span-2',
+    3 => 'lg:col-span-3',
+    4 => 'lg:col-span-4',
+    6 => 'lg:col-span-6',
+    8 => 'lg:col-span-8',
+    12 => 'lg:col-span-12',
+][(int)$block->getData('span_desktop')] ?? 'lg:col-span-12';
+
+$bleedClasses = '[.has-content-bleed-left>&:first-child]:-ml-[calc((100vw-100cqw)/2)]'
+    . ' [.has-content-bleed-full>&:first-child]:-ml-[calc((100vw-100cqw)/2)]'
+    . ' [.has-content-bleed-right>&:last-child]:-mr-[calc((100vw-100cqw)/2)]'
+    . ' [.has-content-bleed-full>&:last-child]:-mr-[calc((100vw-100cqw)/2)]';
+?>
+<div class="sb-column grid grid-cols-subgrid content-start gap-y-6 [&>:not(.sb-column)]:col-span-full <?= $escaper->escapeHtmlAttr($spanMobile . ' ' . $spanTablet . ' ' . $spanDesktop . ' ' . $bleedClasses) ?>">
+    <?= /** @noEscape */ $block->getBodyHtml() ?>
+</div>

@@ -1,0 +1,87 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Native Storyblok table field renderer with responsive scroll/card modes.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "table_data": {"type": "object", "required": true},
+ *     "caption": {"type": "string", "description": "Accessible table caption"},
+ *     "mobile_display": {"type": "string", "enum": ["scroll", "cards"], "default": "scroll", "tab": "Settings"},
+ *     "striped": {"type": "boolean", "default": true, "tab": "Settings"},
+ *     "bordered": {"type": "boolean", "default": true, "tab": "Settings"},
+ *     "compact": {"type": "boolean", "default": false, "tab": "Settings"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\Table;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\TableBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$table = $viewModels->require(Table::class)->normalize($block->getData('table_data'));
+
+if (!$table['rows']) {
+    return;
+}
+
+$cards = $block->getData('mobile_display') === 'cards' && $table['head'];
+$caption = trim((string)$block->getData('caption'));
+
+// Cards mode: below md every row becomes a block and every cell shows its column header via data-label.
+$classes = $cards ? [
+    'wrapper' => 'md:overflow-x-auto',
+    'table' => 'w-full border-collapse text-start max-md:block',
+    // A table-caption inside a display:block table shrinks to its narrowest word.
+    'caption' => 'max-md:block',
+    'thead' => 'max-md:sr-only',
+    'tbody' => 'max-md:flex max-md:flex-col max-md:gap-4',
+    'row' => 'max-md:block',
+    'cell' => 'max-md:flex max-md:justify-between max-md:gap-4 max-md:text-end max-md:before:text-start max-md:before:font-semibold max-md:before:content-[attr(data-label)]',
+] : [
+    'wrapper' => 'overflow-x-auto',
+    'table' => 'w-full border-collapse text-start',
+    'caption' => '',
+    'thead' => '',
+    'tbody' => '',
+    'row' => '',
+    'cell' => '',
+];
+
+$striped = ($block->getData('striped') ?? true) ? 'even:bg-current/5' : '';
+$bordered = ($block->getData('bordered') ?? true) ? 'border border-current/20' : '';
+$padding = $block->getData('compact') ? 'px-2 py-1' : 'px-4 py-3';
+?>
+<div class="<?= $escaper->escapeHtmlAttr($classes['wrapper']) ?>">
+    <table class="<?= $escaper->escapeHtmlAttr($classes['table']) ?>">
+        <?php if ($caption !== ''): ?>
+            <caption class="pb-2 text-start font-semibold <?= $escaper->escapeHtmlAttr($classes['caption']) ?>"><?= $escaper->escapeHtml($caption) ?></caption>
+        <?php endif ?>
+        <?php if ($table['head']): ?>
+            <thead class="<?= $escaper->escapeHtmlAttr($classes['thead']) ?>">
+                <tr>
+                    <?php foreach ($table['head'] as $heading): ?>
+                        <th scope="col" class="text-start font-semibold <?= $escaper->escapeHtmlAttr(trim($padding . ' ' . $bordered)) ?>"><?= $escaper->escapeHtml($heading) ?></th>
+                    <?php endforeach ?>
+                </tr>
+            </thead>
+        <?php endif ?>
+        <tbody class="<?= $escaper->escapeHtmlAttr($classes['tbody']) ?>">
+            <?php foreach ($table['rows'] as $row): ?>
+                <tr class="<?= $escaper->escapeHtmlAttr(trim($classes['row'] . ' ' . $striped . ' ' . ($cards ? $bordered : ''))) ?>">
+                    <?php foreach ($row as $index => $cell): ?>
+                        <td class="<?= $escaper->escapeHtmlAttr(trim($classes['cell'] . ' ' . $padding . ' ' . $bordered)) ?>"
+                            <?php if ($cards): ?>data-label="<?= $escaper->escapeHtmlAttr($table['head'][$index] ?? '') ?>"<?php endif ?>><?= $escaper->escapeHtml($cell) ?></td>
+                    <?php endforeach ?>
+                </tr>
+            <?php endforeach ?>
+        </tbody>
+    </table>
+</div>

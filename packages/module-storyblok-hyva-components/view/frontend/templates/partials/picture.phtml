@@ -1,0 +1,83 @@
+<?php
+/**
+ * Responsive <picture> for a Storyblok image asset (AVIF + WebP + original format fallback).
+ *
+ * Data: asset (array, required), widths (int[]), ratio (height / width), sizes, class (img),
+ * picture_class, eager (bool, for above-the-fold images), alt (overrides the asset alt; '' = decorative).
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+use WindAndKite\Storyblok\ViewModel\Asset;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$assetViewModel = $viewModels->require(Asset::class);
+$asset = $block->getData('asset');
+
+if (!$assetViewModel->isValidAsset($asset)) {
+    return;
+}
+
+$widths = $block->getData('widths') ?: [480, 768, 1024, 1440, 1920];
+$ratio = (float)$block->getData('ratio');
+$eager = (bool)$block->getData('eager');
+$alt = $block->getData('alt') ?? (string)($asset['alt'] ?? '');
+$sizes = $block->getData('sizes') ?: ($eager ? '100vw' : 'auto, 100vw');
+$dimensions = $assetViewModel->getDimensions($asset);
+// Fallback <img> for browsers without srcset support: the widest candidate up to 1024px.
+$width = (int)min($assetViewModel->getMaxWidth($asset, $ratio), 1024, max($widths));
+
+if ($width === PHP_INT_MAX || empty($dimensions['width'])) {
+    $width = 0;
+}
+
+$height = match (true) {
+    !$width => 0,
+    (bool)$ratio => (int)round($width * $ratio),
+    default => (int)round($width * $dimensions['height'] / $dimensions['width']),
+};
+
+$position = $assetViewModel->getFocalPointPosition($asset);
+$sources = [];
+$src = $asset['filename'];
+$srcset = null;
+
+if ($assetViewModel->isTransformable($asset)) {
+    $options = $ratio ? ['ratio' => $ratio] : [];
+
+    try {
+        foreach (['avif', 'webp'] as $format) {
+            $sources['image/' . $format] = $assetViewModel->getSrcset($asset, $widths, $options + ['format' => $format]);
+        }
+
+        $srcset = $assetViewModel->getSrcset($asset, $widths, $options);
+        $src = $assetViewModel->transformImage($asset, ['width' => $width ?: min($widths), 'height' => $ratio ? $height : 0]);
+    } catch (\Exception) {
+        $sources = [];
+        $srcset = null;
+        $src = $asset['filename'];
+    }
+}
+?>
+<picture<?php if ($block->getData('picture_class')): ?> class="<?= $escaper->escapeHtmlAttr($block->getData('picture_class')) ?>"<?php endif ?>>
+    <?php foreach ($sources as $type => $sourceSrcset): ?>
+        <source type="<?= $escaper->escapeHtmlAttr($type) ?>"
+                srcset="<?= $escaper->escapeHtmlAttr($sourceSrcset) ?>"
+                sizes="<?= $escaper->escapeHtmlAttr($sizes) ?>">
+    <?php endforeach ?>
+    <img src="<?= $escaper->escapeUrl($src) ?>"
+         <?php if ($srcset): ?>srcset="<?= $escaper->escapeHtmlAttr($srcset) ?>" sizes="<?= $escaper->escapeHtmlAttr($sizes) ?>"<?php endif ?>
+         <?php if ($width && $height): ?>width="<?= (int)$width ?>" height="<?= (int)$height ?>"<?php endif ?>
+         alt="<?= $escaper->escapeHtmlAttr($alt) ?>"
+         loading="<?= $eager ? 'eager' : 'lazy' ?>"
+         <?php if ($eager): ?>fetchpriority="high"<?php endif ?>
+         decoding="async"
+         <?php if ($block->getData('class')): ?>class="<?= $escaper->escapeHtmlAttr($block->getData('class')) ?>"<?php endif ?>
+         <?php if ($position): ?>style="object-position: <?= $escaper->escapeHtmlAttr($position) ?>"<?php endif ?>>
+</picture>

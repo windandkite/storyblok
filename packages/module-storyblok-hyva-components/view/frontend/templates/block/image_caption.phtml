@@ -1,0 +1,59 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Media",
+ *   "description": "Art-directed <picture> element utilizing the Asset ViewModel for focal-point cropping, WebP/AVIF formats, and caption support.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "image": {"type": "asset", "required": true},
+ *     "aspect_ratio": {"type": "string", "enum": ["auto", "square", "landscape", "banner"], "default": "landscape"},
+ *     "caption": {"type": "string"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ImageCaptionBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$image = $block->getData('image');
+
+if (!$block->getAssetViewModel()->isValidAsset($image)) {
+    return;
+}
+
+// ratio = height / width; the image service crops around the asset's focal point.
+$ratio = [
+    'auto' => null,
+    'square' => 1,
+    'landscape' => 3 / 4,
+    'banner' => 9 / 21,
+][(string)$block->getData('aspect_ratio')] ?? 3 / 4;
+
+$aspect = [
+    'auto' => '',
+    'square' => 'aspect-square',
+    'landscape' => 'aspect-4/3',
+    'banner' => 'aspect-21/9',
+][(string)$block->getData('aspect_ratio')] ?? 'aspect-4/3';
+
+$caption = trim((string)$block->getData('caption'));
+?>
+<figure class="flex flex-col gap-2">
+    <?= /** @noEscape */ $partial->render('picture', [
+        'asset' => $image,
+        'ratio' => $ratio,
+        'class' => trim('block h-auto w-full object-cover ' . $aspect),
+    ]) ?>
+    <?php if ($caption !== ''): ?>
+        <figcaption class="text-sm"><?= $escaper->escapeHtml($caption) ?></figcaption>
+    <?php endif ?>
+</figure>

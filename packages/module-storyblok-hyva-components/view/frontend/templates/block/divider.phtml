@@ -1,0 +1,34 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Tokenized horizontal rule separator.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "spacing": {"type": "string", "enum": ["small", "medium", "large"], "default": "medium"},
+ *     "style": {"type": "string", "enum": ["solid", "dashed", "dotted"], "default": "solid"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\DividerBlok $block */
+/** @var Escaper $escaper */
+
+$spacing = [
+    'small' => 'my-4',
+    'medium' => 'my-8',
+    'large' => 'my-12',
+][(string)$block->getData('spacing')] ?? 'my-8';
+
+$style = [
+    'solid' => 'border-solid',
+    'dashed' => 'border-dashed',
+    'dotted' => 'border-dotted',
+][(string)$block->getData('style')] ?? 'border-solid';
+?>
+<hr class="border-0 border-t <?= $escaper->escapeHtmlAttr($spacing . ' ' . $style) ?>">

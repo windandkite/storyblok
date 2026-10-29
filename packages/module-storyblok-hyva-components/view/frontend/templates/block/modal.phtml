@@ -1,0 +1,98 @@
+<?php
+/**
+ * Native <dialog> opened with showModal(): top layer (no teleport needed), focus trapping,
+ * ESC to close, inert background and focus return are handled by the browser.
+ * Alpine adds backdrop-click dismissal and body scroll locking.
+ *
+ * Set anchor_id to open the modal from a "button" blok anywhere on the page (target_id = anchor_id);
+ * the built-in trigger is then optional.
+ *
+ * @storyblok {
+ *   "folder": "Interactive",
+ *   "description": "Accessible dialog overlay built on the native <dialog> element (top layer, focus trap and ESC handled by the browser).",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "modal_title": {"type": "string"},
+ *     "content": {"type": "array", "allowed": ["@content"], "description": "Child blocks rendered inside modal body"},
+ *     "trigger_text": {"type": "string", "description": "Optional built-in trigger. Leave empty when opening from a button blok.", "tab": "Settings", "group": "Trigger"},
+ *     "trigger_style": {"type": "string", "enum": ["button", "link"], "default": "button", "tab": "Settings", "group": "Trigger"},
+ *     "size": {"type": "string", "enum": ["small", "medium", "large", "full"], "default": "medium", "tab": "Settings", "group": "Dialog"},
+ *     "anchor_id": {"type": "string", "description": "Id used by button bloks (target_id) to open this modal", "tab": "Advanced"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\HeroiconsOutline;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ModalBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$partial = $viewModels->require(Partial::class);
+$heroicons = $viewModels->require(HeroiconsOutline::class);
+
+$triggerText = trim((string)$block->getData('trigger_text'));
+$anchorId = preg_replace('/[^\w-]/', '', (string)$block->getData('anchor_id'));
+
+if ($triggerText === '' && $anchorId === '') {
+    return;
+}
+
+$title = trim((string)$block->getData('modal_title'));
+$id = $anchorId ?: 'sb-modal-' . preg_replace('/[^\w-]/', '', (string)$block->getBlock()->getUid());
+$label = $triggerText !== '' ? $triggerText : (string)__('Dialog');
+
+$triggerStyle = [
+    'button' => 'btn btn-primary',
+    'link' => 'underline underline-offset-4 hover:no-underline',
+][(string)$block->getData('trigger_style')] ?? 'btn btn-primary';
+
+$size = [
+    'small' => 'max-w-md',
+    'medium' => 'max-w-2xl',
+    'large' => 'max-w-5xl',
+    'full' => 'max-w-none h-dvh max-h-none',
+][(string)$block->getData('size')] ?? 'max-w-2xl';
+?>
+<div x-data="initStoryblokModal">
+    <?php if ($triggerText !== ''): ?>
+        <button type="button"
+                class="<?= $escaper->escapeHtmlAttr($triggerStyle) ?>"
+                aria-haspopup="dialog"
+                aria-controls="<?= $escaper->escapeHtmlAttr($id) ?>"
+                x-on:click="open">
+            <?= $escaper->escapeHtml($triggerText) ?>
+        </button>
+    <?php endif ?>
+    <dialog id="<?= $escaper->escapeHtmlAttr($id) ?>"
+            x-ref="dialog"
+            x-on:click="onDialogClick"
+            x-on:close="onClose"
+            <?php if ($title !== ''): ?>
+                aria-labelledby="<?= $escaper->escapeHtmlAttr($id) ?>-title"
+            <?php else: ?>
+                aria-label="<?= $escaper->escapeHtmlAttr($label) ?>"
+            <?php endif ?>
+            class="m-auto w-full max-h-[calc(100dvh-2rem)] border-0 p-0 backdrop:bg-black/50 <?= $escaper->escapeHtmlAttr($size) ?>">
+        <div class="flex flex-col gap-4 p-6">
+            <div class="flex items-start justify-between gap-4">
+                <?php if ($title !== ''): ?>
+                    <h2 id="<?= $escaper->escapeHtmlAttr($id) ?>-title" class="text-xl font-semibold"><?= $escaper->escapeHtml($title) ?></h2>
+                <?php endif ?>
+                <button type="button" class="ms-auto p-1" x-on:click="close" aria-label="<?= $escaper->escapeHtmlAttr(__('Close')) ?>">
+                    <?= /** @noEscape */ $heroicons->xHtml('size-6', 24, 24, ['aria-hidden' => 'true']) ?>
+                </button>
+            </div>
+            <div class="flex flex-col gap-4">
+                <?= /** @noEscape */ $block->getContentHtml() ?>
+            </div>
+        </div>
+    </dialog>
+</div>
+<?= /** @noEscape */ $partial->renderScriptOnce('modal') ?>

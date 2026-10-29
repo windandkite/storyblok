@@ -1,0 +1,88 @@
+<?php
+/**
+ * Scroll-snap carousel shared by the carousel and product_list bloks. Swipeable without JS;
+ * Alpine adds arrows, dots and the active slide.
+ *
+ * Data: slides (string[] of HTML, required), slide_class (width per slide, e.g. 'basis-full' or
+ * 'basis-4/5 sm:basis-1/2 lg:basis-1/4'), gap_class, show_arrows (bool), show_dots (bool), label.
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\HeroiconsOutline;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$heroicons = $viewModels->require(HeroiconsOutline::class);
+$partial = $viewModels->require(Partial::class);
+
+$slides = array_values(array_filter((array)$block->getData('slides'), static fn ($slide) => trim((string)$slide) !== ''));
+$count = count($slides);
+
+if (!$count) {
+    return;
+}
+
+$slideClass = $block->getData('slide_class') ?: 'basis-full';
+$gapClass = $block->getData('gap_class') ?: '';
+$showArrows = $count > 1 && ($block->getData('show_arrows') ?? true);
+$showDots = $count > 1 && ($block->getData('show_dots') ?? true);
+?>
+<div class="relative flex flex-col gap-4"
+     role="region"
+     aria-roledescription="<?= $escaper->escapeHtmlAttr(__('carousel')) ?>"
+     aria-label="<?= $escaper->escapeHtmlAttr($block->getData('label') ?: __('Carousel')) ?>"
+     x-data="initStoryblokCarousel"
+     x-on:resize.window.debounce.150ms="onScroll">
+    <ul x-ref="track"
+        x-on:scroll.debounce.100ms="onScroll"
+        class="relative flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain motion-safe:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden <?= $escaper->escapeHtmlAttr($gapClass) ?>">
+        <?php foreach ($slides as $index => $slide): ?>
+            <li class="shrink-0 snap-start <?= $escaper->escapeHtmlAttr($slideClass) ?>"
+                aria-roledescription="<?= $escaper->escapeHtmlAttr(__('slide')) ?>"
+                aria-label="<?= $escaper->escapeHtmlAttr(__('%1 of %2', $index + 1, $count)) ?>">
+                <?= /** @noEscape */ $slide ?>
+            </li>
+        <?php endforeach ?>
+    </ul>
+
+    <?php if ($showArrows): ?>
+        <button type="button"
+                class="absolute start-2 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-white/80 disabled:opacity-40"
+                aria-label="<?= $escaper->escapeHtmlAttr(__('Previous slide')) ?>"
+                x-on:click="prev"
+                x-show="isScrollable"
+                x-bind:disabled="isAtStart">
+            <?= /** @noEscape */ $heroicons->chevronLeftHtml('size-5 rtl:rotate-180', 20, 20, ['aria-hidden' => 'true']) ?>
+        </button>
+        <button type="button"
+                class="absolute end-2 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-white/80 disabled:opacity-40"
+                aria-label="<?= $escaper->escapeHtmlAttr(__('Next slide')) ?>"
+                x-on:click="next"
+                x-show="isScrollable"
+                x-bind:disabled="isAtEnd">
+            <?= /** @noEscape */ $heroicons->chevronRightHtml('size-5 rtl:rotate-180', 20, 20, ['aria-hidden' => 'true']) ?>
+        </button>
+    <?php endif ?>
+
+    <?php if ($showDots): ?>
+        <div class="flex justify-center gap-2" x-show="isScrollable">
+            <?php for ($index = 0; $index < $count; $index++): ?>
+                <button type="button"
+                        class="size-3 rounded-full bg-current opacity-30 aria-[current=true]:opacity-100"
+                        data-index="<?= (int)$index ?>"
+                        aria-label="<?= $escaper->escapeHtmlAttr(__('Go to slide %1', $index + 1)) ?>"
+                        <?php if ($index === 0): ?>aria-current="true"<?php endif ?>
+                        x-on:click="goTo"
+                        x-bind:aria-current="isDotActive"></button>
+            <?php endfor ?>
+        </div>
+    <?php endif ?>
+</div>
+<?= /** @noEscape */ $partial->renderScriptOnce('carousel') ?>

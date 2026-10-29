@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<csp_whitelist xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Csp:etc/csp_whitelist.xsd">
+    <policies>
+        <policy id="script-src">
+            <values>
+                <value id="wk_sbc_google_maps" type="host">maps.googleapis.com</value>
+            </values>
+        </policy>
+        <policy id="connect-src">
+            <values>
+                <value id="wk_sbc_google_maps" type="host">maps.googleapis.com</value>
+            </values>
+        </policy>
+        <policy id="img-src">
+            <values>
+                <value id="wk_sbc_google_maps" type="host">maps.googleapis.com</value>
+                <value id="wk_sbc_google_maps_static" type="host">maps.gstatic.com</value>
+                <value id="wk_sbc_youtube_thumbs" type="host">i.ytimg.com</value>
+                <value id="wk_sbc_vimeo_thumbs" type="host">i.vimeocdn.com</value>
+            </values>
+        </policy>
+        <policy id="style-src">
+            <values>
+                <value id="wk_sbc_google_fonts" type="host">fonts.googleapis.com</value>
+            </values>
+        </policy>
+        <policy id="font-src">
+            <values>
+                <value id="wk_sbc_google_fonts_static" type="host">fonts.gstatic.com</value>
+            </values>
+        </policy>
+        <policy id="frame-src">
+            <values>
+                <value id="wk_sbc_youtube" type="host">www.youtube-nocookie.com</value>
+                <value id="wk_sbc_vimeo" type="host">player.vimeo.com</value>
+            </values>
+        </policy>
+        <policy id="media-src">
+            <values>
+                <value id="wk_sbc_storyblok_media" type="host">a.storyblok.com</value>
+            </values>
+        </policy>
+    </policies>
+</csp_whitelist>

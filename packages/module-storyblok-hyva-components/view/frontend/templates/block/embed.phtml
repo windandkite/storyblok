@@ -1,0 +1,48 @@
+<?php
+/**
+ * Only a single https iframe survives sanitisation (see ViewModel\Embed). The embed host must be
+ * allowed in the project's frame-src CSP (csp_whitelist.xml).
+ *
+ * @storyblok {
+ *   "folder": "Media",
+ *   "description": "Iframe embed container with aspect-ratio constraint and DOM sanitization.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "embed_code": {"type": "string", "format": "textarea", "required": true},
+ *     "aspect_ratio": {"type": "string", "enum": ["16/9", "4/3", "1/1"], "default": "16/9"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\Embed;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\EmbedBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$iframe = $viewModels->require(Embed::class)->getIframe($block->getData('embed_code'));
+
+if (!$iframe) {
+    return;
+}
+
+$aspect = [
+    '16/9' => 'aspect-video',
+    '4/3' => 'aspect-4/3',
+    '1/1' => 'aspect-square',
+][(string)$block->getData('aspect_ratio')] ?? 'aspect-video';
+?>
+<div class="relative w-full <?= $escaper->escapeHtmlAttr($aspect) ?>">
+    <iframe src="<?= $escaper->escapeUrl($iframe['src']) ?>"
+            title="<?= $escaper->escapeHtmlAttr($iframe['title'] ?: __('Embedded content')) ?>"
+            <?php if ($iframe['allow']): ?>allow="<?= $escaper->escapeHtmlAttr($iframe['allow']) ?>"<?php endif ?>
+            <?= $iframe['allowfullscreen'] ? 'allowfullscreen' : '' ?>
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"
+            class="absolute inset-0 size-full border-0"></iframe>
+</div>

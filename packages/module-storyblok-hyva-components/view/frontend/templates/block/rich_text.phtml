@@ -1,0 +1,53 @@
+<?php
+/**
+ * Storyblok rich text, rendered by the core FieldRenderer (nested bloks included).
+ * The theme has no typography plugin, so a minimal static set of descendant styles is applied here;
+ * override the template in a child theme to restyle.
+ *
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Storyblok rich text (nested bloks supported) with alignment and width options.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "text": {"type": "richtext", "required": true},
+ *     "alignment": {"type": "string", "enum": ["left", "center", "right"], "default": "left"},
+ *     "max_width": {"type": "string", "enum": ["none", "narrow", "medium"], "default": "none", "description": "narrow = readable line length (65ch)"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\RichTextBlok $block */
+/** @var Escaper $escaper */
+
+$html = (string)$block->getTextHtml();
+
+if (trim(strip_tags($html, '<img><iframe><video>')) === '') {
+    return;
+}
+
+$alignment = [
+    'left' => 'text-start',
+    'center' => 'text-center mx-auto',
+    'right' => 'text-end ms-auto',
+][(string)$block->getData('alignment')] ?? 'text-start';
+
+$maxWidth = [
+    'none' => '',
+    'narrow' => 'max-w-prose',
+    'medium' => 'max-w-4xl',
+][(string)$block->getData('max_width')] ?? '';
+
+$typography = 'space-y-4 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:no-underline'
+    . ' [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:text-xl [&_h3]:font-semibold [&_h4]:text-lg [&_h4]:font-semibold'
+    . ' [&_ul]:list-disc [&_ul]:ps-6 [&_ol]:list-decimal [&_ol]:ps-6 [&_li]:mt-1'
+    . ' [&_blockquote]:border-s-4 [&_blockquote]:border-current [&_blockquote]:ps-4 [&_blockquote]:italic'
+    . ' [&_code]:font-mono [&_code]:text-sm [&_hr]:my-8 [&_img]:h-auto [&_img]:max-w-full [&_table]:w-full';
+?>
+<div class="<?= $escaper->escapeHtmlAttr(trim($typography . ' ' . $alignment . ' ' . $maxWidth)) ?>">
+    <?= /** @noEscape */ $html ?>
+</div>

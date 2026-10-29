@@ -1,0 +1,40 @@
+<?php
+/**
+ * @storyblok {
+ *   "folder": "Interactive",
+ *   "description": "Individual accordion item inside a details block.",
+ *   "fields": {
+ *     "title": {"type": "string", "required": true},
+ *     "open": {"type": "boolean", "default": false, "description": "Open on page load"},
+ *     "content": {"type": "array", "allowed": ["@content"], "description": "Child blocks rendered inside the item"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\HeroiconsOutline;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\DetailsItemBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$heroicons = $viewModels->require(HeroiconsOutline::class);
+?>
+<details class="group" <?= $block->getData('open') ? 'open' : '' ?>>
+    <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-semibold [&::-webkit-details-marker]:hidden">
+        <span><?= $escaper->escapeHtml($block->getData('title')) ?></span>
+        <?= /** @noEscape */ $heroicons->chevronDownHtml('size-5 shrink-0 motion-safe:transition-transform group-open:rotate-180', 20, 20, ['aria-hidden' => 'true']) ?>
+    </summary>
+    <?php /* grid-rows 0fr -> 1fr animates the height when the item opens (starting: = @starting-style) */ ?>
+    <div class="grid grid-rows-[1fr] motion-safe:transition-[grid-template-rows] motion-safe:duration-300 motion-safe:starting:grid-rows-[0fr]">
+        <div class="overflow-hidden">
+            <div class="flex flex-col gap-4 pb-4">
+                <?= /** @noEscape */ $block->getContentHtml() ?>
+            </div>
+        </div>
+    </div>
+</details>

@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    window.addEventListener('alpine:init', () => {
+        Alpine.data('initStoryblokCarousel', () => ({
+            active: 0,
+            atEnd: false,
+
+            init() {
+                this.onScroll();
+            },
+            // Works for one or many slides per view: the active slide is the first one at the start edge.
+            onScroll() {
+                const track = this.$refs.track;
+                const slideWidth = track.children[0] ? track.children[0].offsetWidth : track.clientWidth;
+
+                this.active = Math.round(Math.abs(track.scrollLeft) / Math.max(slideWidth, 1));
+                this.atEnd = Math.abs(track.scrollLeft) + track.clientWidth >= track.scrollWidth - 1;
+            },
+            scrollToIndex(index) {
+                const track = this.$refs.track;
+                const slide = track.children[Math.max(0, Math.min(index, track.children.length - 1))];
+
+                // The track is position: relative, so offsetLeft is relative to it. Smoothness comes from CSS.
+                if (slide) {
+                    track.scrollTo({ left: slide.offsetLeft });
+                }
+            },
+            prev() {
+                this.scrollToIndex(this.active - 1);
+            },
+            next() {
+                this.scrollToIndex(this.active + 1);
+            },
+            goTo() {
+                this.scrollToIndex(Number(this.$el.dataset.index));
+            },
+            isAtStart() {
+                return this.active === 0;
+            },
+            isAtEnd() {
+                return this.atEnd;
+            },
+            // False when every slide already fits in view, e.g. 4 products at 4 per row.
+            isScrollable() {
+                return !(this.active === 0 && this.atEnd);
+            },
+            isDotActive() {
+                return Number(this.$el.dataset.index) === this.active ? 'true' : false;
+            },
+        }));
+    }, { once: true });
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

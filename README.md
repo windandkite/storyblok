@@ -7,6 +7,8 @@ Each folder in `packages/` is a Composer package, published on every push to `ma
 | Package | Repo |
 | --- | --- |
 | [`packages/module-storyblok`](packages/module-storyblok) | [windandkite/module-storyblok](https://github.com/windandkite/module-storyblok) |
+| [`packages/module-storyblok-components-common`](packages/module-storyblok-components-common) | [windandkite/module-storyblok-components-common](https://github.com/windandkite/module-storyblok-components-common) |
+| [`packages/module-storyblok-hyva-components`](packages/module-storyblok-hyva-components) | [windandkite/module-storyblok-hyva-components](https://github.com/windandkite/module-storyblok-hyva-components) |
 
 Don't open pull requests on the package repos: changes there are overwritten by the next publish.
 

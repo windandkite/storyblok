@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <type name="WindAndKite\Storyblok\Service\CompatModuleRegistry">
+        <arguments>
+            <argument name="compatModules" xsi:type="array">
+                <item name="WindAndKite_StoryblokHyvaComponents" xsi:type="string">WindAndKite_StoryblokHyvaComponents</item>
+            </argument>
+        </arguments>
+    </type>
+</config>

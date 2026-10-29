@@ -1,0 +1,54 @@
+<?php
+/**
+ * Renders another story's content in place (shared USP bars, promos, trust strips...). The story is
+ * picked with Storyblok's native "Stories" option field and loaded by Hydrator\Reference.
+ *
+ * @storyblok {
+ *   "folder": "Content",
+ *   "description": "Renders another story's content in place, e.g. a shared USP bar or promo.",
+ *   "whitelists": ["content"],
+ *   "fields": {
+ *     "story": {"type": "story", "required": true, "description": "The story to render"}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokComponentsCommon\ViewModel\ReferenceStack;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\ReferenceBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$story = $block->getData('referenced_story');
+
+if (!$story instanceof StoryInterface) {
+    return;
+}
+
+$stack = $viewModels->require(ReferenceStack::class);
+$uuid = (string)$story->getData('uuid');
+
+// Stops a story from including itself, directly or through other references.
+if (!$stack->enter($uuid, $block->getStory()?->getData('uuid'))) {
+    return;
+}
+
+try {
+    $html = $block->renderBlok($story->getContent()->getData(), $story);
+} finally {
+    $stack->leave($uuid);
+}
+
+if (trim($html) === '') {
+    return;
+}
+?>
+<div class="contents">
+    <?= /** @noEscape */ $html ?>
+</div>

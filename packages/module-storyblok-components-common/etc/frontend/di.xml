@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <type name="WindAndKite\Storyblok\Service\BlockHydrationManager">
+        <arguments>
+            <argument name="hydrators" xsi:type="array">
+                <item name="product" xsi:type="array">
+                    <item name="product" xsi:type="object">WindAndKite\StoryblokComponentsCommon\Hydrator\Product</item>
+                </item>
+                <item name="product_list" xsi:type="array">
+                    <item name="product_list" xsi:type="object">WindAndKite\StoryblokComponentsCommon\Hydrator\ProductList</item>
+                </item>
+                <item name="reference" xsi:type="array">
+                    <item name="reference" xsi:type="object">WindAndKite\StoryblokComponentsCommon\Hydrator\Reference</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+</config>

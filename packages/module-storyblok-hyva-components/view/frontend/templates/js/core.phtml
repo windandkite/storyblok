@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+use Hyva\Theme\ViewModel\HyvaCsp;
+
+/** @var HyvaCsp $hyvaCsp */
+?>
+<script>
+    (() => {
+        window.hyva = window.hyva || {};
+
+        // Hyvä does not ship hyva.loadScript(): minimal promise-based loader, deduplicated by src.
+        if (!hyva.loadScript) {
+            const pending = {};
+
+            hyva.loadScript = (src, attributes = {}) => pending[src] = pending[src] || new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+
+                script.src = src;
+                script.async = true;
+                Object.entries(attributes).forEach(([name, value]) => script.setAttribute(name, value));
+                script.onload = resolve;
+                script.onerror = () => {
+                    delete pending[src];
+                    reject(new Error('Failed to load ' + src));
+                };
+                document.head.append(script);
+            });
+        }
+
+        window.wkStoryblok = window.wkStoryblok || {
+            // Run callback once the element approaches the viewport (or immediately when eager).
+            whenVisible(element, callback, eager = false) {
+                if (eager || !('IntersectionObserver' in window)) {
+                    callback();
+                    return;
+                }
+
+                const observer = new IntersectionObserver((entries) => {
+                    if (entries.some((entry) => entry.isIntersecting)) {
+                        observer.disconnect();
+                        callback();
+                    }
+                }, { rootMargin: '200px' });
+
+                observer.observe(element);
+            },
+        };
+    })();
+</script>
+<?php $hyvaCsp->registerInlineScript() ?>

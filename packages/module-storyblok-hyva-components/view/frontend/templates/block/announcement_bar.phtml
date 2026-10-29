@@ -1,0 +1,68 @@
+<?php
+/**
+ * Announcement bar content type: rich text, optional countdown to ends_at (the bar hides itself once
+ * it passes), optional dismiss remembered per message in localStorage.
+ *
+ * @storyblok {
+ *   "folder": "Global",
+ *   "root": true,
+ *   "description": "Content type for the site-wide announcement bar story (default slug global/announcement-bar, placed via layout).",
+ *   "fields": {
+ *     "text": {"type": "richtext", "required": true},
+ *     "ends_at": {"type": "datetime", "description": "Optional: shows a countdown and hides the bar afterwards"},
+ *     "dismissible": {"type": "boolean", "default": true}
+ *   }
+ * }
+ */
+
+declare(strict_types=1);
+
+use Hyva\Theme\Model\ViewModelRegistry;
+use Hyva\Theme\ViewModel\HeroiconsOutline;
+use Magento\Framework\Escaper;
+use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
+
+/** @var Block|\WindAndKite\Storyblok\Ide\Block\AnnouncementBarBlok $block */
+/** @var Escaper $escaper */
+/** @var ViewModelRegistry $viewModels */
+
+$html = (string)$block->getTextHtml();
+
+if (trim(strip_tags($html)) === '') {
+    return;
+}
+
+// Storyblok stores datetime fields in UTC as "Y-m-d H:i".
+$endsAt = trim((string)$block->getData('ends_at'));
+$endsAtTimestamp = $endsAt !== '' ? strtotime($endsAt . ' UTC') : false;
+
+if ($endsAtTimestamp && $endsAtTimestamp <= time()) {
+    return;
+}
+
+$dismissible = $block->getData('dismissible') ?? true;
+$partial = $viewModels->require(Partial::class);
+$heroicons = $viewModels->require(HeroiconsOutline::class);
+?>
+<div class="relative flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-primary px-10 py-2 text-center text-sm text-on-primary [&_a]:underline [&_p]:inline"
+     role="region"
+     aria-label="<?= $escaper->escapeHtmlAttr(__('Announcement')) ?>"
+     x-data="initStoryblokAnnouncement"
+     x-show="visible"
+     data-dismiss-key="<?= $escaper->escapeHtmlAttr('sb-announcement-' . md5($html . $endsAt)) ?>"
+     <?php if ($endsAtTimestamp): ?>data-ends-at="<?= $escaper->escapeHtmlAttr(gmdate('c', $endsAtTimestamp)) ?>"<?php endif ?>>
+    <div><?= /** @noEscape */ $html ?></div>
+    <?php if ($endsAtTimestamp): ?>
+        <span role="timer" class="font-semibold tabular-nums" x-text="countdown"></span>
+    <?php endif ?>
+    <?php if ($dismissible): ?>
+        <button type="button"
+                class="absolute end-2 top-1/2 -translate-y-1/2 p-1"
+                aria-label="<?= $escaper->escapeHtmlAttr(__('Dismiss announcement')) ?>"
+                x-on:click="dismiss">
+            <?= /** @noEscape */ $heroicons->xHtml('size-4', 16, 16, ['aria-hidden' => 'true']) ?>
+        </button>
+    <?php endif ?>
+</div>
+<?= /** @noEscape */ $partial->renderScriptOnce('announcement') ?>
