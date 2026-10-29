@@ -217,6 +217,7 @@ class ComponentSchemaImporterTest extends TestCase
         $importer = new ComponentSchemaImporter();
         $definition = ['fields' => [
             'sizes' => ['type' => 'string', 'enum' => ['s', 'l'], 'multiple' => true],
+            'counts' => ['type' => 'number', 'enum' => [1, 2], 'multiple' => true],
             'gallery' => ['type' => 'asset', 'multiple' => true],
             'specs' => ['type' => 'object'],
             'clip' => ['type' => 'plugin', 'plugin' => 'storyblok-vimeo'],
@@ -225,6 +226,7 @@ class ComponentSchemaImporterTest extends TestCase
 
         token_get_all($source, TOKEN_PARSE);
         $this->assertStringContainsString("escapeHtml(implode(', ', (array)\$block->getData('sizes')))", $source, 'selections are lists');
+        $this->assertStringContainsString("escapeHtml(implode(', ', (array)\$block->getData('counts')))", $source, 'numeric ones too');
         $this->assertStringContainsString("foreach (\$block->getData('gallery') ?? [] as \$asset)", $source);
         $this->assertStringContainsString("<td><?= \$escaper->escapeHtml(\$cell['value'] ?? '') ?></td>", $source);
         $this->assertStringContainsString("/* clip (plugin storyblok-vimeo): \$block->getData('clip') */", $source);

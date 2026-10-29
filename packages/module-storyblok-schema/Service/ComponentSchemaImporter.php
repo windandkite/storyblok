@@ -172,7 +172,7 @@ class ComponentSchemaImporter
                     "    <?php foreach (%1\$s ?? [] as \$asset): ?>\n        <?php if (!empty(\$asset['filename'])): ?>\n            " . sprintf($image, '$asset') . "\n        <?php endif ?>\n    <?php endforeach ?>",
                     $data
                 ),
-                $multiple && $type === 'string' => sprintf("    <?php if (%1\$s): ?>\n        <p><?= \$escaper->escapeHtml(implode(', ', (array)%1\$s)) ?></p>\n    <?php endif ?>", $data),
+                $multiple && in_array($type, ['string', 'number'], true) => sprintf("    <?php if (%1\$s): ?>\n        <p><?= \$escaper->escapeHtml(implode(', ', (array)%1\$s)) ?></p>\n    <?php endif ?>", $data),
                 in_array($type, ['string', 'number', 'datetime'], true) => sprintf("    <?php if ((string)%1\$s !== ''): ?>\n        <p><?= \$escaper->escapeHtml(%1\$s) ?></p>\n    <?php endif ?>", $data),
                 in_array($type, ['richtext', 'array'], true) => sprintf('    <?= /** @noEscape */ %s ?>', $render),
                 $type === 'asset' => sprintf("    <?php if (!empty(%1\$s['filename'])): ?>\n        " . $image . "\n    <?php endif ?>", $data),

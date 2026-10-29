@@ -327,14 +327,14 @@ class SchemaWorkflowTest extends TestCase
             'hero' => ['root' => true, 'fields' => [
                 'img' => ['type' => 'asset'],
                 'kids' => ['type' => 'array', 'allowed' => ['hero']],
-                'title' => ['type' => 'string'],
+                'title' => ['type' => 'string', 'max_length' => '10', 'regex' => '^[a-z]*$'],
                 'sub' => ['type' => 'string', 'required' => true],
             ]],
         ]);
         $space = [['name' => 'hero', 'is_root' => false, 'is_nestable' => true, 'schema' => [
             'img' => ['type' => 'asset', 'filetypes' => []],
             'kids' => ['type' => 'bloks', 'restrict_components' => true, 'restrict_type' => 'groups', 'component_group_whitelist' => ['g'], 'component_whitelist' => []],
-            'title' => ['type' => 'text', 'translatable' => true],
+            'title' => ['type' => 'text', 'translatable' => true, 'max_length' => '100'],
         ]]];
 
         $safe = $this->generator()->buildSafe($final, $space)['components'][0];
@@ -346,6 +346,8 @@ class SchemaWorkflowTest extends TestCase
         $this->assertSame(['g'], $safe['schema']['kids']['component_group_whitelist']);
         $this->assertSame([], $safe['schema']['kids']['component_whitelist']);
         $this->assertTrue($safe['schema']['title']['translatable']);
+        $this->assertSame('100', $safe['schema']['title']['max_length'], 'other Storyblok settings wait for the final push');
+        $this->assertArrayNotHasKey('regex', $safe['schema']['title'], 'including ones the space doesn\'t have');
         $this->assertArrayNotHasKey('required', $safe['schema']['sub'], 'new fields aren\'t required yet');
     }
 

@@ -490,7 +490,8 @@ class ComponentSchemaGenerator
      * - option values and allowed bloks are merged;
      * - a field whose type changed keeps the space's type (report it: types can't change additively);
      * - an existing "storyblok" field stays as it is in the space until the final push;
-     * - settings the template doesn't set are kept from the space;
+     * - settings the template doesn't set are kept from the space, and other Storyblok settings (max_length,
+ *   regex...) stay as they are in the space;
      * - settings that would restrict editors don't apply yet: `required` only if the space has it (never on
      *   new fields), file types are merged, a story picker keeps the space's folder, folder or tag whitelists
      *   and translation stay, and existing components keep their content type and nestable settings.
@@ -564,8 +565,11 @@ class ComponentSchemaGenerator
                     continue;
                 }
 
-                // The template's settings over the space's, so nothing the space has is dropped.
-                $component['schema'][$name] = $field + $spaceField;
+                // The template's settings over the space's, so nothing the space has is dropped. Other Storyblok
+                // settings (max_length, regex, minimum...) may narrow what's valid, so they stay as they are in the
+                // space, including their absence, until the final push.
+                $component['schema'][$name] = array_intersect_key($field, array_flip([...self::OWNED_FIELD_KEYS, 'translatable']))
+                    + $spaceField;
 
                 if (!empty($spaceField['translatable'])) {
                     $component['schema'][$name]['translatable'] = true;
