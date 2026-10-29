@@ -4,12 +4,44 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Block;
 
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\DataObject\IdentityInterface;
+use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
+use WindAndKite\Storyblok\Model\StoryRepository;
+use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\BlockHydrationManager;
+use WindAndKite\Storyblok\Service\StoryRequestService;
+use WindAndKite\Storyblok\ViewModel\Asset;
 
 class Story extends AbstractStoryblok implements IdentityInterface
 {
     protected const TEMPLATE_DIR = 'story';
+
+    private readonly BlockHydrationManager $blockHydrationManager;
+
+    /**
+     * @param StoryRepository $storyRepository
+     * @param Asset $assetViewModel
+     * @param Config $scopeConfig
+     * @param StoryRequestService $storyRequestService
+     * @param Template\Context $context
+     * @param array $data
+     * @param BlockHydrationManager|null $blockHydrationManager Optional, so subclasses written before it still work.
+     */
+    public function __construct(
+        StoryRepository $storyRepository,
+        Asset $assetViewModel,
+        Config $scopeConfig,
+        StoryRequestService $storyRequestService,
+        Template\Context $context,
+        array $data = [],
+        ?BlockHydrationManager $blockHydrationManager = null,
+    ) {
+        parent::__construct($storyRepository, $assetViewModel, $scopeConfig, $storyRequestService, $context, $data);
+        $this->blockHydrationManager = $blockHydrationManager
+            ?? ObjectManager::getInstance()->get(BlockHydrationManager::class);
+    }
 
     public function getData($key = '', $index = null)
     {
@@ -46,6 +78,11 @@ class Story extends AbstractStoryblok implements IdentityInterface
         $block = $this->getLayout()
             ->createBlock(Block::class, $blockName)
             ->setData($data);
+
+        // The content type is hydrated like the bloks inside it (FieldRenderer::createBlockInstance()).
+        foreach ($this->blockHydrationManager->getForComponent((string)$content->getComponent()) as $hydrator) {
+            $block = $hydrator->populate($block);
+        }
 
         return $block->toHtml();
     }
