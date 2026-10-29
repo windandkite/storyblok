@@ -41,7 +41,8 @@ class Block extends AbstractStoryblok
             $scopeConfig,
             $storyRequestService,
             $context,
-            $data
+            $data,
+            $storyblokSessionManager,
         );
     }
 
@@ -63,7 +64,7 @@ class Block extends AbstractStoryblok
 
     public function getBlokEditableAttributes(): string
     {
-        if (!$this->scopeConfig->isDevModeEnabled() && !$this->storyblokSessionManager->isValidEditorSession() && !$this->getStory()?->getForceBridge()) {
+        if (!$this->isEditorPreview()) {
             return '';
         }
 
@@ -93,7 +94,25 @@ class Block extends AbstractStoryblok
         // The _editable "id" is the story ID, for bloks rendered without their story.
         $dataBlokUid = ($this->getStory()?->getId() ?? $editableData['id']) . '-' . $editableData['uid'];
 
-        return sprintf("data-blok-c='%s' data-blok-uid='%s'", $dataBlokC, $dataBlokUid);
+        return sprintf(
+            'data-blok-c="%s" data-blok-uid="%s"',
+            $this->_escaper->escapeHtmlAttr($dataBlokC),
+            $this->_escaper->escapeHtmlAttr($dataBlokUid)
+        );
+    }
+
+    /**
+     * Whether this blok or one it's nested in is marked "above_the_fold", e.g. the first section on the page. Templates
+     * use it to load images eagerly, which helps LCP.
+     *
+     * @return bool
+     */
+    public function isAboveTheFold(): bool
+    {
+        $parent = $this->getData('parent_blok');
+
+        return (bool)$this->getBlock()->getData('above_the_fold')
+            || ($parent instanceof self && $parent->isAboveTheFold());
     }
 
     public function renderField(string $fieldName): ?string
@@ -106,14 +125,15 @@ class Block extends AbstractStoryblok
 
         return $this->fieldRenderer->renderField(
             $this->getBlock()->getData($fieldName),
-            $story
+            $story,
+            $this
         );
     }
 
     public function renderRichTextField(
         string $fieldName,
     ): string {
-        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName), $this->getStory());
+        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName), $this->getStory(), $this);
     }
 
     /**

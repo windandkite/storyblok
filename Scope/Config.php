@@ -4,6 +4,7 @@ namespace WindAndKite\Storyblok\Scope;
 use InvalidArgumentException;
 use Magento\Framework\Api\SortOrder;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Store\Model\ScopeInterface;
 use WindAndKite\Storyblok\Config\OptionSource\DefaultSort;
@@ -15,6 +16,8 @@ class Config
     private const XML_PATH_API_TOKEN = 'storyblok/general/api_token';
     private const XML_PATH_ASSET_TOKEN = 'storyblok/general/asset_token';
     private const XML_PATH_REGION = 'storyblok/general/region';
+    // Magento's encrypted format, "<key version>:<cipher version>:<data>"; generated secrets are hex.
+    public const ENCRYPTED_VALUE_PATTERN = '/^\d+:\d+:/';
     public const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
     private const XML_PATH_SHARE_LINK_DAYS = 'storyblok/general/share_link_days';
     private const XML_PATH_DEV_MODE = 'storyblok/general/dev_mode';
@@ -45,6 +48,7 @@ class Config
     public function __construct(
         private ScopeConfigInterface $scopeConfig,
         private SerializerInterface $serializer,
+        private EncryptorInterface $encryptor,
     ) {}
 
     public function isModuleEnabled(
@@ -108,7 +112,14 @@ class Config
 
     public function getWebhookSecret(): ?string
     {
-        return $this->scopeConfig->getValue(self::XML_PATH_WEBHOOK_SECRET);
+        $secret = (string)$this->scopeConfig->getValue(self::XML_PATH_WEBHOOK_SECRET);
+
+        // Saved encrypted from the admin, but a secret set in env.php or config.php may still be plain text.
+        if (preg_match(self::ENCRYPTED_VALUE_PATTERN, $secret)) {
+            $secret = $this->encryptor->decrypt($secret);
+        }
+
+        return $secret !== '' ? $secret : null;
     }
 
     /**

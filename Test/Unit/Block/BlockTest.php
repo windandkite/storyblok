@@ -23,4 +23,25 @@ class BlockTest extends TestCase
         $this->assertNull($block->getData('slug'));
         $this->assertSame('Hello', $block->getData('title'));
     }
+
+    public function testAboveTheFoldIsInheritedFromParentBloks(): void
+    {
+        $section = $this->block(['above_the_fold' => true]);
+        $card = $this->block([], $section);
+        $image = $this->block([], $card);
+
+        $this->assertTrue($image->isAboveTheFold());
+        $this->assertFalse($this->block([], $this->block([]))->isAboveTheFold());
+    }
+
+    private function block(array $fields, ?Block $parent = null): Block
+    {
+        $blok = (new \ReflectionClass(StoryblokBlock::class))->newInstanceWithoutConstructor();
+        $blok->setData($fields);
+
+        $block = (new \ReflectionClass(Block::class))->newInstanceWithoutConstructor();
+        $block->setData(['block' => $blok, 'parent_blok' => $parent]);
+
+        return $block;
+    }
 }

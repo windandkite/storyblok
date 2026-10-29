@@ -9,6 +9,7 @@ use Magento\Framework\App\Cache\Type\Config as ConfigCache;
 use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\Framework\App\Config\Storage\WriterInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Encryption\EncryptorInterface;
 use Psr\Log\LoggerInterface;
 use WindAndKite\Storyblok\Scope\Config;
 
@@ -29,6 +30,7 @@ class RegenerateSecret extends Action implements HttpPostActionInterface
         private WriterInterface $configWriter,
         private LoggerInterface $logger,
         private TypeListInterface $cacheTypeList,
+        private EncryptorInterface $encryptor,
     ) {
         parent::__construct($context);
     }
@@ -58,7 +60,7 @@ class RegenerateSecret extends Action implements HttpPostActionInterface
     private function generateWebhookSecret(): string
     {
         $secret = bin2hex(random_bytes(32));
-        $this->configWriter->save(Config::XML_PATH_WEBHOOK_SECRET, $secret);
+        $this->configWriter->save(Config::XML_PATH_WEBHOOK_SECRET, $this->encryptor->encrypt($secret));
         // Webhooks read the cached config: without this they keep checking the old secret.
         $this->cacheTypeList->cleanType(ConfigCache::TYPE_IDENTIFIER);
 

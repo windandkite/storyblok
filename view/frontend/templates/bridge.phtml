@@ -66,6 +66,28 @@ $shareUrl = $storyblokConfig->getShareUrl();
             return proxy;
         };
 
+        // Re-created scripts are async, so run them in order as the page would: wait for each external script
+        // (unless it's marked async) before the next one, e.g. a library before the inline code that uses it.
+        const runScripts = async (scripts) => {
+            for (const oldScript of scripts) {
+                const script = document.createElement('script');
+                [...oldScript.attributes].forEach(({ name, value }) => script.setAttribute(name, value));
+                script.textContent = oldScript.textContent;
+
+                const loaded = script.src && !oldScript.hasAttribute('async')
+                    ? new Promise(resolve => script.onload = script.onerror = resolve)
+                    : null;
+
+                oldScript.replaceWith(script);
+
+                // Only yield for an external script: awaiting anything lets Alpine's mutation observer init the new
+                // markup before the following inline scripts have defined its functions.
+                if (loaded) {
+                    await loaded;
+                }
+            }
+        };
+
         const updateBlocksViaAjax = (story, signal) => {
             fetch('<?= $escaper->escapeJs($ajaxUrl) ?>', {
                 method: 'POST',
@@ -93,7 +115,15 @@ $shareUrl = $storyblokConfig->getShareUrl();
                             const elementToUpdate = document.querySelector(selector);
 
                             if (elementToUpdate) {
-                                elementToUpdate.outerHTML = newHtml;
+                                const template = document.createElement('template');
+                                template.innerHTML = newHtml;
+                                const nodes = [...template.content.childNodes];
+                                elementToUpdate.replaceWith(...nodes);
+
+                                // Scripts inserted as HTML don't run: re-create them so the blok's Alpine code loads.
+                                runScripts(nodes.flatMap(node => node.nodeType !== Node.ELEMENT_NODE ? []
+                                    : node.matches('script') ? [node] : [...node.querySelectorAll('script')]
+                                ));
                             } else {
                                 console.warn(`Storyblok Bridge: Element with selector ${selector} not found for update.`);
                             }
@@ -136,7 +166,8 @@ $shareUrl = $storyblokConfig->getShareUrl();
                 controller = new AbortController();
                 const { signal } = controller;
 
-                let currentBlokIds = story.content.body.map(el => el['_uid'])
+                // Content types without a body field have no top-level bloks to add or remove.
+                let currentBlokIds = (story.content.body || []).map(el => el['_uid']);
 
                 const previousBlokIds = lastBlockIds[story.id] || [];
 
