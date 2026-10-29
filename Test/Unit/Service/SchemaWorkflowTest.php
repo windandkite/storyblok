@@ -144,8 +144,8 @@ class SchemaWorkflowTest extends TestCase
 
         $this->assertSame(['page.renames.js'], array_keys($files));
         $this->assertStringContainsString(ComponentMigrationBuilder::MARKER, $files['page.renames.js']);
-        $this->assertStringContainsString('if (isEmpty(block["content"]) && !isEmpty(block["body"])) {', $files['page.renames.js']);
-        $this->assertStringContainsString('block["lead"] = block["intro"];', $files['page.renames.js']);
+        $this->assertStringContainsString('copy(block, "body", "content");', $files['page.renames.js']);
+        $this->assertStringContainsString('copy(block, "intro", "lead");', $files['page.renames.js']);
         $this->assertStringNotContainsString('delete', $files['page.renames.js'], 'copy, never move');
     }
 
@@ -176,7 +176,7 @@ class SchemaWorkflowTest extends TestCase
             ['_uid' => '2', 'component' => 'section', 'padding' => 'xl', 'legacy' => 'x'],
             ['_uid' => '3', 'component' => 'section', 'padding' => 'small', 'legacy' => '', 'sticky' => false],
         ]]]));
-        file_put_contents($this->root . '/stories/b.json', json_encode(['uuid' => 'b', 'content' => ['_uid' => '4', 'component' => 'section', 'padding' => 'xl']]));
+        file_put_contents($this->root . '/stories/b.json', json_encode(['uuid' => 'b', 'content' => ['_uid' => '4', 'component' => 'section', 'padding' => 'xl', 'legacy__i18n__de' => 'y', 'legacy__i18n__fr' => 'z']]));
 
         $issues = [
             ['kind' => '', 'component' => 'section', 'field' => 'padding', 'values' => ['xl']],
@@ -190,7 +190,7 @@ class SchemaWorkflowTest extends TestCase
         $annotated = (new ComponentUsageCounter(new File()))->annotate($this->root . '/stories', $issues);
 
         $this->assertSame(['stories' => 2, 'bloks' => 2], $annotated[0]['usage']);
-        $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[1]['usage'], 'empty values are not usage');
+        $this->assertSame(['stories' => 2, 'bloks' => 2], $annotated[1]['usage'], 'translations count, once per blok; empty values don\'t');
         $this->assertArrayNotHasKey('usage', $annotated[2]);
         $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[3]['usage'], 'a stored false is content');
         $this->assertSame(['stories' => 2, 'bloks' => 3], $annotated[4]['usage'], 'settings names aren\'t content values');
@@ -353,8 +353,13 @@ class SchemaWorkflowTest extends TestCase
 
         $this->assertSame('404', $schema['components'][0]['name']);
         $this->assertStringContainsString('class _404Blok', $this->generator()->buildIdeHelper(['404' => ['file' => '404.phtml', 'definition' => ['fields' => []]]]));
-        $this->assertSame('_3ColumnGridBlok', ComponentSchemaGenerator::ideClassName('3_column_grid'));
-        $this->assertSame('FormInputBlok', ComponentSchemaGenerator::ideClassName('form-input'));
+        $this->assertSame('_3_Column_GridBlok', ComponentSchemaGenerator::ideClassName('3_column_grid'));
+        $this->assertSame('Form_InputBlok', ComponentSchemaGenerator::ideClassName('form-input'));
+        $this->assertNotSame(
+            strtolower(ComponentSchemaGenerator::ideClassName('foo_bar')),
+            strtolower(ComponentSchemaGenerator::ideClassName('foobar')),
+            'class names are case-insensitive'
+        );
         $this->assertSame([], (new ComponentSchemaComparer())->compare($schema, [['name' => '404', 'schema' => ['1' => ['type' => 'text', 'display_name' => '1']]]]));
 
         $helper = $this->generator()->buildIdeHelper(['hero' => ['file' => 'hero.phtml', 'definition' => ['fields' => [

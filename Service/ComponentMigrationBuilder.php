@@ -35,7 +35,7 @@ class ComponentMigrationBuilder
         foreach ($byComponent as $component => $componentRenames) {
             $copies = array_map(
                 static fn (array $rename) => sprintf(
-                    "  // %1\$s -> %2\$s\n  if (isEmpty(block[%2\$s]) && !isEmpty(block[%1\$s])) {\n    block[%2\$s] = block[%1\$s];\n  }\n",
+                    "  copy(block, %s, %s);\n",
                     json_encode($rename['from']),
                     json_encode($rename['to'])
                 ),
@@ -43,10 +43,19 @@ class ComponentMigrationBuilder
             );
 
             $files[$component . self::FILE_SUFFIX] = "// " . self::MARKER . " from @storyblok \"renamed_from\". Do not edit.\n"
-                . "// Copies renamed fields (the old value is kept) and is safe to run more than once.\n"
+                . "// Copies renamed fields and their translations (the old values are kept) and is safe to run more than once.\n"
                 . "export default function (block) {\n"
-                . implode("\n", $copies)
-                . "\n  return block;\n}\n\n"
+                . implode('', $copies)
+                . "  return block;\n}\n\n"
+                . "// Copies the field and each translation (e.g. title__i18n__de), filling only empty targets.\n"
+                . "function copy(block, from, to) {\n"
+                . "  for (const key of Object.keys(block)) {\n"
+                . "    const suffix = key === from ? '' : key.startsWith(from + '__i18n__') ? key.slice(from.length) : null;\n"
+                . "    if (suffix !== null && isEmpty(block[to + suffix]) && !isEmpty(block[key])) {\n"
+                . "      block[to + suffix] = block[key];\n"
+                . "    }\n"
+                . "  }\n"
+                . "}\n\n"
                 . "function isEmpty(value) {\n"
                 . "  if (value === undefined || value === null || value === '') return true;\n"
                 . "  if (Array.isArray(value)) return value.length === 0;\n"

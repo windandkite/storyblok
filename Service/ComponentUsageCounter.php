@@ -68,23 +68,24 @@ class ComponentUsageCounter
             $count = 0;
 
             foreach ($bloks[$issue['component']] ?? [] as [$storyId, $blok]) {
-                $value = $blok[$issue['field']] ?? null;
+                foreach ($this->getFieldValues($blok, (string)$issue['field']) as $value) {
+                    if ($this->isEmpty($value)) {
+                        continue;
+                    }
 
-                if ($this->isEmpty($value)) {
-                    continue;
+                    // Option values / bloks: only count content that actually uses the affected values, or for a new
+                    // whitelist, bloks outside it. Settings issues list setting names, so any content counts.
+                    if ($issue['values']
+                        && $issue['kind'] !== ComponentSchemaComparer::KIND_FIELD_SETTINGS
+                        && !$this->usesValues($value, $issue['values'], $issue['kind'] === ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED)
+                    ) {
+                        continue;
+                    }
+
+                    $count++;
+                    $stories[$storyId] = true;
+                    break;
                 }
-
-                // Option values / bloks: only count content that actually uses the affected values, or for a new
-                // whitelist, bloks outside it. Settings issues list setting names, so any content counts.
-                if ($issue['values']
-                    && $issue['kind'] !== ComponentSchemaComparer::KIND_FIELD_SETTINGS
-                    && !$this->usesValues($value, $issue['values'], $issue['kind'] === ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED)
-                ) {
-                    continue;
-                }
-
-                $count++;
-                $stories[$storyId] = true;
             }
 
             $issue['usage'] = ['stories' => count($stories), 'bloks' => $count];
@@ -113,6 +114,27 @@ class ComponentUsageCounter
                 $this->collect($value, $storyId, $bloks);
             }
         }
+    }
+
+    /**
+     * The field's value and its translations, stored as e.g. "title__i18n__de".
+     *
+     * @param array $blok
+     * @param string $field
+     *
+     * @return array
+     */
+    private function getFieldValues(array $blok, string $field): array
+    {
+        $values = [$blok[$field] ?? null];
+
+        foreach ($blok as $key => $value) {
+            if (str_starts_with((string)$key, $field . '__i18n__')) {
+                $values[] = $value;
+            }
+        }
+
+        return $values;
     }
 
     /**

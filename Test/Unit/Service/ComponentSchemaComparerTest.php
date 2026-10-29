@@ -33,6 +33,33 @@ class ComponentSchemaComparerTest extends TestCase
         $this->assertSame([[ComponentSchemaComparer::KIND_FIELD_SETTINGS, 'title', ['editor type']]], array_map(static fn ($issue) => [$issue['kind'], $issue['field'], $issue['values']], $issues));
     }
 
+    public function testOptionOrderAndRenamedFieldCompatibility(): void
+    {
+        $pulled = self::EXPECTED['components'];
+        $pulled[0]['schema']['padding']['options'] = array_reverse($pulled[0]['schema']['padding']['options']);
+        $pulled[0]['schema']['spacing'] = ['type' => 'option', 'options' => [['value' => 'small'], ['value' => 'xl']]];
+        unset($pulled[0]['schema']['anchor_id']);
+        $pulled[0]['schema']['slug'] = ['type' => 'asset'];
+
+        $expected = self::EXPECTED;
+        $expected['components'][0]['schema']['gap'] = ['type' => 'option', 'options' => [['value' => 'small']]];
+        $expected['renames'] = [
+            ['component' => 'section', 'from' => 'spacing', 'to' => 'gap'],
+            ['component' => 'section', 'from' => 'slug', 'to' => 'anchor_id'],
+        ];
+
+        $comparer = new ComponentSchemaComparer();
+        $issues = $comparer->compare($expected, $pulled);
+        $summary = array_map(static fn ($issue) => [$issue['kind'], $issue['field'], $issue['values']], $issues);
+
+        $this->assertContains([ComponentSchemaComparer::KIND_FIELD_SETTINGS, 'padding', ['option order']], $summary);
+        // Renamed fields are checked against the old field, whose content the migration copies.
+        $this->assertContains([ComponentSchemaComparer::KIND_OPTION_VALUES_REMOVED, 'spacing', ['xl']], $summary);
+        $this->assertContains([ComponentSchemaComparer::KIND_TYPE_CHANGED, 'slug', []], $summary);
+        $this->assertCount(2, array_filter($issues, [$comparer, 'isDestructive']));
+        $this->assertStringStartsWith('Renamed to "gap": ', $issues[array_search(ComponentSchemaComparer::KIND_OPTION_VALUES_REMOVED, array_column($issues, 'kind'))]['message']);
+    }
+
     public function testReportsEachKindOfMismatch(): void
     {
         $pulled = [

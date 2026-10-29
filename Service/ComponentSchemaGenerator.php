@@ -207,7 +207,10 @@ class ComponentSchemaGenerator
     }
 
     /**
-     * IDE helper class (in \WindAndKite\Storyblok\Ide\Block) for a component, e.g. "form-input" -> FormInputBlok.
+     * IDE helper class (in \WindAndKite\Storyblok\Ide\Block) for a component, e.g. "form-input" -> Form_InputBlok.
+     *
+     * Underscores are kept: PHP class names are case-insensitive, so "foo_bar" and "foobar" would otherwise both
+     * be FooBarBlok. Components sharing a template name ("foo-bar", "fooBar") share a template, and so a class.
      *
      * @param string $component
      *
@@ -215,7 +218,7 @@ class ComponentSchemaGenerator
      */
     public static function ideClassName(string $component): string
     {
-        $class = preg_replace('/[^A-Za-z0-9_]/', '', str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', self::templateName($component))))) . 'Blok';
+        $class = preg_replace('/[^A-Za-z0-9_]/', '', ucwords(self::templateName($component), '_')) . 'Blok';
 
         // Class names can't start with a digit (e.g. "3_column_grid").
         return ctype_digit($class[0]) ? '_' . $class : $class;

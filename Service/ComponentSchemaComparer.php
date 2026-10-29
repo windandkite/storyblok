@@ -246,32 +246,58 @@ class ComponentSchemaComparer
                 $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_SETTINGS, $component, $field, 'Settings differ from the space (' . implode(', ', $differences) . '). The next push updates them.', $differences);
             }
 
+            $source = $field;
+
             if (!isset($spaceFields[$field])) {
+                $source = (string)($renamedTargets[$field] ?? '');
+
                 // A rename target is covered by the rename issue, but only when the old field is in the space.
-                if (!isset($spaceFields[$renamedTargets[$field] ?? ''])) {
+                if (!isset($spaceFields[$source])) {
                     $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_NOT_PUSHED, $component, $field, 'Defined by the template but not in the space: push to add it.');
+
+                    continue;
                 }
-
-                continue;
             }
 
-            $actual = $spaceFields[$field];
+            // A renamed field's content is copied to the new one, so the new field must accept it. Its issues are
+            // reported against the old field, whose content is what's affected.
+            $fieldIssues = $this->compareFieldContent($component, $source, $expected, $spaceFields[$source], $templates);
 
-            if (!$this->typesMatch($expected['type'] ?? '', $actual['type'] ?? '')) {
-                $issues[] = $this->issue(self::LEVEL_ERROR, self::KIND_TYPE_CHANGED, $component, $field, sprintf('Type is "%s" in the space but "%s" in the template.', $actual['type'] ?? '?', $expected['type'] ?? '?'));
-                continue;
+            if ($source !== $field) {
+                $fieldIssues = array_map(
+                    static fn (array $issue) => ['message' => sprintf('Renamed to "%s": %s', $field, $issue['message'])] + $issue,
+                    $fieldIssues
+                );
             }
 
-            if (($expected['type'] ?? '') === 'option') {
-                $issues = [...$issues, ...$this->compareOptions($component, $field, $expected, $actual)];
-            }
-
-            if (($expected['type'] ?? '') === 'bloks') {
-                $issues = [...$issues, ...$this->compareWhitelist($component, $field, $expected, $actual, $templates)];
-            }
+            $issues = [...$issues, ...$fieldIssues];
         }
 
         return $issues;
+    }
+
+    /**
+     * Type, options and whitelist: the differences that decide whether stored content still fits the field.
+     *
+     * @param string $component
+     * @param string $field
+     * @param array $expected
+     * @param array $actual
+     * @param array $templates
+     *
+     * @return array
+     */
+    private function compareFieldContent(string $component, string $field, array $expected, array $actual, array $templates): array
+    {
+        if (!$this->typesMatch($expected['type'] ?? '', $actual['type'] ?? '')) {
+            return [$this->issue(self::LEVEL_ERROR, self::KIND_TYPE_CHANGED, $component, $field, sprintf('Type is "%s" in the space but "%s" in the template.', $actual['type'] ?? '?', $expected['type'] ?? '?'))];
+        }
+
+        return match ($expected['type'] ?? '') {
+            'option' => $this->compareOptions($component, $field, $expected, $actual),
+            'bloks' => $this->compareWhitelist($component, $field, $expected, $actual, $templates),
+            default => [],
+        };
     }
 
     /**
@@ -305,6 +331,10 @@ class ComponentSchemaComparer
 
         if ($unpushed = array_values(array_diff($expectedValues, $actualValues))) {
             $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_OPTION_VALUES_NOT_PUSHED, $component, $field, 'Option values the template supports but editors can\'t choose yet: ' . implode(', ', $unpushed), $unpushed);
+        }
+
+        if (!$unhandled && !$unpushed && $expectedValues !== $actualValues) {
+            $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_SETTINGS, $component, $field, 'Options are in a different order in the space. The next push reorders them.', ['option order']);
         }
 
         $labels = static fn (array $field) => array_column(
