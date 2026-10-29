@@ -1,4 +1,4 @@
-# ![image logo](docs/favicon.svg) WindAndKite_Storyblok
+# ![image logo](https://raw.githubusercontent.com/windandkite/storyblok/master/docs/favicon.svg) WindAndKite_Storyblok
 
 Magento 2 Module for Storyblok Integration
 

@@ -1,0 +1,34 @@
+name: Publish packages
+
+# Copies each package in packages/ to its own read-only repo, which Packagist installs from. A tag is pushed to
+# every package repo, so all packages share one version.
+on:
+  push:
+    branches: [master]
+    tags: ['*']
+  workflow_dispatch:
+
+concurrency: split
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [module-storyblok]
+    steps:
+      - uses: actions/checkout@v4
+
+      # SPLIT_TOKEN can push to the package repos: a workflow's own token only reaches this repo.
+      - uses: danharrin/monorepo-split-github-action@v2.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+        with:
+          package_directory: packages/${{ matrix.package }}
+          repository_organization: windandkite
+          repository_name: ${{ matrix.package }}
+          branch: master
+          tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
