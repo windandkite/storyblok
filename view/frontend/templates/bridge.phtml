@@ -79,7 +79,12 @@ $shareUrl = $storyblokConfig->getShareUrl();
                     : null;
 
                 oldScript.replaceWith(script);
-                await loaded;
+
+                // Only yield for an external script: awaiting anything lets Alpine's mutation observer init the new
+                // markup before the following inline scripts have defined its functions.
+                if (loaded) {
+                    await loaded;
+                }
             }
         };
 
