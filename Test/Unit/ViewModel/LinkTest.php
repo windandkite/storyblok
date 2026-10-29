@@ -41,6 +41,25 @@ class LinkTest extends TestCase
         $this->assertSame('https://shop.test/faq#returns', $this->link->getUrl(['linktype' => 'story', 'cached_url' => 'faq', 'anchor' => 'returns']));
     }
 
+    public function testRestrictedFolderIsLeftOutOfStoryUrls(): void
+    {
+        $urlBuilder = $this->createStub(UrlInterface::class);
+        $urlBuilder->method('getDirectUrl')->willReturnCallback(fn ($slug) => 'https://shop.test/' . $slug);
+        $urlBuilder->method('getBaseUrl')->willReturn('https://shop.test/');
+
+        $config = $this->createStub(Config::class);
+        $config->method('getHomeSlug')->willReturn('home');
+        $config->method('isHomeEnabled')->willReturn(true);
+        $config->method('isRestrictFolderEnabled')->willReturn(true);
+        $config->method('getFolderPath')->willReturn('pages/');
+
+        $link = new Link($urlBuilder, $this->createStub(Escaper::class), $config);
+
+        $this->assertSame('https://shop.test/about', $link->getUrl(['linktype' => 'story', 'cached_url' => 'pages/about']));
+        $this->assertSame('https://shop.test/', $link->getUrl(['linktype' => 'story', 'cached_url' => 'pages/home']));
+        $this->assertSame('https://shop.test/pagesx/a', $link->getUrl(['linktype' => 'story', 'cached_url' => 'pagesx/a']));
+    }
+
     public function testEmptyAndUnsafeLinksResolveToEmptyString(): void
     {
         $this->assertSame('', $this->link->getUrl(null));

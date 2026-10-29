@@ -129,6 +129,13 @@ class Link implements ArgumentInterface
             return '';
         }
 
+        // With folder restricted routing the router adds the folder, so storefront URLs (and the home slug) leave it out.
+        $folder = $this->config->isRestrictFolderEnabled() ? trim((string)$this->config->getFolderPath(), '/') : '';
+
+        if ($folder !== '' && str_starts_with($slug . '/', $folder . '/')) {
+            $slug = ltrim(substr($slug, strlen($folder)), '/');
+        }
+
         // The story served as the storefront homepage lives at "/", not at its slug.
         $homeSlug = trim((string)$this->config->getHomeSlug(), '/');
 

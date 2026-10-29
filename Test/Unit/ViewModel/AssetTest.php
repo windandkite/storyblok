@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Test\Unit\ViewModel;
 
+use Magento\Framework\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
@@ -35,6 +36,13 @@ class AssetTest extends TestCase
             self::ASSET['filename'] . '/m/400x200 400w, ' . self::ASSET['filename'] . '/m/800x400 800w',
             $srcset
         );
+    }
+
+    public function testSrcsetRejectsCrop(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new Asset())->getSrcset(self::ASSET, [400, 800], ['crop' => '0x0:800x400']);
     }
 
     public function testValidAssetAndDimensions(): void

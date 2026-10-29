@@ -126,9 +126,11 @@ class Asset implements ArgumentInterface
      *
      * @param array $assetData
      * @param int[] $widths
-     * @param array $options Any transformImage() option, plus "ratio".
+     * @param array $options Any transformImage() option except "crop", plus "ratio".
      *
      * @return string
+     * @throws InvalidArgumentException For "crop": it replaces each candidate's size, so every width descriptor
+     *     would be wrong. Use "ratio" instead.
      */
     public function getSrcset(
         array $assetData,
@@ -137,6 +139,10 @@ class Asset implements ArgumentInterface
     ): string {
         if (!$this->isTransformable($assetData)) {
             return '';
+        }
+
+        if ($options['crop'] ?? null) {
+            throw new InvalidArgumentException(__('getSrcset() doesn\'t support "crop": use "ratio" instead.'));
         }
 
         $ratio = (float)($options['ratio'] ?? 0);
