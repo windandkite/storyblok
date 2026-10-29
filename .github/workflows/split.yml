@@ -23,9 +23,11 @@ jobs:
       group: split-${{ matrix.package }}-${{ github.ref }}
       cancel-in-progress: ${{ github.ref_type == 'branch' }}
     steps:
+      # Without persist-credentials, checkout's auth header (this repo's token) would override SPLIT_TOKEN.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # SPLIT_TOKEN can push to the package repos: a workflow's own token only reaches this repo. Values reach the
       # script as environment variables, never pasted into it.
