@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Setup\Patch\Data;
 
+use Magento\Framework\App\Cache\Type\Config as ConfigCache;
+use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Framework\Setup\ModuleDataSetupInterface;
 use Magento\Framework\Setup\Patch\DataPatchInterface;
@@ -17,10 +19,12 @@ class EncryptWebhookSecret implements DataPatchInterface
     /**
      * @param ModuleDataSetupInterface $moduleDataSetup
      * @param EncryptorInterface $encryptor
+     * @param TypeListInterface $cacheTypeList
      */
     public function __construct(
         private readonly ModuleDataSetupInterface $moduleDataSetup,
         private readonly EncryptorInterface $encryptor,
+        private readonly TypeListInterface $cacheTypeList,
     ) {}
 
     public function apply(): self
@@ -39,6 +43,9 @@ class EncryptWebhookSecret implements DataPatchInterface
                 $connection->update($table, ['value' => $this->encryptor->encrypt($value)], ['config_id = ?' => $configId]);
             }
         }
+
+        // Don't leave a plain text copy of the secret in the config cache until the next flush.
+        $this->cacheTypeList->cleanType(ConfigCache::TYPE_IDENTIFIER);
 
         return $this;
     }
