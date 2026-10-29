@@ -1,0 +1,26 @@
+{
+  "name": "windandkite/module-storyblok-schema",
+  "description": "Generate, validate and import Storyblok component schemas from Magento blok templates",
+  "type": "magento2-module",
+  "license": "GPL-3.0",
+  "authors": [
+    {
+      "name": "Wind and Kite",
+      "email": "hello@windandkite.com"
+    }
+  ],
+  "require": {
+    "php": "^8.1",
+    "magento/framework": "*",
+    "magento/module-store": "*",
+    "windandkite/module-storyblok": "^2.1"
+  },
+  "autoload": {
+    "files": [
+      "registration.php"
+    ],
+    "psr-4": {
+      "WindAndKite\\StoryblokSchema\\": ""
+    }
+  }
+}

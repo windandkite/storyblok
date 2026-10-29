@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [module-storyblok]
+        package: [module-storyblok, module-storyblok-schema]
     steps:
       - uses: actions/checkout@v4
 
