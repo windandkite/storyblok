@@ -20,6 +20,8 @@ When `FieldRenderer` parses an individual component, the sequence executes as fo
 4. Each matching hydrator modifies or builds upon the block instance through a chainable `populate()` routine.
 5. The block instance is returned to the renderer and proceeds to generate HTML output.
 
+The story's content type (e.g. `page`) is hydrated the same way before its template renders, so hydrators registered for a content type, or under `*`, apply to it too.
+
 ---
 
 ## 🧱 1. Creating a Custom Hydrator
@@ -197,6 +199,7 @@ $raw = $block->getBlock()->getData('clip');      // ['plugin' => 'storyblok-vime
 Things to know:
 - Only a blok's own fields are hydrated, not plugin values nested inside other values (such as rich text).
 - Plugin values without a registered hydrator are left as they are.
+- Whatever `hydrate()` returns is what the getter returns, including `null` (for example, a picker whose product no longer exists).
 - A field named like data the block instance already holds (`type`, `story`, `block`...) keeps its raw value, so hydrating it can't break rendering.
 - Hydration runs when the blok is created, before its template renders, so keep `hydrate()` cheap or defer expensive work (for example, return a lazy collection).
 - With the [schema package](Generating-The-Component-Schema#plugin-fields), the field's `php` key declares the hydrated type for the IDE helper: `{"type": "plugin", "plugin": "storyblok-vimeo", "php": "\\MyCompany\\StoryblokVideo\\Model\\Clip"}`.
