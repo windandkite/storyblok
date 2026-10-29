@@ -324,7 +324,8 @@ class ComponentSchemaGenerator
                     $verbatim[$name][$fieldName] = true;
                 }
 
-                if (!empty($field['renamed_from'])) {
+                // Not empty(): "0" is a valid field name.
+                if ((string)($field['renamed_from'] ?? '') !== '') {
                     $renames[] = ['component' => $name, 'from' => (string)$field['renamed_from'], 'to' => $fieldName];
                 }
             }

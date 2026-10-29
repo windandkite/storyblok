@@ -151,7 +151,8 @@ class ComponentUsageCounter
         }
 
         foreach ((array)$value as $child) {
-            if (is_array($child) && in_array($child['component'] ?? null, $values, true) !== $outside) {
+            // Multi-option selections are lists of values; bloks are lists of arrays.
+            if (is_scalar($child) ? in_array((string)$child, $values, true) : is_array($child) && in_array($child['component'] ?? null, $values, true) !== $outside) {
                 return true;
             }
         }

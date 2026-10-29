@@ -60,7 +60,7 @@ class ComponentSchemaComparer
     ];
 
     // Kinds that describe the space itself, not a difference the templates would push.
-    private const NOT_A_CHANGE = [self::KIND_MISSING_TEMPLATE, self::KIND_UNTAGGED];
+    private const NOT_A_CHANGE = [self::KIND_MISSING_TEMPLATE, self::KIND_UNTAGGED, self::KIND_WHITELIST_WITHOUT_TEMPLATE];
 
     private const DESTRUCTIVE_KINDS = [
         self::KIND_FIELD_REMOVED,
@@ -246,31 +246,28 @@ class ComponentSchemaComparer
                 $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_SETTINGS, $component, $field, 'Settings differ from the space (' . implode(', ', $differences) . '). The next push updates them.', $differences);
             }
 
-            $source = $field;
+            $source = (string)($renamedTargets[$field] ?? '');
 
-            if (!isset($spaceFields[$field])) {
-                $source = (string)($renamedTargets[$field] ?? '');
+            // A rename target is covered by the rename issue, but only when the old field is in the space.
+            if (!isset($spaceFields[$field]) && !isset($spaceFields[$source])) {
+                $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_NOT_PUSHED, $component, $field, 'Defined by the template but not in the space: push to add it.');
 
-                // A rename target is covered by the rename issue, but only when the old field is in the space.
-                if (!isset($spaceFields[$source])) {
-                    $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_FIELD_NOT_PUSHED, $component, $field, 'Defined by the template but not in the space: push to add it.');
-
-                    continue;
-                }
+                continue;
             }
 
-            // A renamed field's content is copied to the new one, so the new field must accept it. Its issues are
-            // reported against the old field, whose content is what's affected.
-            $fieldIssues = $this->compareFieldContent($component, $source, $expected, $spaceFields[$source], $templates);
+            if (isset($spaceFields[$field])) {
+                $issues = [...$issues, ...$this->compareFieldContent($component, $field, $expected, $spaceFields[$field], $templates)];
+            }
 
-            if ($source !== $field) {
-                $fieldIssues = array_map(
+            // A renamed field's content is copied to the new one, so the new field must accept it, also once both
+            // are in the space (after the safe push). Its issues are reported against the old field, whose content is
+            // what's affected.
+            if ($source !== '' && isset($spaceFields[$source])) {
+                $issues = [...$issues, ...array_map(
                     static fn (array $issue) => ['message' => sprintf('Renamed to "%s": %s', $field, $issue['message'])] + $issue,
-                    $fieldIssues
-                );
+                    $this->compareFieldContent($component, $source, $expected, $spaceFields[$source], $templates)
+                )];
             }
-
-            $issues = [...$issues, ...$fieldIssues];
         }
 
         return $issues;
@@ -294,7 +291,7 @@ class ComponentSchemaComparer
         }
 
         return match ($expected['type'] ?? '') {
-            'option' => $this->compareOptions($component, $field, $expected, $actual),
+            'option', 'options' => $this->compareOptions($component, $field, $expected, $actual),
             'bloks' => $this->compareWhitelist($component, $field, $expected, $actual, $templates),
             default => [],
         };
@@ -497,7 +494,7 @@ class ComponentSchemaComparer
             $type = $expected['type'] ?? null;
             $compared = [
                 ...self::NOT_SETTINGS,
-                ...($type === 'option' ? self::OPTION_KEYS : []),
+                ...(in_array($type, ['option', 'options'], true) ? self::OPTION_KEYS : []),
                 ...($type === 'bloks' ? self::WHITELIST_KEYS : []),
             ];
 

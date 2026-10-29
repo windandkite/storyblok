@@ -239,8 +239,9 @@ class SchemaWorkflowTest extends TestCase
             'content' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['page']],
             'Mobile' => ['type' => 'section', 'keys' => ['content']],
         ]]], 'renames' => [['component' => 'page', 'from' => 'body', 'to' => 'content']]];
+        // The old field fits the new one (an incompatible rename is covered in ComponentSchemaComparerTest).
         $pulled = [['name' => 'page', 'schema' => [
-            'body' => ['type' => 'bloks'],
+            'body' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['page']],
             'content' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['page']],
             'legacy' => ['type' => 'text'],
         ]]];
@@ -370,6 +371,33 @@ class SchemaWorkflowTest extends TestCase
         $this->assertStringContainsString('getImage2x()', $helper);
         $this->assertStringNotContainsString('getFooBar()', $helper, 'Magento would read "foo_bar"');
         $this->assertStringContainsString("getData('fooBar')", $helper);
+    }
+
+    public function testZeroFieldNamesMultiOptionUsageAndPackagesOutsideTheRoot(): void
+    {
+        $final = $this->build(['page' => ['fields' => ['1' => ['type' => 'string', 'renamed_from' => '0']]]]);
+        $this->assertSame([['component' => 'page', 'from' => '0', 'to' => '1']], $final['renames']);
+
+        mkdir($this->root . '/stories');
+        file_put_contents($this->root . '/stories/a.json', json_encode(['uuid' => 'a', 'content' => ['_uid' => '1', 'component' => 'card', 'colours' => ['red', 'blue']]]));
+        $issues = (new ComponentUsageCounter(new File()))->annotate($this->root . '/stories', [
+            ['kind' => ComponentSchemaComparer::KIND_OPTION_VALUES_REMOVED, 'component' => 'card', 'field' => 'colours', 'values' => ['blue']],
+            ['kind' => ComponentSchemaComparer::KIND_OPTION_VALUES_REMOVED, 'component' => 'card', 'field' => 'colours', 'values' => ['green']],
+        ]);
+        $this->assertSame(['stories' => 1, 'bloks' => 1], $issues[0]['usage'], 'multi-option selections are lists of values');
+        $this->assertSame(['stories' => 0, 'bloks' => 0], $issues[1]['usage']);
+
+        // A Composer path repository's checkout, outside the Magento root.
+        $outside = sys_get_temp_dir() . '/sb-outside-' . uniqid();
+        mkdir($outside);
+        touch($outside . '/a.phtml');
+        mkdir($this->root . '/app');
+        touch($this->root . '/app/b.phtml');
+
+        $this->assertTrue($this->context()->isVendorPath($outside . '/a.phtml'));
+        $this->assertFalse($this->context()->isVendorPath($this->root . '/app/b.phtml'));
+        unlink($outside . '/a.phtml');
+        rmdir($outside);
     }
 
     private function build(array $definitions): array

@@ -124,8 +124,9 @@ class StoryblokCliContext
     }
 
     /**
-     * Whether a file is inside the Magento root's vendor/ directory, following symlinks either way (a
-     * Composer path repository links vendor/ to a directory elsewhere).
+     * Whether a file belongs to an installed package, so it mustn't be edited: inside the Magento root's vendor/
+     * directory, following symlinks either way, or outside the Magento root (a Composer path repository links
+     * vendor/ to a checkout elsewhere, and Magento reads its templates from there).
      *
      * @param string $path
      *
@@ -137,9 +138,11 @@ class StoryblokCliContext
         $vendor = $this->getRoot() . 'vendor/';
         $realVendor = realpath($vendor);
         $realPath = realpath($path);
+        $realRoot = realpath($this->getRoot());
 
         return str_starts_with($path, $vendor)
-            || ($realVendor !== false && $realPath !== false && str_starts_with($realPath, $realVendor . '/'));
+            || ($realVendor !== false && $realPath !== false && str_starts_with($realPath, $realVendor . '/'))
+            || ($realRoot !== false && $realPath !== false && !str_starts_with($realPath, $realRoot . '/'));
     }
 
     /**

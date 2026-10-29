@@ -60,6 +60,34 @@ class ComponentSchemaComparerTest extends TestCase
         $this->assertStringStartsWith('Renamed to "gap": ', $issues[array_search(ComponentSchemaComparer::KIND_OPTION_VALUES_REMOVED, array_column($issues, 'kind'))]['message']);
     }
 
+    public function testRenameAfterSafePushMultiOptionsAndWhitelistsWithoutTemplates(): void
+    {
+        $expected = ['components' => [
+            ['name' => 'section', 'schema' => [
+                'gap' => ['type' => 'option', 'options' => [['value' => 'small']]],
+                'colours' => ['type' => 'options', 'options' => [['name' => 'Red', 'value' => 'red']]],
+                'body' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['legacy']],
+            ]],
+        ], 'renames' => [['component' => 'section', 'from' => 'spacing', 'to' => 'gap']], 'verbatim' => ['section' => ['colours' => true]]];
+        // After the safe push both rename fields are in the space.
+        $pulled = [['name' => 'section', 'schema' => [
+            'spacing' => ['type' => 'option', 'options' => [['value' => 'small'], ['value' => 'xl']]],
+            'gap' => ['type' => 'option', 'options' => [['value' => 'small']]],
+            'colours' => ['type' => 'options', 'options' => [['name' => 'Red', 'value' => 'red'], ['name' => 'Blue', 'value' => 'blue']]],
+            'body' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['legacy']],
+        ]], ['name' => 'legacy', 'schema' => []]];
+
+        $comparer = new ComponentSchemaComparer();
+        $issues = $comparer->compare($expected, $pulled);
+        $summary = array_map(static fn ($issue) => [$issue['kind'], $issue['field'], $issue['values']], $issues);
+
+        $this->assertContains([ComponentSchemaComparer::KIND_OPTION_VALUES_REMOVED, 'spacing', ['xl']], $summary);
+        $this->assertContains([ComponentSchemaComparer::KIND_OPTION_VALUES_REMOVED, 'colours', ['blue']], $summary);
+        $this->assertNotContains([ComponentSchemaComparer::KIND_FIELD_SETTINGS, 'colours', ['options']], $summary, 'options are compared once, as content');
+        $this->assertContains([ComponentSchemaComparer::KIND_WHITELIST_WITHOUT_TEMPLATE, 'body', ['legacy']], $summary);
+        $this->assertSame(['spacing: field renamed', 'spacing: option values removed (xl)', 'colours: option values removed (blue)'], $comparer->changedComponents($issues)['section']);
+    }
+
     public function testReportsEachKindOfMismatch(): void
     {
         $pulled = [
