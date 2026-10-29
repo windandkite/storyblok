@@ -28,7 +28,8 @@ class ComponentSchemaImporterTest extends TestCase
             'span_tablet' => ['type' => 'option', 'options' => [['name' => '4', 'value' => '4'], ['name' => '8', 'value' => '8']], 'pos' => 3, 'display_name' => 'Span tablet', 'default_value' => '8', 'id' => 'd'],
             'body' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['column'], 'pos' => 5, 'display_name' => 'Body', 'description' => 'Child bloks', 'id' => 'e'],
             'colour' => ['type' => 'custom', 'field_type' => 'native-color-picker', 'options' => [], 'pos' => 6, 'id' => 'f'],
-            'tab-9f07b3b2-2348-46c4-ae3e-7c164647f8bb' => ['display_name' => 'Responsive', 'keys' => ['span_tablet', 'span_desktop', 'Tablet', 'Desktop'], 'pos' => 7, 'type' => 'tab', 'id' => 'g'],
+            'video' => ['type' => 'custom', 'field_type' => 'storyblok-vimeo', 'options' => [['value' => 'abc', 'name' => '0'], ['name' => 'player', 'value' => 'lite']], 'required' => true, 'pos' => 7, 'id' => 'h'],
+            'tab-9f07b3b2-2348-46c4-ae3e-7c164647f8bb' => ['display_name' => 'Responsive', 'keys' => ['span_tablet', 'span_desktop', 'Tablet', 'Desktop'], 'pos' => 8, 'type' => 'tab', 'id' => 'g'],
         ],
     ];
 
@@ -38,10 +39,16 @@ class ComponentSchemaImporterTest extends TestCase
 
         $this->assertSame('Layout', $definition['folder']);
         $this->assertArrayNotHasKey('name', $definition, 'no override when the name matches the template file');
-        $this->assertSame(['span_desktop', 'span_tablet', 'body', 'colour'], array_keys($definition['fields']), 'ordered by pos, layout entries removed');
-        $this->assertSame(['type' => 'integer', 'enum' => [6, 12], 'default' => 12, 'tab' => 'Responsive', 'group' => 'Desktop'], $definition['fields']['span_desktop']);
+        $this->assertSame(['span_desktop', 'span_tablet', 'body', 'colour', 'video'], array_keys($definition['fields']), 'ordered by pos, layout entries removed');
+        $this->assertSame(['type' => 'number', 'enum' => [6, 12], 'default' => 12, 'tab' => 'Responsive', 'group' => 'Desktop'], $definition['fields']['span_desktop']);
         $this->assertSame(['type' => 'array', 'allowed' => ['column'], 'description' => 'Child bloks'], $definition['fields']['body']);
-        $this->assertSame(['storyblok' => ['type' => 'custom', 'field_type' => 'native-color-picker', 'options' => []]], $definition['fields']['colour'], 'unsupported types kept verbatim');
+        $this->assertSame(['type' => 'plugin', 'plugin' => 'native-color-picker'], $definition['fields']['colour']);
+        $this->assertEquals(['type' => 'plugin', 'plugin' => 'storyblok-vimeo', 'options' => (object)['0' => 'abc', 'player' => 'lite'], 'required' => true], $definition['fields']['video']);
+        $this->assertStringContainsString('"options": {"0": "abc", "player": "lite"}', (new ComponentSchemaImporter())->formatTag($definition));
+
+        // Plugin options that aren't a plain name => value list are kept verbatim.
+        $odd = ['type' => 'custom', 'field_type' => 'x', 'options' => [['name' => 'a', 'value' => '1'], ['name' => 'a', 'value' => '2']]];
+        $this->assertArrayHasKey('storyblok', (new ComponentSchemaImporter())->toDefinition(['name' => 'odd', 'schema' => ['f' => $odd]])['fields']['f']);
         $this->assertSame('form-input', (new ComponentSchemaImporter())->toDefinition(['name' => 'form-input', 'schema' => []])['name']);
     }
 
@@ -176,9 +183,10 @@ class ComponentSchemaImporterTest extends TestCase
 
         $this->assertTrue($definition['nestable']);
         $this->assertSame(['type' => 'string', 'translatable' => true], $definition['fields']['title'], 'unset Storyblok values don\'t force a verbatim field');
-        $this->assertArrayHasKey('storyblok', $definition['fields']['short']);
-        $this->assertArrayHasKey('storyblok', $definition['fields']['link']);
-        $this->assertArrayHasKey('storyblok', $definition['fields']['kids']);
+        // Settings without a shorthand key are copied as they are.
+        $this->assertSame(['type' => 'string', 'max_length' => '60'], $definition['fields']['short']);
+        $this->assertSame(['type' => 'multilink'], $definition['fields']['link']);
+        $this->assertSame(['type' => 'array', 'restrict_components' => true, 'restrict_type' => 'groups', 'component_group_whitelist' => ['g']], $definition['fields']['kids'], 'folder whitelists too');
         $this->assertSame(['type' => 'story'], $definition['fields']['story']);
         $this->assertSame([], $definition['fields']['file']['filetypes'], 'no file types means any');
         $this->assertSame('1.5', $definition['fields']['ratio']['default']);
@@ -202,6 +210,24 @@ class ComponentSchemaImporterTest extends TestCase
         token_get_all($source, TOKEN_PARSE);
         $this->assertStringContainsString("\$block->renderField('fooBar')", $source, 'getFooBarHtml() would read "foo_bar"');
         $this->assertStringContainsString('$block->getBodyHtml()', $source);
+    }
+
+    public function testStarterMarkupPerFieldType(): void
+    {
+        $importer = new ComponentSchemaImporter();
+        $definition = ['fields' => [
+            'sizes' => ['type' => 'string', 'enum' => ['s', 'l'], 'multiple' => true],
+            'gallery' => ['type' => 'asset', 'multiple' => true],
+            'specs' => ['type' => 'object'],
+            'clip' => ['type' => 'plugin', 'plugin' => 'storyblok-vimeo'],
+        ]];
+        $source = $importer->newTemplate('promo', $definition, $importer->formatTag($definition));
+
+        token_get_all($source, TOKEN_PARSE);
+        $this->assertStringContainsString("escapeHtml(implode(', ', (array)\$block->getData('sizes')))", $source, 'selections are lists');
+        $this->assertStringContainsString("foreach (\$block->getData('gallery') ?? [] as \$asset)", $source);
+        $this->assertStringContainsString("<td><?= \$escaper->escapeHtml(\$cell['value'] ?? '') ?></td>", $source);
+        $this->assertStringContainsString("/* clip (plugin storyblok-vimeo): \$block->getData('clip') */", $source);
     }
 
     public function testNumericFieldNames(): void

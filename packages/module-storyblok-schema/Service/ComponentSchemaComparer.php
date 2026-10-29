@@ -53,7 +53,7 @@ class ComponentSchemaComparer
     ];
 
     // Not settings, or compared on their own: ignored when comparing every setting of a "storyblok" field.
-    private const NOT_SETTINGS = ['id', 'pos', 'type'];
+    private const NOT_SETTINGS = ['id', 'pos', 'type', 'field_type'];
     private const OPTION_KEYS = ['options', 'source'];
     private const WHITELIST_KEYS = [
         'restrict_components', 'restrict_type', 'component_whitelist', 'component_group_whitelist', 'component_tag_whitelist',
@@ -292,7 +292,11 @@ class ComponentSchemaComparer
 
         return match ($expected['type'] ?? '') {
             'option', 'options' => $this->compareOptions($component, $field, $expected, $actual),
-            'bloks' => $this->compareWhitelist($component, $field, $expected, $actual, $templates),
+            'bloks', 'richtext' => $this->compareWhitelist($component, $field, $expected, $actual, $templates),
+            // Another plugin stores its value in another shape: as much a type change as text to bloks.
+            'custom' => ($expected['field_type'] ?? null) !== ($actual['field_type'] ?? null)
+                ? [$this->issue(self::LEVEL_ERROR, self::KIND_TYPE_CHANGED, $component, $field, sprintf('Plugin is "%s" in the space but "%s" in the template.', $actual['field_type'] ?? '?', $expected['field_type'] ?? '?'))]
+                : [],
             default => [],
         };
     }
@@ -489,18 +493,17 @@ class ComponentSchemaComparer
         }
 
         $settings = self::FIELD_SETTINGS;
+        $type = $expected['type'] ?? null;
+        $compared = [
+            ...self::NOT_SETTINGS,
+            ...(in_array($type, ['option', 'options'], true) ? self::OPTION_KEYS : []),
+            ...(in_array($type, ['bloks', 'richtext'], true) ? self::WHITELIST_KEYS : []),
+        ];
 
-        if ($verbatim) {
-            $type = $expected['type'] ?? null;
-            $compared = [
-                ...self::NOT_SETTINGS,
-                ...(in_array($type, ['option', 'options'], true) ? self::OPTION_KEYS : []),
-                ...($type === 'bloks' ? self::WHITELIST_KEYS : []),
-            ];
-
-            foreach (array_diff_key($expected + $actual, array_flip($compared), $settings) as $key => $_) {
-                $settings[$key] = str_replace('_', ' ', (string)$key);
-            }
+        // Every other setting the template sets ("storyblok" fields: every setting on either side, as the push
+        // replaces the field). Settings only the space has are kept by a push, so they don't differ.
+        foreach (array_diff_key($verbatim ? $expected + $actual : $expected, array_flip($compared), $settings) as $key => $_) {
+            $settings[$key] = str_replace('_', ' ', (string)$key);
         }
 
         foreach ($settings as $key => $label) {

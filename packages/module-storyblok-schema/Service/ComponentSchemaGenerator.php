@@ -27,7 +27,7 @@ use Magento\Framework\View\Design\ThemeInterface;
  *       "whitelists": ["content"],
  *       "fields": {
  *         "body": {"type": "array", "allowed": ["column", "@content"]},
- *         "span_tablet": {"type": "integer", "enum": [4, 8], "tab": "Responsive", "group": "Tablet"},
+ *         "span_tablet": {"type": "number", "enum": [4, 8], "tab": "Responsive", "group": "Tablet"},
  *         "content": {"type": "array", "renamed_from": "body"}
  *       }
  *     }
@@ -42,11 +42,21 @@ use Magento\Framework\View\Design\ThemeInterface;
  * - "translatable" on a field: field-level translation. When omitted, the space's setting is kept.
  * - "nestable" on a component: whether it can be added to bloks fields. Defaults to true for bloks and
  *   false for content types ("root").
- * - Settings the format can't express (e.g. max_length, regex, multilink options) are kept from the space
- *   when it's pulled (see withSpaceSettings()); "storyblok" fields are used exactly as written.
+ * - Any other key on a field is a Storyblok field setting, copied as it is: {"type": "string", "max_length": 60,
+ *   "regex": "^[a-z]*$"}, {"type": "array", "maximum": 3}, {"type": "multilink", "show_anchor": true}.
+ *   Settings a template doesn't set are kept from the space when it's pulled (see withSpaceSettings()).
+ * - "multiple": true on an enum, story, asset or "source" field: several values (multi-options, multiple
+ *   stories, multi-assets).
+ * - "source" on a string field: an option field filled from elsewhere, with its Storyblok settings, e.g.
+ *   {"type": "string", "source": "internal", "datasource_slug": "colours"}, {"source": "internal_languages"}.
+ * - "allowed" on a richtext field: the bloks that can be inserted, as on an array field.
  * - "labels" on an enum field: editor labels for values whose label isn't derived from the value, e.g.
  *   {"enum": ["s", "xl"], "labels": {"xl": "Extra Large"}}.
- * - "storyblok" on a field: a Storyblok field schema used verbatim (custom field plugins, datasources...).
+ * - "type": "plugin": a custom field plugin, any plugin (third-party ones too):
+ *   {"type": "plugin", "plugin": "storyblok-vimeo", "options": {"api_key": "..."}, "php": "array|null"}.
+ *   "plugin" is the plugin's field type name, "options" its options (name => value), and "php" the value's
+ *   type in the IDE helper (default "array|null").
+ * - "storyblok" on a field: a Storyblok field schema used verbatim, for anything else.
  * - "renamed_from" on a field: the field was renamed; generates a copy migration and keeps the old field in
  *   the safe schema (see buildSafe()).
  */
@@ -65,8 +75,11 @@ class ComponentSchemaGenerator
         'component_group_whitelist', 'component_tag_whitelist', 'keys',
     ];
 
-    // Settings the generator writes a default for, but templates can't set: the space's value wins.
-    private const SPACE_WINS_FIELD_KEYS = ['email_link_type', 'asset_link_type', 'show_anchor', 'allow_target_blank'];
+    // Docblock keys with a meaning of their own: any other key on a field is a Storyblok setting.
+    public const SHORTHAND_KEYS = [
+        'type', 'format', 'enum', 'labels', 'allowed', 'folder', 'filetypes', 'multiple', 'plugin', 'options', 'php',
+        'default', 'required', 'translatable', 'description', 'display_name', 'tab', 'group', 'renamed_from', 'storyblok',
+    ];
 
     // Component settings the format can't express, kept from the space.
     private const SPACE_COMPONENT_KEYS = ['preview_field', 'preview_tmpl', 'color', 'icon', 'image'];
@@ -320,7 +333,8 @@ class ComponentSchemaGenerator
                 $fieldName = (string)$fieldName;
                 $fields[$fieldName] = $this->toField($fieldName, $field, $whitelists, $componentNames, $component['file']);
 
-                if (isset($field['storyblok'])) {
+                // A plugin field sets every setting it has, so it's pushed and compared exactly as written too.
+                if (isset($field['storyblok']) || ($field['type'] ?? null) === 'plugin') {
                     $verbatim[$name][$fieldName] = true;
                 }
 
@@ -458,8 +472,7 @@ class ComponentSchemaGenerator
                     continue;
                 }
 
-                $field = array_intersect_key($spaceField, array_flip(self::SPACE_WINS_FIELD_KEYS)) + $field
-                    + array_diff_key($spaceField, array_flip(self::OWNED_FIELD_KEYS));
+                $field += array_diff_key($spaceField, array_flip(self::OWNED_FIELD_KEYS));
             }
 
             unset($field);
@@ -692,7 +705,12 @@ class ComponentSchemaGenerator
      */
     private function ideType(array $field): array
     {
+        if (!empty($field['multiple'])) {
+            return ['array', isset($field['enum']) || isset($field['source']) ? 'Selected values' : (($field['type'] ?? '') === 'asset' ? 'Storyblok assets' : 'Story UUIDs')];
+        }
+
         return match ($field['type'] ?? 'string') {
+            'plugin' => [(string)($field['php'] ?? 'array|null'), sprintf('Plugin "%s"', $field['plugin'] ?? '?')],
             'boolean' => ['bool|null', null],
             'array' => ['array', 'Child bloks'],
             'richtext' => ['array|null', 'Rich text document'],
@@ -700,7 +718,7 @@ class ComponentSchemaGenerator
             'multilink' => ['array|null', 'Storyblok link (resolve with the Link view model)'],
             'object' => ['array|null', 'Storyblok table (thead, tbody)'],
             'story' => ['string|null', 'Story UUID'],
-            'integer' => ['string|null', 'Numeric string'],
+            'number' => ['string|null', 'Numeric string'],
             'datetime' => ['string|null', '"Y-m-d H:i", UTC'],
             default => ['string|null', null],
         };
@@ -818,10 +836,15 @@ class ComponentSchemaGenerator
         }
 
         $type = $field['type'] ?? 'string';
+        $multiple = !empty($field['multiple']);
+
+        if ($type === 'plugin' && (!is_string($field['plugin'] ?? null) || $field['plugin'] === '')) {
+            throw new LocalizedException(__('Plugin field "%1" in %2 needs "plugin": the plugin\'s field type name.', $name, $file));
+        }
 
         $schema = match (true) {
             isset($field['enum']) => [
-                'type' => 'option',
+                'type' => $multiple ? 'options' : 'option',
                 'options' => array_map(
                     fn ($value) => ['name' => (string)($field['labels'][(string)$value] ?? $this->label((string)$value)), 'value' => (string)$value],
                     $field['enum']
@@ -832,26 +855,36 @@ class ComponentSchemaGenerator
                 'restrict_components' => isset($field['allowed']),
                 'component_whitelist' => $this->expandAllowed($field['allowed'] ?? [], $whitelists, $componentNames, $name, $file),
             ]),
-            $type === 'asset' => ['type' => 'asset', 'filetypes' => $field['filetypes'] ?? ['images']],
-            $type === 'multilink' => [
-                'type' => 'multilink',
-                'email_link_type' => true,
-                'asset_link_type' => true,
-                'show_anchor' => true,
-                'allow_target_blank' => true,
-            ],
-            $type === 'richtext' => ['type' => 'richtext'],
+            $type === 'asset' => ['type' => $multiple ? 'multiasset' : 'asset', 'filetypes' => $field['filetypes'] ?? ['images']],
+            $type === 'multilink' => ['type' => 'multilink'],
+            $type === 'richtext' => array_filter([
+                'type' => 'richtext',
+                'restrict_components' => isset($field['allowed']),
+                'component_whitelist' => $this->expandAllowed($field['allowed'] ?? [], $whitelists, $componentNames, $name, $file),
+            ]),
             $type === 'datetime' => ['type' => 'datetime'],
             // Native story picker: stores the chosen story's UUID.
             $type === 'story' => array_filter([
-                'type' => 'option',
+                'type' => $multiple ? 'options' : 'option',
                 'source' => 'internal_stories',
                 'folder_slug' => $field['folder'] ?? null,
             ]),
+            // The source and its settings are copied below, with the other Storyblok settings.
+            isset($field['source']) => ['type' => $multiple ? 'options' : 'option'],
             $type === 'boolean' => ['type' => 'boolean'],
-            $type === 'integer' => ['type' => 'number'],
+            $type === 'number' => ['type' => 'number'],
             $type === 'object' => ['type' => 'table'],
-            default => ['type' => $field['format'] ?? 'text'],
+            $type === 'plugin' => [
+                'type' => 'custom',
+                'field_type' => $field['plugin'],
+                'options' => array_map(
+                    static fn ($name, $value) => ['name' => (string)$name, 'value' => is_scalar($value) ? (string)$value : json_encode($value)],
+                    array_keys($field['options'] ?? []),
+                    array_values($field['options'] ?? [])
+                ),
+            ],
+            $type === 'string' => ['type' => $field['format'] ?? 'text'],
+            default => throw new LocalizedException(__('Unknown type "%1" for field "%2" in %3', $type, $name, $file)),
         };
 
         $schema['display_name'] = $field['display_name'] ?? $this->label($name);
@@ -872,7 +905,7 @@ class ComponentSchemaGenerator
             $schema['description'] = $field['description'];
         }
 
-        return $schema;
+        return $schema + array_diff_key($field, array_flip(self::SHORTHAND_KEYS));
     }
 
     /**

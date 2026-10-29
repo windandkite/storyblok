@@ -121,11 +121,36 @@ class ComponentSchemaGeneratorTest extends TestCase
         $this->generator([$this->root . '/other'])->collect($this->createStub(ThemeInterface::class));
     }
 
+    public function testUnknownTypeFails(): void
+    {
+        $this->expectExceptionMessage('Unknown type "integer" for field "zoom" in map.phtml');
+        $this->generator([])->build(['map' => ['file' => 'map.phtml', 'definition' => ['fields' => ['zoom' => ['type' => 'integer']]]]]);
+    }
+
+    public function testPluginFields(): void
+    {
+        $generator = $this->generator([]);
+        $definition = ['fields' => [
+            'clip' => ['type' => 'plugin', 'plugin' => 'storyblok-vimeo', 'options' => ['0' => 'abc', 'autoplay' => 1], 'php' => '\\Vendor\\Video|null', 'required' => true],
+        ]];
+        $schema = $generator->build(['video' => ['file' => 'video.phtml', 'definition' => $definition]]);
+
+        $this->assertSame(
+            ['type' => 'custom', 'field_type' => 'storyblok-vimeo', 'options' => [['name' => '0', 'value' => 'abc'], ['name' => 'autoplay', 'value' => '1']], 'display_name' => 'Clip', 'required' => true, 'pos' => 0],
+            $schema['components'][0]['schema']['clip']
+        );
+        $this->assertSame(['video' => ['clip' => true]], $schema['verbatim'], 'compared and pushed exactly as written');
+        $this->assertStringContainsString('@method \\Vendor\\Video|null getClip() Plugin "storyblok-vimeo"', $generator->buildIdeHelper(['video' => ['file' => 'video.phtml', 'definition' => $definition]]));
+
+        $this->expectExceptionMessage('needs "plugin"');
+        $generator->build(['video' => ['file' => 'video.phtml', 'definition' => ['fields' => ['clip' => ['type' => 'plugin']]]]]);
+    }
+
     public function testEnumLabels(): void
     {
         $schema = $this->generator([])->build(['size' => ['file' => 'size.phtml', 'definition' => ['fields' => [
             'size' => ['enum' => ['small', 'xl'], 'labels' => ['xl' => 'Extra Large']],
-            'span' => ['type' => 'integer', 'enum' => [0, 1], 'labels' => ['0' => 'None']],
+            'span' => ['type' => 'number', 'enum' => [0, 1], 'labels' => ['0' => 'None']],
         ]]]])['components'][0]['schema'];
 
         $this->assertSame([['name' => 'Small', 'value' => 'small'], ['name' => 'Extra Large', 'value' => 'xl']], $schema['size']['options']);

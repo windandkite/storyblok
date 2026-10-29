@@ -88,6 +88,26 @@ class ComponentSchemaComparerTest extends TestCase
         $this->assertSame(['spacing: field renamed', 'spacing: option values removed (xl)', 'colours: option values removed (blue)'], $comparer->changedComponents($issues)['section']);
     }
 
+    public function testAnotherPluginIsATypeChange(): void
+    {
+        $expected = ['components' => [['name' => 'video', 'schema' => [
+            'clip' => ['type' => 'custom', 'field_type' => 'storyblok-youtube', 'options' => [['name' => 'player', 'value' => 'lite']]],
+        ]]], 'verbatim' => ['video' => ['clip' => true]]];
+        $pulled = [['name' => 'video', 'schema' => [
+            'clip' => ['type' => 'custom', 'field_type' => 'storyblok-vimeo', 'options' => [['value' => 'full', 'name' => 'player']]],
+        ]]];
+
+        $comparer = new ComponentSchemaComparer();
+        $issues = $comparer->compare($expected, $pulled);
+        $summary = array_map(static fn ($issue) => [$issue['kind'], $issue['field'], $issue['values']], $issues);
+
+        $this->assertSame([
+            [ComponentSchemaComparer::KIND_FIELD_SETTINGS, 'clip', ['options']],
+            [ComponentSchemaComparer::KIND_TYPE_CHANGED, 'clip', []],
+        ], $summary, 'the plugin is reported once, as a type change');
+        $this->assertTrue($comparer->isDestructive($issues[1]));
+    }
+
     public function testReportsEachKindOfMismatch(): void
     {
         $pulled = [

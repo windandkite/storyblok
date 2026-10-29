@@ -38,8 +38,8 @@ class SchemaWorkflowTest extends TestCase
     {
         $schema = $this->build(['column' => ['folder' => 'Layout', 'fields' => [
             'body' => ['type' => 'array'],
-            'span_tablet' => ['type' => 'integer', 'tab' => 'Responsive', 'group' => 'Tablet'],
-            'span_desktop' => ['type' => 'integer', 'tab' => 'Responsive', 'group' => 'Desktop'],
+            'span_tablet' => ['type' => 'number', 'tab' => 'Responsive', 'group' => 'Tablet'],
+            'span_desktop' => ['type' => 'number', 'tab' => 'Responsive', 'group' => 'Desktop'],
             'advanced' => ['type' => 'string', 'group' => 'Advanced'],
             'debug' => ['type' => 'boolean', 'group' => 'Advanced'],
         ]]])['components'][0];
@@ -120,7 +120,7 @@ class SchemaWorkflowTest extends TestCase
     {
         $source = $this->generator()->buildIdeHelper(['section' => ['file' => '/t/section.phtml', 'definition' => ['fields' => [
             'body' => ['type' => 'array'],
-            'span_desktop' => ['type' => 'integer', 'enum' => [6, 12], 'default' => 12],
+            'span_desktop' => ['type' => 'number', 'enum' => [6, 12], 'default' => 12],
             'above_the_fold' => ['type' => 'boolean', 'description' => 'LCP */ image'],
         ]]]]);
 
@@ -311,7 +311,8 @@ class SchemaWorkflowTest extends TestCase
         $space = [['name' => 'hero', 'schema' => ['colour' => $spaceField]]];
 
         $issues = (new ComponentSchemaComparer())->compare($final, $space);
-        $this->assertSame([['field type']], array_column($issues, 'values'), 'only the changed setting, in any key order');
+        // Options match in any key order; another plugin is a type change, not a setting.
+        $this->assertSame([ComponentSchemaComparer::KIND_TYPE_CHANGED], array_column($issues, 'kind'));
 
         $space[0]['schema']['colour']['field_type'] = 'new-picker';
         $this->assertSame([], (new ComponentSchemaComparer())->compare($final, $space), 'id and pos aren\'t settings');
@@ -371,6 +372,46 @@ class SchemaWorkflowTest extends TestCase
         $this->assertStringContainsString('getImage2x()', $helper);
         $this->assertStringNotContainsString('getFooBar()', $helper, 'Magento would read "foo_bar"');
         $this->assertStringContainsString("getData('fooBar')", $helper);
+    }
+
+    public function testEveryFieldTypeAndStoryblokSettings(): void
+    {
+        $schema = $this->build(['card' => ['fields' => [
+            'title' => ['type' => 'string', 'max_length' => '60', 'regex' => '^[a-z]*$'],
+            'sizes' => ['type' => 'string', 'enum' => ['s', 'l'], 'multiple' => true, 'max_options' => '1'],
+            'colour' => ['type' => 'string', 'source' => 'internal', 'datasource_slug' => 'colours'],
+            'related' => ['type' => 'story', 'multiple' => true],
+            'gallery' => ['type' => 'asset', 'multiple' => true],
+            'copy' => ['type' => 'richtext', 'allowed' => ['card']],
+            'link' => ['type' => 'multilink', 'show_anchor' => true],
+            'kids' => ['type' => 'array', 'maximum' => '3'],
+        ]]])['components'][0]['schema'];
+
+        $this->assertSame(['type' => 'text', 'display_name' => 'Title', 'max_length' => '60', 'regex' => '^[a-z]*$', 'pos' => 0], $schema['title'], 'other keys are Storyblok settings');
+        $this->assertSame(['options', '1'], [$schema['sizes']['type'], $schema['sizes']['max_options']]);
+        $this->assertSame(['option', 'internal', 'colours'], [$schema['colour']['type'], $schema['colour']['source'], $schema['colour']['datasource_slug']]);
+        $this->assertSame(['options', 'internal_stories'], [$schema['related']['type'], $schema['related']['source']]);
+        $this->assertSame('multiasset', $schema['gallery']['type']);
+        $this->assertSame([true, ['card']], [$schema['copy']['restrict_components'], $schema['copy']['component_whitelist']]);
+        $this->assertSame(['type' => 'multilink', 'display_name' => 'Link', 'show_anchor' => true, 'pos' => 6], $schema['link'], 'link types off unless set');
+
+        // A template's setting is compared with the space; one only the space has is kept by a push.
+        $space = [['name' => 'card', 'schema' => [
+            'title' => ['type' => 'text', 'max_length' => '80', 'regex' => '^[a-z]*$', 'tooltip' => true],
+        ]]];
+        $final = $this->build(['card' => ['fields' => ['title' => ['type' => 'string', 'max_length' => '60', 'regex' => '^[a-z]*$']]]]);
+        $issues = (new ComponentSchemaComparer())->compare($this->generator()->withSpaceSettings($final, $space), $space);
+        $this->assertSame([['max length']], array_column($issues, 'values'));
+
+        // Bloks inside rich text count for whitelist changes.
+        mkdir($this->root . '/stories');
+        $doc = ['type' => 'doc', 'content' => [['type' => 'blok', 'attrs' => ['body' => [['_uid' => '2', 'component' => 'banner']]]]]];
+        file_put_contents($this->root . '/stories/a.json', json_encode(['uuid' => 'a', 'content' => ['_uid' => '1', 'component' => 'card', 'copy' => $doc]]));
+        $issues = (new ComponentUsageCounter(new File()))->annotate($this->root . '/stories', [
+            ['kind' => ComponentSchemaComparer::KIND_WHITELIST_REMOVED, 'component' => 'card', 'field' => 'copy', 'values' => ['banner']],
+            ['kind' => ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED, 'component' => 'card', 'field' => 'copy', 'values' => ['banner']],
+        ]);
+        $this->assertSame([1, 0], [$issues[0]['usage']['bloks'], $issues[1]['usage']['bloks']]);
     }
 
     public function testZeroFieldNamesMultiOptionUsageAndPackagesOutsideTheRoot(): void

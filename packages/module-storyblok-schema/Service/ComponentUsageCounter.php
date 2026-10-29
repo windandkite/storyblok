@@ -152,7 +152,31 @@ class ComponentUsageCounter
 
         foreach ((array)$value as $child) {
             // Multi-option selections are lists of values; bloks are lists of arrays.
-            if (is_scalar($child) ? in_array((string)$child, $values, true) : is_array($child) && in_array($child['component'] ?? null, $values, true) !== $outside) {
+            if (is_scalar($child) ? in_array((string)$child, $values, true) : is_array($child) && $this->usesBloks($child, $values, $outside)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a blok, or for rich text a node holding bloks at any depth, is one of (or outside) $values.
+     *
+     * @param array $node
+     * @param string[] $values
+     * @param bool $outside
+     *
+     * @return bool
+     */
+    private function usesBloks(array $node, array $values, bool $outside): bool
+    {
+        if (isset($node['component'])) {
+            return in_array($node['component'], $values, true) !== $outside;
+        }
+
+        foreach ($node as $child) {
+            if (is_array($child) && $this->usesBloks($child, $values, $outside)) {
                 return true;
             }
         }

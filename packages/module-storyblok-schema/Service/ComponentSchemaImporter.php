@@ -8,9 +8,10 @@ namespace WindAndKite\StoryblokSchema\Service;
  * The reverse of ComponentSchemaGenerator: turns components pulled from a Storyblok space into
  * `@storyblok` docblock definitions, and writes them into templates.
  *
- * Field types the docblock shorthand covers are converted to it; anything else (custom field plugins,
- * datasource options, multi-options, multi-assets...) is kept verbatim with the "storyblok" key, so an
- * import followed by `storyblok:schema:generate` reproduces the space's schema.
+ * Fields are converted to the docblock shorthand, with settings it has no key for copied as they are (the
+ * generator copies them back). A field only stays verbatim, with the "storyblok" key, when its type has no
+ * shorthand or a setting can't be expressed, so an import followed by `storyblok:schema:generate` reproduces
+ * the space's schema.
  */
 class ComponentSchemaImporter
 {
@@ -161,16 +162,29 @@ class ComponentSchemaImporter
                 ? '$block->' . $getter . 'Html()'
                 : sprintf('$block->renderField(%s)', var_export($name, true));
 
-            $lines[] = match ($field['type'] ?? null) {
-                'string', 'integer', 'datetime', null => isset($field['storyblok'])
-                    ? '    <?php /* ' . $comment(sprintf('%s (%s): %s', $name, $field['storyblok']['type'] ?? 'custom', $data)) . ' */ ?>'
-                    : sprintf("    <?php if ((string)%1\$s !== ''): ?>\n        <p><?= \$escaper->escapeHtml(%1\$s) ?></p>\n    <?php endif ?>", $data),
-                'richtext', 'array' => sprintf('    <?= /** @noEscape */ %s ?>', $render),
-                'asset' => sprintf(
-                    "    <?php if (!empty(%1\$s['filename'])): ?>\n        <img src=\"<?= \$escaper->escapeUrl(%1\$s['filename']) ?>\" alt=\"<?= \$escaper->escapeHtmlAttr(%1\$s['alt'] ?? '') ?>\" loading=\"lazy\">\n    <?php endif ?>",
+            $type = $field['type'] ?? 'string';
+            $multiple = !empty($field['multiple']);
+            $image = "<img src=\"<?= \$escaper->escapeUrl(%1\$s['filename']) ?>\" alt=\"<?= \$escaper->escapeHtmlAttr(%1\$s['alt'] ?? '') ?>\" loading=\"lazy\">";
+
+            $lines[] = match (true) {
+                isset($field['storyblok']) => '    <?php /* ' . $comment(sprintf('%s (%s): %s', $name, $field['storyblok']['type'] ?? 'custom', $data)) . ' */ ?>',
+                $multiple && $type === 'asset' => sprintf(
+                    "    <?php foreach (%1\$s ?? [] as \$asset): ?>\n        <?php if (!empty(\$asset['filename'])): ?>\n            " . sprintf($image, '$asset') . "\n        <?php endif ?>\n    <?php endforeach ?>",
                     $data
                 ),
-                default => '    <?php /* ' . $comment(sprintf('%s (%s): %s', $name, $field['type'], $data)) . ' */ ?>',
+                $multiple && $type === 'string' => sprintf("    <?php if (%1\$s): ?>\n        <p><?= \$escaper->escapeHtml(implode(', ', (array)%1\$s)) ?></p>\n    <?php endif ?>", $data),
+                in_array($type, ['string', 'number', 'datetime'], true) => sprintf("    <?php if ((string)%1\$s !== ''): ?>\n        <p><?= \$escaper->escapeHtml(%1\$s) ?></p>\n    <?php endif ?>", $data),
+                in_array($type, ['richtext', 'array'], true) => sprintf('    <?= /** @noEscape */ %s ?>', $render),
+                $type === 'asset' => sprintf("    <?php if (!empty(%1\$s['filename'])): ?>\n        " . $image . "\n    <?php endif ?>", $data),
+                $type === 'object' => sprintf(
+                    "    <?php if (!empty(%1\$s['tbody'])): ?>\n        <table>\n"
+                    . "            <thead><tr><?php foreach (%1\$s['thead'] ?? [] as \$cell): ?><th><?= \$escaper->escapeHtml(\$cell['value'] ?? '') ?></th><?php endforeach ?></tr></thead>\n"
+                    . "            <tbody><?php foreach (%1\$s['tbody'] as \$row): ?><tr><?php foreach (\$row['body'] ?? [] as \$cell): ?><td><?= \$escaper->escapeHtml(\$cell['value'] ?? '') ?></td><?php endforeach ?></tr><?php endforeach ?></tbody>\n"
+                    . "        </table>\n    <?php endif ?>",
+                    $data
+                ),
+                // Links need resolving, stories fetching and plugin values depend on the plugin: left to the developer.
+                default => '    <?php /* ' . $comment(sprintf('%s (%s%s): %s', $name, $type === 'plugin' ? 'plugin ' . ($field['plugin'] ?? '?') : $type, $multiple ? ', multiple' : '', $data)) . ' */ ?>',
             };
         }
 
@@ -224,14 +238,30 @@ class ComponentSchemaImporter
     {
         $type = $field['type'] ?? '';
         $source = ($field['source'] ?? '') ?: 'self';
+        $raw = $field;
+        unset($raw['id'], $raw['pos']);
+        $consumed = $this->consumedKeys($field, $type, $source);
 
         // Anything the shorthand can't express keeps the field verbatim, so import never drops a setting.
-        if (!$this->isExpressible($field, $type, $source)) {
-            $raw = $field;
-            unset($raw['id'], $raw['pos']);
-
+        if ($consumed === null) {
             return ['storyblok' => $raw];
         }
+
+        // Unset values (null, "", false, []) don't count: Storyblok writes many of them for every field.
+        $settings = array_diff_key(
+            array_filter($raw, static fn ($value) => $value !== null && $value !== '' && $value !== false && $value !== []),
+            array_flip(['type', 'display_name', 'description', 'required', 'default_value', 'translatable', ...$consumed])
+        );
+
+        // A Storyblok setting named like a shorthand key would be read as the shorthand.
+        if (array_intersect_key($settings, array_flip(ComponentSchemaGenerator::SHORTHAND_KEYS))) {
+            return ['storyblok' => $raw];
+        }
+
+        $multiple = in_array($type, ['options', 'multiasset'], true) ? ['multiple' => true] : [];
+        $whitelist = !empty($field['restrict_components']) && in_array('component_whitelist', $consumed, true)
+            ? ['allowed' => array_values($field['component_whitelist'] ?? [])]
+            : [];
 
         $common = array_filter([
             'required' => !empty($field['required']) ? true : null,
@@ -244,84 +274,90 @@ class ComponentSchemaImporter
 
         $mapped = match (true) {
             in_array($type, ['text', 'textarea', 'markdown'], true) => ['type' => 'string'] + ($type !== 'text' ? ['format' => $type] : []),
-            $type === 'number' => ['type' => 'integer'],
+            $type === 'number' => ['type' => 'number'],
             $type === 'boolean' => ['type' => 'boolean'],
             $type === 'datetime' => ['type' => 'datetime'],
-            $type === 'richtext' => ['type' => 'richtext'],
+            $type === 'richtext' => ['type' => 'richtext'] + $whitelist,
             $type === 'table' => ['type' => 'object'],
             $type === 'multilink' => ['type' => 'multilink'],
             // No file types means any file type; the shorthand's default is images only.
-            $type === 'asset' => ['type' => 'asset'] + (($field['filetypes'] ?? []) !== ['images'] ? ['filetypes' => array_values($field['filetypes'] ?? [])] : []),
-            $type === 'bloks' => ['type' => 'array'] + (!empty($field['restrict_components']) ? ['allowed' => array_values($field['component_whitelist'] ?? [])] : []),
-            $type === 'option' && $source === 'internal_stories' => ['type' => 'story'] + (!empty($field['folder_slug']) ? ['folder' => $field['folder_slug']] : []),
-            $type === 'option' && $source === 'self' => $this->toEnum($field['options'] ?? []),
+            in_array($type, ['asset', 'multiasset'], true) => ['type' => 'asset'] + $multiple + (($field['filetypes'] ?? []) !== ['images'] ? ['filetypes' => array_values($field['filetypes'] ?? [])] : []),
+            $type === 'bloks' => ['type' => 'array'] + $whitelist,
+            $source === 'internal_stories' => ['type' => 'story'] + $multiple + (!empty($field['folder_slug']) ? ['folder' => $field['folder_slug']] : []),
+            $source === 'self' && in_array($type, ['option', 'options'], true) => $this->toEnum($field['options'] ?? []) + $multiple,
+            // Datasources, languages and external JSON: the source and its settings are copied as they are.
+            in_array($type, ['option', 'options'], true) => ['type' => 'string'] + $multiple,
+            $type === 'custom' => ['type' => 'plugin', 'plugin' => $field['field_type']] + (!empty($field['options'])
+                // An object: option names "0", "1"... would otherwise encode as a list.
+                ? ['options' => (object)array_column($field['options'], 'value', 'name')]
+                : []),
             default => null,
         };
-
-        if ($mapped === null) {
-            $raw = $field;
-            unset($raw['id'], $raw['pos']);
-
-            return ['storyblok' => $raw];
-        }
 
         if (array_key_exists('default_value', $field) && $field['default_value'] !== '' && $field['default_value'] !== null) {
             $mapped['default'] = match ($mapped['type']) {
                 'boolean' => (bool)$field['default_value'],
                 // Integers only when lossless: "1.5" stays "1.5".
-                'integer' => (string)(int)$field['default_value'] === (string)$field['default_value'] ? (int)$field['default_value'] : $field['default_value'],
+                'number' => (string)(int)$field['default_value'] === (string)$field['default_value'] ? (int)$field['default_value'] : $field['default_value'],
                 default => $field['default_value'],
             };
         }
 
-        return $mapped + $common;
+        return $mapped + $common + $settings;
     }
 
     /**
-     * Whether every setting of a pulled field has a docblock equivalent. Unset values (null, "", false, [])
-     * don't count: Storyblok writes many of them for every field.
+     * The settings of a pulled field the shorthand expresses, or null when the field must stay verbatim.
      *
      * @param array $field
      * @param string $type
      * @param string $source
      *
-     * @return bool
+     * @return string[]|null
      */
-    private function isExpressible(array $field, string $type, string $source): bool
+    private function consumedKeys(array $field, string $type, string $source): ?array
     {
-        $common = ['type', 'pos', 'id', 'display_name', 'description', 'required', 'default_value', 'translatable'];
-        $byType = match (true) {
-            in_array($type, ['text', 'textarea', 'markdown', 'number', 'boolean', 'datetime', 'richtext', 'table'], true) => [],
-            $type === 'asset' => ['filetypes'],
-            $type === 'bloks' => ['restrict_components', 'component_whitelist', 'restrict_type'],
-            $type === 'multilink' => ['email_link_type', 'asset_link_type', 'show_anchor', 'allow_target_blank'],
-            $type === 'option' && $source === 'self' => ['options', 'source'],
+        // Folder and tag whitelists have no shorthand: they're copied as settings.
+        $whitelist = in_array($field['restrict_type'] ?? '', ['', 'components'], true)
+            ? ['restrict_components', 'component_whitelist', 'restrict_type']
+            : [];
+        $option = in_array($type, ['option', 'options'], true);
+
+        return match (true) {
+            in_array($type, ['text', 'textarea', 'markdown', 'number', 'boolean', 'datetime', 'table', 'multilink'], true) => [],
+            $type === 'richtext', $type === 'bloks' => $whitelist,
+            in_array($type, ['asset', 'multiasset'], true) => ['filetypes'],
+            $option && $source === 'self' => ['options', 'source'],
             // Story pickers store the story's UUID (use_uuid), which is what the shorthand generates.
-            $type === 'option' && $source === 'internal_stories' => ['source', 'folder_slug', 'use_uuid'],
+            $option && $source === 'internal_stories' => ($field['use_uuid'] ?? true) !== false ? ['source', 'folder_slug', 'use_uuid'] : null,
+            $option => [],
+            // Options as name => value need string values and unique names.
+            $type === 'custom' => is_string($field['field_type'] ?? null) && $field['field_type'] !== ''
+                && $this->isNameValueList($field['options'] ?? []) ? ['field_type', 'options'] : null,
             default => null,
         };
+    }
 
-        if ($byType === null) {
+    /**
+     * @param mixed $options
+     *
+     * @return bool
+     */
+    private function isNameValueList(mixed $options): bool
+    {
+        if (!is_array($options) || !array_is_list($options)) {
             return false;
         }
 
-        $set = array_filter($field, static fn ($value) => $value !== null && $value !== '' && $value !== false && $value !== []);
-
-        if (array_diff_key($set, array_flip([...$common, ...$byType]))) {
-            return false;
+        foreach ($options as $option) {
+            if (!is_array($option) || array_diff_key($option, ['name' => 0, 'value' => 0])
+                || !is_string($option['name'] ?? null) || !is_string($option['value'] ?? null)
+            ) {
+                return false;
+            }
         }
 
-        return match ($type) {
-            // The shorthand writes every link type on.
-            'multilink' => array_filter(
-                ['email_link_type', 'asset_link_type', 'show_anchor', 'allow_target_blank'],
-                static fn ($key) => ($field[$key] ?? false) !== true
-            ) === [],
-            // Folder and tag whitelists have no shorthand.
-            'bloks' => in_array($field['restrict_type'] ?? '', ['', 'components'], true),
-            'option' => $source !== 'internal_stories' || ($field['use_uuid'] ?? true) !== false,
-            default => true,
-        };
+        return count(array_unique(array_column($options, 'name'))) === count($options);
     }
 
     /**
@@ -348,7 +384,7 @@ class ComponentSchemaImporter
         }
 
         return [
-            'type' => $numeric ? 'integer' : 'string',
+            'type' => $numeric ? 'number' : 'string',
             'enum' => $numeric ? array_map('intval', $values) : $values,
         ] + ($labels ? ['labels' => (object)$labels] : []);
     }
