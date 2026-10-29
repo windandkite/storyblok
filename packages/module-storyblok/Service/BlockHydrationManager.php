@@ -16,6 +16,8 @@ class BlockHydrationManager
     ) {}
 
     /**
+     * Hydrators registered under "*" run for every component, before the component's own.
+     *
      * @param string $componentType
      *
      * @return BlockHydratorInterface[]
@@ -23,15 +25,17 @@ class BlockHydrationManager
     public function getForComponent(
         string $componentType,
     ): array {
-        if (!isset($this->hydrators[$componentType]) || !is_array($this->hydrators[$componentType])) {
-            return [];
-        }
-
         $matchedHydrators = [];
 
-        foreach ($this->hydrators[$componentType] as $hydrator) {
-            if ($hydrator instanceof BlockHydratorInterface) {
-                $matchedHydrators[] = $hydrator;
+        foreach (['*', $componentType] as $key) {
+            if (!isset($this->hydrators[$key]) || !is_array($this->hydrators[$key])) {
+                continue;
+            }
+
+            foreach ($this->hydrators[$key] as $hydrator) {
+                if ($hydrator instanceof BlockHydratorInterface) {
+                    $matchedHydrators[] = $hydrator;
+                }
             }
         }
 

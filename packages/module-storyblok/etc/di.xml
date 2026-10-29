@@ -32,6 +32,9 @@
     <type name="WindAndKite\Storyblok\Service\BlockHydrationManager">
         <arguments>
             <argument name="hydrators" xsi:type="array">
+                <item name="*" xsi:type="array">
+                    <item name="plugin_values" xsi:type="object">WindAndKite\Storyblok\Model\Hydrator\PluginValues</item>
+                </item>
                 <item name="magento_variables" xsi:type="array">
                     <item name="variables" xsi:type="object">WindAndKite\Storyblok\Model\Hydrator\MagentoVariables</item>
                 </item>
