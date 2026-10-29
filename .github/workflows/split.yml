@@ -1,14 +1,14 @@
 name: Publish packages
 
-# Copies each package in packages/ to its own read-only repo, which Packagist installs from. A tag is pushed to
-# every package repo, so all packages share one version.
+# Splits each package in packages/ out of this repo's history and pushes it to its own read-only repo, which
+# Packagist installs from. A split is deterministic (the same source commit always gives the same package commit)
+# and reuses this repo's commits as they are. A tag is pushed to every package repo, so all packages share one
+# version.
 on:
   push:
     branches: [master]
     tags: ['*']
   workflow_dispatch:
-
-concurrency: split
 
 jobs:
   split:
@@ -17,18 +17,45 @@ jobs:
       fail-fast: false
       matrix:
         package: [module-storyblok, module-storyblok-schema]
+    # One run per package and ref at a time. For master only the newest run matters, so it replaces older ones;
+    # each tag has its own group, so no release is dropped.
+    concurrency:
+      group: split-${{ matrix.package }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref_type == 'branch' }}
     steps:
       - uses: actions/checkout@v4
-
-      # SPLIT_TOKEN can push to the package repos: a workflow's own token only reaches this repo.
-      - uses: danharrin/monorepo-split-github-action@v2.3.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.SPLIT_TOKEN }}
         with:
-          package_directory: packages/${{ matrix.package }}
-          repository_organization: windandkite
-          repository_name: ${{ matrix.package }}
-          branch: master
-          tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          user_name: github-actions[bot]
-          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          fetch-depth: 0
+
+      # SPLIT_TOKEN can push to the package repos: a workflow's own token only reaches this repo. Values reach the
+      # script as environment variables, never pasted into it.
+      - name: Publish packages/${{ matrix.package }}
+        env:
+          TOKEN: ${{ secrets.SPLIT_TOKEN }}
+          PACKAGE: ${{ matrix.package }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [ "$REF_TYPE" = branch ] && [ "$REF_NAME" != master ]; then
+            echo "Only master and tags are published."
+            exit 0
+          fi
+
+          if [ ! -d "packages/$PACKAGE" ]; then
+            echo "packages/$PACKAGE doesn't exist at this commit: nothing to publish."
+            exit 0
+          fi
+
+          split=$(git subtree split -q --prefix="packages/$PACKAGE" HEAD)
+          remote="https://x-access-token:${TOKEN}@github.com/windandkite/${PACKAGE}.git"
+
+          if [ "$REF_TYPE" = tag ]; then
+            # Only the tag, so publishing an older release never changes the package's master.
+            git push "$remote" "$split:refs/tags/$REF_NAME"
+          else
+            # Forced: a package's history starts where it moved into packages/, so the first publish replaces
+            # master (older versions stay reachable through their tags). Runs for master never overlap.
+            git push --force "$remote" "$split:refs/heads/master"
+          fi
