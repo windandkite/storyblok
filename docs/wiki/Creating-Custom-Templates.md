@@ -154,6 +154,25 @@ $image = $block->getImageAsset(); // For asset fields
 
 ---
 
+## 📐 Declaring the Schema
+
+A blok template can also declare the Storyblok component it renders, in an `@storyblok` docblock:
+
+```php
+/**
+ * @storyblok {
+ *   "fields": {
+ *     "title": {"type": "string", "required": true},
+ *     "image": {"type": "asset"}
+ *   }
+ * }
+ */
+```
+
+With the [`windandkite/module-storyblok-schema`](https://github.com/windandkite/module-storyblok-schema) package, these generate the space's component schema, an IDE helper for each blok's getters, and checks that the space and templates agree. See [Generating the Component Schema](Generating-The-Component-Schema).
+
+---
+
 ## 🛡️ Fallback Templates
 The module includes fallback templates to provide a graceful degradation when a specific Storyblok component's template cannot be located. These are primarily for development and debugging, ensuring you always see descriptive diagnostic markers rather than a blank page.
 - `story/fallback.phtml`: Used when a specific template for a Storyblok `Story` (page) cannot be found.
@@ -166,6 +185,8 @@ These fallbacks will display an inline message indicating the missing template n
 ## ➡️ What's Next
 Now that you understand the templating patterns, continue exploring:
 
+- [**Generating the Component Schema**](Generating-The-Component-Schema)
+    - Keep the space's component schema in step with your templates.
 - [**Accessing Storyblok Data**](Accessing-Storyblok-Data)
     - Learn the precise methods for retrieving fields, nested components, and assets from the Storyblok data within your Magento templates.
 - [**Custom Block Hydrators**](Custom-Block-Hydrators)

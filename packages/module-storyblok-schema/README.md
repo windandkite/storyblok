@@ -36,4 +36,6 @@ bin/magento storyblok:schema:import --dry-run
 | `storyblok:schema:validate` | Compares the pulled space with the templates: missing templates, type and option mismatches, fields on one side only, changed field settings (labels, defaults, descriptions, required), field order, layout (tab/group) and folder differences. Exits non-zero on errors; `--strict` also fails on warnings. |
 | `storyblok:schema:import` | Adds `@storyblok` docblocks and IDE type hints to untagged templates, and creates starter templates for components that have none. Templates in `vendor/` are never edited; they can be copied into the theme (`--copy-vendor` / `--skip-vendor`, or answer the prompt). `--dry-run`, `--yes`, `--overwrite`. |
 
+The `@storyblok` format, the workflow and every option are documented in the wiki: [Generating the Component Schema](https://github.com/windandkite/storyblok/wiki/Generating-The-Component-Schema).
+
 Common options: `--store` / `-s` (store view ID or code, whose theme is used; defaults to the default store view), `--path` (Storyblok CLI base directory, default `.storyblok`) and `--space` (space ID). `generate` also has `--no-ide-helper` and `--force`. The commands work with Storyblok CLI v4.
