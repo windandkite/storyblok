@@ -211,7 +211,7 @@ class StoryRepository implements StoryRepositoryInterface
         ?StoryRequest $request = null,
     ): StoryInterface {
         return $this->fetchStory(
-            $this->cacheService->generateStoryCacheKey((string)$id, $request),
+            $this->cacheService->generateStoryCacheKey((string)$id, $request, 'id'),
             fn () => $this->storyBlockClientWrapper->getStoriesApi()->byId(new Id($id), $request),
             __('Story with ID "%1" not found.', $id),
         );
@@ -221,16 +221,11 @@ class StoryRepository implements StoryRepositoryInterface
         string $uuid,
         ?StoryRequest $request = null,
     ): StoryInterface {
-        try {
-            $storyUuid = new Uuid($uuid);
-            $response = $this->storyBlockClientWrapper->getStoriesApi()->byUuid($storyUuid, $request);
-
-            return $this->convertStoryResponse($response);
-        } catch (Exception $e) {
-            $this->logger->warning($e->getMessage());
-
-            throw new NoSuchEntityException(__('Story with UUID "%1" not found.', $uuid));
-        }
+        return $this->fetchStory(
+            $this->cacheService->generateStoryCacheKey($uuid, $request, 'uuid'),
+            fn () => $this->storyBlockClientWrapper->getStoriesApi()->byUuid(new Uuid($uuid), $request),
+            __('Story with UUID "%1" not found.', $uuid),
+        );
     }
 
     /**

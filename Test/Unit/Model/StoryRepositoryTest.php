@@ -8,9 +8,11 @@ use Magento\Framework\Api\SearchResultsInterfaceFactory;
 use Magento\Framework\Exception\NoSuchEntityException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Storyblok\Api\Response\StoryResponse;
 use Storyblok\Api\StoriesApi;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use WindAndKite\Storyblok\Model\Story;
 use WindAndKite\Storyblok\Model\StoryblokClientWrapper;
 use WindAndKite\Storyblok\Model\StoryFactory;
 use WindAndKite\Storyblok\Model\StoryRepository;
@@ -19,6 +21,36 @@ use WindAndKite\Storyblok\Service\StoryblokCacheService;
 
 class StoryRepositoryTest extends TestCase
 {
+    private const UUID = '11111111-2222-3333-4444-555555555555';
+
+    public function testCachedUuidLookupSkipsTheApi(): void
+    {
+        $cache = $this->createMock(StoryblokCacheService::class);
+        $cache->expects($this->once())
+            ->method('generateStoryCacheKey')
+            // Typed so a UUID can never share a cache entry with a slug or numeric ID.
+            ->with(self::UUID, null, 'uuid')
+            ->willReturn('key');
+        $cache->method('loadStoryResponse')->with('key')->willReturn(
+            new StoryResponse(['story' => ['id' => 5, 'uuid' => self::UUID, 'slug' => 'usp'], 'cv' => 123, 'links' => []])
+        );
+        $cache->expects($this->never())->method('saveStoryResponse');
+
+        $client = $this->createMock(StoryblokClientWrapper::class);
+        $client->expects($this->never())->method('getStoriesApi');
+
+        // A real Story (only setData/getData are used), built without its factory dependencies.
+        $story = (new \ReflectionClass(Story::class))->newInstanceWithoutConstructor();
+        $storyFactory = $this->createStub(StoryFactory::class);
+        $storyFactory->method('create')->willReturn($story);
+
+        $result = $this->repository($cache, $client, $this->createStub(LoggerInterface::class), $storyFactory)
+            ->getByUuid(self::UUID);
+
+        $this->assertSame(5, $result->getData('id'));
+        $this->assertSame(123, $result->getData('cache_version') ?? $result->getData(Story::KEY_CACHE_VERSION));
+    }
+
     public function testA404IsCachedAndNotLogged(): void
     {
         $cache = $this->cache(false);
@@ -95,10 +127,11 @@ class StoryRepositoryTest extends TestCase
         StoryblokCacheService $cache,
         StoryblokClientWrapper $client,
         LoggerInterface $logger,
+        ?StoryFactory $storyFactory = null,
     ): StoryRepository {
         return new StoryRepository(
             $client,
-            $this->createStub(StoryFactory::class),
+            $storyFactory ?? $this->createStub(StoryFactory::class),
             $logger,
             $this->createStub(SearchResultsInterfaceFactory::class),
             $this->createStub(SearchCriteriaConverter::class),
