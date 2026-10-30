@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Only packages/, docs/ and repo files at the root
         run: |
-          stray=$(git ls-files | grep -vE '^(packages/|docs/|\.github/|\.gitignore$|README\.md$)' || true)
+          stray=$(git ls-files | grep -vE '^(packages/|docs/|\.github/|\.gitignore$|LICENSE$|README\.md$)' || true)
           if [ -n "$stray" ]; then
             echo "Files outside packages/ (move them into their package):"
             echo "$stray"
