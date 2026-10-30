@@ -2,7 +2,7 @@
     "name": "windandkite/module-storyblok-components-common",
     "description": "Shared code for WindAndKite Storyblok component libraries: installed by a library such as windandkite/module-storyblok-hyva-components, not on its own",
     "type": "magento2-module",
-    "license": "GPL-3.0",
+    "license": "MPL-2.0",
     "require": {
         "php": "^8.1",
         "magento/framework": "*",

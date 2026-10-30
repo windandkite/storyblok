@@ -18,3 +18,7 @@ Component names are shared across libraries, so the hydrators apply to whichever
 ```bash
 vendor/bin/phpunit -c dev/tests/unit/phpunit.xml.dist vendor/windandkite/module-storyblok-components-common/Test/Unit
 ```
+
+## License
+
+[Mozilla Public License 2.0](LICENSE). Changes to these files must be shared under the same license when distributed; modules that only build on them can use any license. Provided without warranty.
