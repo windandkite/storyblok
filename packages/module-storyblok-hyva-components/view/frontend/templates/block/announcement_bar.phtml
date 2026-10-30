@@ -50,7 +50,7 @@ $heroicons = $viewModels->require(HeroiconsOutline::class);
      aria-label="<?= $escaper->escapeHtmlAttr(__('Announcement')) ?>"
      x-data="initStoryblokAnnouncement"
      x-show="visible"
-     data-dismiss-key="<?= $escaper->escapeHtmlAttr('sb-announcement-' . md5($html . $endsAt)) ?>"
+     <?php if ($dismissible): ?>data-dismiss-key="<?= $escaper->escapeHtmlAttr('sb-announcement-' . md5($html . $endsAt)) ?>"<?php endif ?>
      <?php if ($endsAtTimestamp): ?>data-ends-at="<?= $escaper->escapeHtmlAttr(gmdate('c', $endsAtTimestamp)) ?>"<?php endif ?>>
     <div><?= /** @noEscape */ $html ?></div>
     <?php if ($endsAtTimestamp): ?>

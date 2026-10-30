@@ -45,7 +45,7 @@ if ($triggerText === '' && $anchorId === '') {
 }
 
 $title = trim((string)$block->getData('modal_title'));
-$id = $anchorId ?: 'sb-modal-' . preg_replace('/[^\w-]/', '', (string)$block->getBlock()->getUid());
+$id = $anchorId ?: 'sb-modal-' . preg_replace('/[^\w-]/', '', (string)$block->getNameInLayout());
 $label = $triggerText !== '' ? $triggerText : (string)__('Dialog');
 
 $triggerStyle = [

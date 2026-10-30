@@ -6,15 +6,18 @@ namespace WindAndKite\Storyblok\Test\Unit\Block;
 
 use PHPUnit\Framework\TestCase;
 use WindAndKite\Storyblok\Block\Story;
-use WindAndKite\Storyblok\Service\StoryblokCacheService;
 
 class StoryTest extends TestCase
 {
-    public function testAMissingStoryIsTaggedForThePublishWebhook(): void
+    public function testAMissingStoryIsTaggedWithItsSlugForThePublishWebhook(): void
     {
         $block = $this->getMockBuilder(Story::class)->disableOriginalConstructor()->onlyMethods(['getStory'])->getMock();
-        $block->expects($this->once())->method('getStory')->willReturn(null);
+        $block->expects($this->exactly(2))->method('getStory')->willReturn(null);
 
-        $this->assertSame([StoryblokCacheService::NOT_FOUND_TAG], $block->getIdentities());
+        $block->setData('slug', '/global/announcement-bar');
+        $this->assertSame(['storyblok_story_slug_global/announcement-bar'], $block->getIdentities(), 'the full slug the webhook cleans');
+
+        $block->unsetData('slug');
+        $this->assertSame([], $block->getIdentities());
     }
 }

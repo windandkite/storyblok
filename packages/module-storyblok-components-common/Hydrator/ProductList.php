@@ -138,6 +138,9 @@ class ProductList implements BlockHydratorInterface
             return null;
         }
 
+        // Tagged before the active check, so enabling the category refreshes the page.
+        $blockInstance->addIdentities($category->getIdentities());
+
         if (!$category->getIsActive()) {
             return null;
         }

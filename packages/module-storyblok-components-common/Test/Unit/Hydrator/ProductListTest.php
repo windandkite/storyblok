@@ -59,12 +59,25 @@ class ProductListTest extends HydratorTestCase
     {
         $category = $this->createStub(Category::class);
         $category->method('getIsActive')->willReturn(true);
+        $category->method('getIdentities')->willReturn(['cat_c_4']);
 
         $block = $this->hydrate(['source' => 'category', 'category_id' => '4'], $category);
 
         $this->assertSame([$category], $this->call('addCategoryFilter'));
         $this->assertSame(['position', 'ASC'], $this->call('addAttributeToSort'));
-        $this->assertSame(['cat_c_p_4', 'cat_p_1', 'cat_p_2'], $block->getIdentities(), 'purged when the category\'s products change');
+        $this->assertSame(['cat_c_4', 'cat_c_p_4', 'cat_p_1', 'cat_p_2'], $block->getIdentities(), 'purged when the category or its products change');
+    }
+
+    public function testAnInactiveCategoryIsTaggedSoEnablingItPurgesThePage(): void
+    {
+        $category = $this->createStub(Category::class);
+        $category->method('getIsActive')->willReturn(false);
+        $category->method('getIdentities')->willReturn(['cat_c_4']);
+
+        $block = $this->hydrate(['source' => 'category', 'category_id' => '4'], $category);
+
+        $this->assertSame([], $block->getData('product_items'));
+        $this->assertSame(['cat_c_4'], $block->getIdentities());
     }
 
     public function testNewestSortsByCreationDate(): void
@@ -85,6 +98,7 @@ class ProductListTest extends HydratorTestCase
     {
         $inactive = $this->createStub(Category::class);
         $inactive->method('getIsActive')->willReturn(false);
+        $inactive->method('getIdentities')->willReturn([]);
 
         foreach ([
             'recently viewed is rendered client-side' => [['source' => 'recently_viewed'], null],

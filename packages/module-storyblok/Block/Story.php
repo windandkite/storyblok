@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Block;
 
 use Magento\Framework\DataObject\IdentityInterface;
-use WindAndKite\Storyblok\Service\StoryblokCacheService;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 
 class Story extends AbstractStoryblok implements IdentityInterface
@@ -53,10 +52,12 @@ class Story extends AbstractStoryblok implements IdentityInterface
 
     public function getIdentities(): array
     {
-        // Cleaned when any story is published, so a story placed in the layout (e.g. an announcement bar) appears
-        // once it's first published.
+        // The publish webhook cleans the slug's tag, so a story placed in the layout (e.g. an announcement bar)
+        // appears once it's first published, without other publishes purging every page.
         if (!$this->getStory()) {
-            return [StoryblokCacheService::NOT_FOUND_TAG];
+            $slug = trim((string)$this->getData('slug'), '/');
+
+            return $slug !== '' ? ['storyblok_story_slug_' . $slug] : [];
         }
 
         return [

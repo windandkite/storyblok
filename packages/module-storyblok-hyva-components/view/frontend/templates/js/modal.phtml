@@ -15,16 +15,23 @@ use Hyva\Theme\ViewModel\HyvaCsp;
             init() {
                 const dialog = this.$refs.dialog;
 
-                window.addEventListener('storyblok-open', (event) => {
+                this.onOpenEvent = (event) => {
                     if (event.detail && event.detail.target === dialog.id && !dialog.open) {
                         this.open();
                     }
-                });
-                window.addEventListener('storyblok-close', (event) => {
+                };
+                this.onCloseEvent = (event) => {
                     if (event.detail && event.detail.target === dialog.id) {
                         this.close();
                     }
-                });
+                };
+                window.addEventListener('storyblok-open', this.onOpenEvent);
+                window.addEventListener('storyblok-close', this.onCloseEvent);
+            },
+            // The Visual Editor replaces bloks on every edit: listeners on window would outlive them.
+            destroy() {
+                window.removeEventListener('storyblok-open', this.onOpenEvent);
+                window.removeEventListener('storyblok-close', this.onCloseEvent);
             },
             open() {
                 this.$refs.dialog.showModal();

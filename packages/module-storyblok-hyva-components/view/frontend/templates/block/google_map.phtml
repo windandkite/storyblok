@@ -36,12 +36,16 @@ use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
 $partial = $viewModels->require(Partial::class);
 $assetViewModel = $block->getAssetViewModel();
 
-$latitude = (float)$block->getData('latitude');
-$longitude = (float)$block->getData('longitude');
+$latitude = $block->getData('latitude');
+$longitude = $block->getData('longitude');
 
-if (!$latitude && !$longitude) {
+// 0 is a valid coordinate; missing or non-numeric ones aren't.
+if (!is_numeric($latitude) || !is_numeric($longitude)) {
     return;
 }
+
+$latitude = (float)$latitude;
+$longitude = (float)$longitude;
 
 $apiKey = trim((string)$block->getData('api_key'));
 

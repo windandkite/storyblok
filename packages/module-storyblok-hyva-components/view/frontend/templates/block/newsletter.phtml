@@ -37,7 +37,7 @@ if (!$subscribe) {
 $recaptcha = $subscribe->getData('viewModelRecaptcha');
 $partial = $viewModels->require(Partial::class);
 
-$id = 'sb-newsletter-' . preg_replace('/[^\w-]/', '', (string)$block->getBlock()->getUid());
+$id = 'sb-newsletter-' . preg_replace('/[^\w-]/', '', (string)$block->getNameInLayout());
 $title = trim((string)$block->getData('title'));
 $text = trim((string)$block->getData('text'));
 ?>

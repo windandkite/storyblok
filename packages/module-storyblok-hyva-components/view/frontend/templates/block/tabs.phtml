@@ -42,7 +42,7 @@ $layout = [
     'vertical' => ['root' => 'flex flex-col gap-4 md:flex-row md:gap-8', 'list' => 'flex gap-2 overflow-x-auto overflow-y-hidden border-b md:flex-col md:overflow-visible md:border-b-0 md:border-e'],
 ][$vertical ? 'vertical' : 'horizontal'];
 
-$idPrefix = 'sb-tabs-' . preg_replace('/[^\w-]/', '', (string)$block->getBlock()->getUid()) . '-';
+$idPrefix = 'sb-tabs-' . preg_replace('/[^\w-]/', '', (string)$block->getNameInLayout()) . '-';
 ?>
 <div class="<?= $escaper->escapeHtmlAttr($layout['root']) ?>" x-data="initStoryblokTabs">
     <div role="tablist"

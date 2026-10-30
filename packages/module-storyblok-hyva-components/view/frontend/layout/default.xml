@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <!-- Provides the Hyvä product_list_item renderer used by the product bloks, wherever a story renders -->
+    <update handle="catalog_list_item"/>
     <body>
         <!--
             Site-wide announcement bar from the Storyblok story at the slug below (content type: announcement_bar).

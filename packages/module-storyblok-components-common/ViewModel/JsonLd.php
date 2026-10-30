@@ -40,6 +40,8 @@ class JsonLd implements ArgumentInterface
      */
     public function toPlainText(string $html): string
     {
+        // strip_tags() keeps an element's text, so scripts (e.g. other bloks' structured data) and styles go first.
+        $html = (string)preg_replace('#<(script|style|template)\b[^>]*>.*?</\1\s*>#is', ' ', $html);
         $text = html_entity_decode(strip_tags(preg_replace('/<(br|\/p|\/li|\/h\d)[^>]*>/i', "$0\n", $html)), ENT_QUOTES | ENT_HTML5);
 
         return trim(preg_replace(['/[ \t]+/', '/\s*\n\s*/'], [' ', "\n"], $text));

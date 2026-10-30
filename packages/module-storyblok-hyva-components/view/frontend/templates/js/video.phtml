@@ -15,22 +15,28 @@ use Hyva\Theme\ViewModel\HyvaCsp;
             const id = Math.random().toString(36).slice(2);
             let root = null;
             let iframe = null;
+            let onOtherPlay = null;
 
             return {
                 init() {
                     root = this.$el;
 
-                    window.addEventListener('storyblok-video-play', (event) => {
+                    onOtherPlay = (event) => {
                         if (event.detail.id !== id) {
                             this.pause();
                         }
-                    });
+                    };
+                    window.addEventListener('storyblok-video-play', onOtherPlay);
 
                     if (root.dataset.autoplay === 'true') {
                         window.wkStoryblok.whenVisible(root, () => {
                             this.$refs.video ? this.$refs.video.play().catch(() => {}) : this.load();
                         });
                     }
+                },
+                // The Visual Editor replaces bloks on every edit: the listener on window would outlive this one.
+                destroy() {
+                    window.removeEventListener('storyblok-video-play', onOtherPlay);
                 },
                 announce() {
                     window.dispatchEvent(new CustomEvent('storyblok-video-play', { detail: { id } }));

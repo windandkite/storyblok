@@ -46,7 +46,8 @@ $type = $block->getData('source_type');
 $autoplay = (bool)$block->getData('autoplay');
 // Browsers only allow muted autoplay.
 $muted = $autoplay || $block->getData('muted');
-$controls = $block->getData('controls') ?? true;
+// Without autoplay, a native video's controls are the only way to start it.
+$controls = ($block->getData('controls') ?? true) || (!$autoplay && $type === Video::TYPE_NATIVE);
 $title = trim((string)$block->getData('title')) ?: (string)__('Video');
 $poster = $block->getData('poster_image');
 $hasPoster = $assetViewModel->isValidAsset($poster);

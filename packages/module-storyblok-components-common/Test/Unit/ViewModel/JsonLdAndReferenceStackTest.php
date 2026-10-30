@@ -27,6 +27,14 @@ class JsonLdAndReferenceStackTest extends TestCase
         );
     }
 
+    public function testPlainTextLeavesOutScriptsAndStyles(): void
+    {
+        $this->assertSame(
+            "Answer\nMore",
+            (new JsonLd())->toPlainText('<p>Answer</p><script type="application/ld+json">{"@type":"Product"}</script><style>p{}</style><p>More</p>')
+        );
+    }
+
     public function testReferenceStackBlocksCyclesAndDepth(): void
     {
         $stack = new ReferenceStack();
