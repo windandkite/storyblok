@@ -7,7 +7,9 @@ use Hyva\Theme\ViewModel\HyvaCsp;
 /** @var HyvaCsp $hyvaCsp */
 ?>
 <script>
-    window.addEventListener('alpine:init', () => {
+    // Registered straight away once Alpine is running: a blok added in the Visual Editor brings this script after
+    // alpine:init has fired.
+    (register => window.Alpine ? register() : window.addEventListener('alpine:init', register, { once: true }))(() => {
         Alpine.data('initStoryblokVideo', () => {
             // Kept out of Alpine's reactive state: DOM nodes and ids don't need to be proxied.
             const id = Math.random().toString(36).slice(2);
@@ -36,7 +38,8 @@ use Hyva\Theme\ViewModel\HyvaCsp;
                 onPlay() {
                     this.announce();
                 },
-                load() {
+                // Called with the click event from the facade, or with nothing when autoplay loads the player.
+                load(event) {
                     if (iframe) {
                         return;
                     }
@@ -52,7 +55,11 @@ use Hyva\Theme\ViewModel\HyvaCsp;
                         this.$refs.facade.remove();
                     }
 
-                    iframe.focus();
+                    // Only when the visitor asked for it: autoplay mustn't move focus or scroll the page.
+                    if (event) {
+                        iframe.focus();
+                    }
+
                     this.announce();
                 },
                 // ponytail: players started from inside an iframe's own controls don't announce themselves;
@@ -76,6 +83,6 @@ use Hyva\Theme\ViewModel\HyvaCsp;
                 },
             };
         });
-    }, { once: true });
+    });
 </script>
 <?php $hyvaCsp->registerInlineScript() ?>

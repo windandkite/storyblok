@@ -35,7 +35,7 @@ class ProductTest extends HydratorTestCase
             $block = $this->hydrator($product)->populate($this->blockFor(['sku' => 'atlas-pouf']));
 
             $this->assertNull($block->getData('product'), $case);
-            $this->assertSame([], $block->getIdentities(), $case);
+            $this->assertSame(['cat_p_7'], $block->getIdentities(), $case . ': tagged, so enabling or restocking it purges the page');
         }
     }
 

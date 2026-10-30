@@ -12,6 +12,8 @@ composer require windandkite/module-storyblok-hyva-components
 bin/magento module:enable WindAndKite_StoryblokComponentsCommon WindAndKite_StoryblokHyvaComponents
 ```
 
+The Hyvä library needs a Hyvä theme built with Tailwind CSS 4, and it replaces core's templates for the whole frontend, so every store view that renders Storyblok content must use a Hyvä theme.
+
 The [Hyvä library's README](https://github.com/windandkite/module-storyblok-hyva-components#readme) covers setup, every blok, overriding templates and the Content Security Policy.
 
 ---

@@ -16,7 +16,6 @@ class Video implements ArgumentInterface
     public const TYPE_VIMEO = 'vimeo';
 
     private const YOUTUBE_PATTERN = '~(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/|v/)|youtu\.be/)([\w-]{11})~i';
-    private const VIMEO_PATTERN = '~vimeo\.com/(?:.*/)?(?:video/)?(\d+)(?:/([\da-f]+))?~i';
 
     /**
      * @param string|null $url
@@ -35,11 +34,32 @@ class Video implements ArgumentInterface
      */
     public function getVimeoId(?string $url): ?array
     {
-        if (!$url || !preg_match(self::VIMEO_PATTERN, $url, $matches)) {
+        $parts = $url ? parse_url(preg_match('~^https?://~i', $url) ? $url : 'https://' . ltrim($url, '/')) : false;
+
+        if (!$parts || !preg_match('~(^|\.)vimeo\.com$~i', $parts['host'] ?? '')) {
             return null;
         }
 
-        return ['id' => $matches[1], 'hash' => $matches[2] ?? null];
+        // The ID is the all-digit path segment after "video(s)" (player.vimeo.com/video/123, /showcase/9/video/123),
+        // or else the first one (vimeo.com/123, /channels/x/123). An unlisted video's hash follows the ID in the
+        // path, or is in "h" on player URLs.
+        $segments = array_values(array_filter(explode('/', $parts['path'] ?? ''), 'strlen'));
+        $id = null;
+
+        foreach ($segments as $index => $segment) {
+            if (ctype_digit($segment) && ($id === null || in_array($segments[$index - 1] ?? '', ['video', 'videos'], true))) {
+                $id = $index;
+            }
+        }
+
+        if ($id === null) {
+            return null;
+        }
+
+        parse_str($parts['query'] ?? '', $query);
+        $hash = $segments[$id + 1] ?? $query['h'] ?? null;
+
+        return ['id' => $segments[$id], 'hash' => is_string($hash) && preg_match('/^[\da-f]+$/i', $hash) ? $hash : null];
     }
 
     /**

@@ -20,6 +20,11 @@ class ReferenceStack implements ArgumentInterface
     private array $stack = [];
 
     /**
+     * The story the first reference was rendered in, so a reference back to it is stopped too.
+     */
+    private ?string $root = null;
+
+    /**
      * @param string $uuid Story being referenced.
      * @param string|null $parentUuid Story that contains the reference blok (the page on first entry).
      *
@@ -27,7 +32,15 @@ class ReferenceStack implements ArgumentInterface
      */
     public function enter(string $uuid, ?string $parentUuid = null): bool
     {
-        if ($uuid === $parentUuid || in_array($uuid, $this->stack, true) || count($this->stack) >= self::MAX_DEPTH) {
+        if ($this->stack === []) {
+            $this->root = $parentUuid;
+        }
+
+        if ($uuid === $parentUuid
+            || $uuid === $this->root
+            || in_array($uuid, $this->stack, true)
+            || count($this->stack) >= self::MAX_DEPTH
+        ) {
             return false;
         }
 
@@ -47,6 +60,10 @@ class ReferenceStack implements ArgumentInterface
 
         if ($index !== false) {
             array_splice($this->stack, $index, 1);
+        }
+
+        if ($this->stack === []) {
+            $this->root = null;
         }
     }
 }

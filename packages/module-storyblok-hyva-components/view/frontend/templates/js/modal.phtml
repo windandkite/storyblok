@@ -7,7 +7,9 @@ use Hyva\Theme\ViewModel\HyvaCsp;
 /** @var HyvaCsp $hyvaCsp */
 ?>
 <script>
-    window.addEventListener('alpine:init', () => {
+    // Registered straight away once Alpine is running: a blok added in the Visual Editor brings this script after
+    // alpine:init has fired.
+    (register => window.Alpine ? register() : window.addEventListener('alpine:init', register, { once: true }))(() => {
         Alpine.data('initStoryblokModal', () => ({
             // Opened / closed from "button" bloks: storyblok-open / storyblok-close with detail.target = dialog id.
             init() {
@@ -44,6 +46,6 @@ use Hyva\Theme\ViewModel\HyvaCsp;
                 }
             },
         }));
-    }, { once: true });
+    });
 </script>
 <?php $hyvaCsp->registerInlineScript() ?>

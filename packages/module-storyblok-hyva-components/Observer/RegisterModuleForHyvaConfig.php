@@ -31,8 +31,30 @@ class RegisterModuleForHyvaConfig implements ObserverInterface
         $extensions = $config->hasData('extensions') ? $config->getData('extensions') : [];
         $path = $this->componentRegistrar->getPath(ComponentRegistrar::MODULE, 'WindAndKite_StoryblokHyvaComponents');
 
-        $extensions[] = ['src' => substr($path, strlen(BP) + 1)];
+        $extensions[] = ['src' => self::relativePath(BP, $path)];
 
         $config->setData('extensions', $extensions);
+    }
+
+    /**
+     * The path from the Magento root, with ".." when the module is outside it (a Composer path repository's
+     * symlinked checkout resolves to its real location).
+     *
+     * @param string $root
+     * @param string $path
+     *
+     * @return string
+     */
+    public static function relativePath(string $root, string $path): string
+    {
+        $from = array_values(array_filter(explode('/', (realpath($root) ?: $root)), 'strlen'));
+        $to = array_values(array_filter(explode('/', (realpath($path) ?: $path)), 'strlen'));
+
+        while ($from && $to && $from[0] === $to[0]) {
+            array_shift($from);
+            array_shift($to);
+        }
+
+        return implode('/', [...array_fill(0, count($from), '..'), ...$to]);
     }
 }

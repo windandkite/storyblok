@@ -41,11 +41,12 @@ class Product implements BlockHydratorInterface
 
         $product = $sku !== '' ? $this->loadProduct($sku) : null;
 
+        // Tagged even when it can't be shown, so enabling or restocking it refreshes the page.
         if ($product) {
             $blockInstance->addIdentities($product->getIdentities());
         }
 
-        return $blockInstance->setData('product', $product);
+        return $blockInstance->setData('product', $product && $this->isAvailable($product) ? $product : null);
     }
 
     /**
@@ -59,18 +60,29 @@ class Product implements BlockHydratorInterface
     private function loadProduct(string $sku): ?CatalogProduct
     {
         try {
-            $store = $this->storeManager->getStore();
             /** @var CatalogProduct $product */
-            $product = $this->productRepository->get($sku, false, $store->getId());
+            $product = $this->productRepository->get($sku, false, $this->storeManager->getStore()->getId());
         } catch (NoSuchEntityException) {
             return null;
         }
 
-        $isAvailable = (int)$product->getStatus() === Status::STATUS_ENABLED
+        return $product;
+    }
+
+    /**
+     * Disabled, not visible, on another website, or out of stock (unless out of stock products are shown).
+     *
+     * @param CatalogProduct $product
+     *
+     * @return bool
+     */
+    private function isAvailable(CatalogProduct $product): bool
+    {
+        $store = $this->storeManager->getStore();
+
+        return (int)$product->getStatus() === Status::STATUS_ENABLED
             && $product->isVisibleInCatalog()
             && in_array((int)$store->getWebsiteId(), array_map('intval', $product->getWebsiteIds()), true)
             && ($product->isSalable() || $this->stockConfiguration->isShowOutOfStock($store->getId()));
-
-        return $isAvailable ? $product : null;
     }
 }

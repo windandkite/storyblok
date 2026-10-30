@@ -26,6 +26,11 @@ class ViewModelsTest extends TestCase
 
         $this->assertSame(['id' => '76979871', 'hash' => null], $video->getVimeoId('https://vimeo.com/76979871'));
         $this->assertSame(['id' => '123', 'hash' => 'abc123'], $video->getVimeoId('https://vimeo.com/123/abc123'));
+        $this->assertSame(['id' => '123', 'hash' => '987abc'], $video->getVimeoId('https://vimeo.com/123/987abc'), 'a hash starting with digits');
+        $this->assertSame(['id' => '123', 'hash' => 'abc'], $video->getVimeoId('https://player.vimeo.com/video/123?h=abc&autoplay=1'));
+        $this->assertSame(['id' => '456', 'hash' => null], $video->getVimeoId('https://vimeo.com/showcase/123/video/456'));
+        $this->assertSame(['id' => '789', 'hash' => null], $video->getVimeoId('vimeo.com/channels/staffpicks/789'));
+        $this->assertNull($video->getVimeoId('https://example.com/123'));
         $this->assertNull($video->getYoutubeId('https://example.com'));
 
         $this->assertStringStartsWith(

@@ -9,6 +9,7 @@ use Magento\Catalog\Model\Category;
 use Magento\Catalog\Model\Config as CatalogConfig;
 use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Visibility;
+use Magento\Catalog\Model\ResourceModel\Product as ProductResource;
 use Magento\Catalog\Model\ResourceModel\Product\Collection;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 use Magento\CatalogInventory\Helper\Stock as StockHelper;
@@ -24,6 +25,8 @@ class ProductListTest extends HydratorTestCase
      */
     private array $calls = [];
 
+    private array $skuIds = [];
+
     public function testSkusKeepTheTypedOrder(): void
     {
         $block = $this->hydrate(['source' => 'skus', 'skus' => " bench-dining\natlas-pouf, bed-walnut-cane\n\natlas-pouf ", 'limit' => '2']);
@@ -33,6 +36,15 @@ class ProductListTest extends HydratorTestCase
         $this->assertSame([2], $this->call('setPageSize'));
         $this->assertCount(2, $block->getData('product_items'));
         $this->assertSame(['cat_p_1', 'cat_p_2'], $block->getIdentities());
+    }
+
+    public function testChosenSkusAreTaggedEvenWhenNotShown(): void
+    {
+        // atlas-pouf exists but is out of stock, so the collection leaves it out.
+        $this->skuIds = ['bench-dining' => 1, 'atlas-pouf' => 9];
+        $block = $this->hydrate(['source' => 'skus', 'skus' => 'bench-dining, atlas-pouf']);
+
+        $this->assertSame(['cat_p_1', 'cat_p_9', 'cat_p_2'], $block->getIdentities());
     }
 
     public function testExplicitSortReplacesSkuOrder(): void
@@ -146,7 +158,10 @@ class ProductListTest extends HydratorTestCase
         $catalogConfig = $this->createStub(CatalogConfig::class);
         $catalogConfig->method('getProductAttributes')->willReturn(['name']);
 
-        $hydrator = new ProductList($collectionFactory, $categories, $this->storeManager(), $visibility, $catalogConfig, $this->createStub(StockHelper::class));
+        $productResource = $this->createStub(ProductResource::class);
+        $productResource->method('getProductsIdsBySkus')->willReturn($this->skuIds);
+
+        $hydrator = new ProductList($collectionFactory, $categories, $this->storeManager(), $visibility, $catalogConfig, $this->createStub(StockHelper::class), $productResource);
 
         return $hydrator->populate($this->blockFor($fields));
     }

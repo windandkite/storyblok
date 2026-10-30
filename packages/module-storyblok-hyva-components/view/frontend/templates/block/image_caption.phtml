@@ -31,8 +31,9 @@ if (!$block->getAssetViewModel()->isValidAsset($image)) {
 }
 
 // ratio = height / width; the image service crops around the asset's focal point.
+// 0: no crop. Not null, which ?? would replace with the default.
 $ratio = [
-    'auto' => null,
+    'auto' => 0,
     'square' => 1,
     'landscape' => 3 / 4,
     'banner' => 9 / 21,

@@ -8,6 +8,7 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Storyblok\Api\Request\StoryRequest;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
 use WindAndKite\Storyblok\Model\Story;
+use WindAndKite\Storyblok\Service\StoryblokCacheService;
 use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\StoryblokComponentsCommon\Hydrator\Reference;
 
@@ -34,12 +35,28 @@ class ReferenceTest extends HydratorTestCase
         $repository = $this->createStub(StoryRepositoryInterface::class);
         $repository->method('getByUuid')->willThrowException(new NoSuchEntityException());
 
-        foreach (['', 'not-a-uuid', 'global/usp', self::UUID] as $value) {
+        foreach (['', 'not-a-uuid', 'global/usp'] as $value) {
             $block = $this->hydrator($repository)->populate($this->blockFor(['story' => $value]));
 
             $this->assertNull($block->getData('referenced_story'), var_export($value, true));
             $this->assertSame([], $block->getIdentities());
         }
+
+        $block = $this->hydrator($repository)->populate($this->blockFor(['story' => self::UUID]));
+        $this->assertNull($block->getData('referenced_story'));
+        $this->assertSame([StoryblokCacheService::NOT_FOUND_TAG], $block->getIdentities(), 'publishing the story purges the page');
+    }
+
+    public function testTheParentStorysLanguageIsUsed(): void
+    {
+        $parent = (new \ReflectionClass(Story::class))->newInstanceWithoutConstructor();
+        $parent->setData(['id' => 1, 'lang' => 'de']);
+        $requests = $this->createMock(StoryRequestService::class);
+        $requests->expects($this->once())->method('getStoryRequest')->with(['language' => 'de'])->willReturn(new StoryRequest());
+        $repository = $this->createStub(StoryRepositoryInterface::class);
+        $repository->method('getByUuid')->willThrowException(new NoSuchEntityException());
+
+        (new Reference($repository, $requests))->populate($this->blockFor(['story' => self::UUID])->setData('story', $parent));
     }
 
     public function testInvalidUuidsSkipTheApi(): void

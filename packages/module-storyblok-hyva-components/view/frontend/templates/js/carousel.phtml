@@ -7,7 +7,9 @@ use Hyva\Theme\ViewModel\HyvaCsp;
 /** @var HyvaCsp $hyvaCsp */
 ?>
 <script>
-    window.addEventListener('alpine:init', () => {
+    // Registered straight away once Alpine is running: a blok added in the Visual Editor brings this script after
+    // alpine:init has fired.
+    (register => window.Alpine ? register() : window.addEventListener('alpine:init', register, { once: true }))(() => {
         Alpine.data('initStoryblokCarousel', () => ({
             active: 0,
             atEnd: false,
@@ -27,10 +29,19 @@ use Hyva\Theme\ViewModel\HyvaCsp;
                 const track = this.$refs.track;
                 const slide = track.children[Math.max(0, Math.min(index, track.children.length - 1))];
 
-                // The track is position: relative, so offsetLeft is relative to it. Smoothness comes from CSS.
-                if (slide) {
-                    track.scrollTo({ left: slide.offsetLeft });
+                if (!slide) {
+                    return;
                 }
+
+                // Brings the slide's start edge to the track's: the left edge, or the right one in RTL, where
+                // scrollLeft runs from 0 to negative. Smoothness comes from CSS.
+                const slideRect = slide.getBoundingClientRect();
+                const trackRect = track.getBoundingClientRect();
+                const offset = getComputedStyle(track).direction === 'rtl'
+                    ? slideRect.right - (trackRect.right - track.clientLeft)
+                    : slideRect.left - (trackRect.left + track.clientLeft);
+
+                track.scrollTo({ left: track.scrollLeft + offset });
             },
             prev() {
                 this.scrollToIndex(this.active - 1);
@@ -55,6 +66,6 @@ use Hyva\Theme\ViewModel\HyvaCsp;
                 return Number(this.$el.dataset.index) === this.active ? 'true' : false;
             },
         }));
-    }, { once: true });
+    });
 </script>
 <?php $hyvaCsp->registerInlineScript() ?>

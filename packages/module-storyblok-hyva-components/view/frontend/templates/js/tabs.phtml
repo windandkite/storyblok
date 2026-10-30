@@ -7,7 +7,9 @@ use Hyva\Theme\ViewModel\HyvaCsp;
 /** @var HyvaCsp $hyvaCsp */
 ?>
 <script>
-    window.addEventListener('alpine:init', () => {
+    // Registered straight away once Alpine is running: a blok added in the Visual Editor brings this script after
+    // alpine:init has fired.
+    (register => window.Alpine ? register() : window.addEventListener('alpine:init', register, { once: true }))(() => {
         Alpine.data('initStoryblokTabs', () => ({
             active: null,
 
@@ -55,6 +57,6 @@ use Hyva\Theme\ViewModel\HyvaCsp;
                 this.active = tabs[next].dataset.panelId;
             },
         }));
-    }, { once: true });
+    });
 </script>
 <?php $hyvaCsp->registerInlineScript() ?>

@@ -31,6 +31,8 @@ use WindAndKite\StoryblokHyvaComponents\ViewModel\Partial;
 /** @var ViewModelRegistry $viewModels */
 
 $partial = $viewModels->require(Partial::class);
+// Rendered before the FAQ answers below: rendering a blok prints its script once per page, so the items must use it.
+$itemsHtml = $block->getItemsHtml();
 $faqs = [];
 
 if ($block->getData('faq_schema')) {
@@ -54,7 +56,7 @@ if ($block->getData('faq_schema')) {
      x-data="initStoryblokDetails"
      x-on:toggle.capture="onToggle"
      data-allow-multiple="<?= $block->getData('allow_multiple') ? 'true' : 'false' ?>">
-    <?= /** @noEscape */ $block->getItemsHtml() ?>
+    <?= /** @noEscape */ $itemsHtml ?>
 </div>
 <?php if ($faqs): ?>
     <?= /** @noEscape */ $jsonLd->render(['@type' => 'FAQPage', 'mainEntity' => $faqs]) ?>

@@ -38,6 +38,11 @@ class JsonLdAndReferenceStackTest extends TestCase
         $stack->leave('c');
         $stack->leave('b');
         $this->assertTrue($stack->enter('b', 'a'), 'siblings can reuse a story');
+        $this->assertFalse($stack->enter('a', 'b'), 'back to the page the references started on');
+        $stack->leave('b');
+        $this->assertTrue($stack->enter('x', 'y'), 'a new page starts a new chain');
+        $stack->leave('x');
+        $stack->enter('b', 'a');
 
         foreach (['c', 'd', 'e', 'f'] as $uuid) {
             $stack->enter($uuid);

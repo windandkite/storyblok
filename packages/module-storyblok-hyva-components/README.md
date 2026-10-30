@@ -10,7 +10,8 @@ Templates are deliberately unopinionated: they use Tailwind utilities and your t
 
 ## Requirements
 
-- Magento 2.4.6+ with a Hyvä theme (`hyva-themes/magento2-theme-module` 1.3+).
+- Magento 2.4.6+ with a Hyvä theme (`hyva-themes/magento2-theme-module` 1.3+) built with **Tailwind CSS 4**. The templates use Tailwind 4 utilities and the module's Tailwind source uses `@source`, so a Tailwind 3 theme won't style them.
+- Every store view that renders Storyblok content uses a Hyvä theme. The templates replace core's for the whole frontend, so a Luma or Breeze store view in the same installation would get Hyvä markup.
 - `windandkite/module-storyblok` 2.2+.
 - `windandkite/module-storyblok-schema` (development only) for the `storyblok:schema:*` commands used below, which push the bloks to Storyblok and generate IDE hints.
 - Optional:
@@ -129,8 +130,7 @@ Front-end strings are in `windandkite/module-storyblok-components-common`'s `i18
 
 ## Testing
 
-The tests are in the common package:
-
 ```bash
+vendor/bin/phpunit -c dev/tests/unit/phpunit.xml.dist vendor/windandkite/module-storyblok-hyva-components/Test/Unit
 vendor/bin/phpunit -c dev/tests/unit/phpunit.xml.dist vendor/windandkite/module-storyblok-components-common/Test/Unit
 ```

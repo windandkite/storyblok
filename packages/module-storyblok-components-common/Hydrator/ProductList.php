@@ -9,6 +9,7 @@ use Magento\Catalog\Model\Config as CatalogConfig;
 use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Attribute\Source\Status;
 use Magento\Catalog\Model\Product\Visibility;
+use Magento\Catalog\Model\ResourceModel\Product as ProductResource;
 use Magento\Catalog\Model\ResourceModel\Product\Collection;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 use Magento\CatalogInventory\Helper\Stock as StockHelper;
@@ -48,6 +49,7 @@ class ProductList implements BlockHydratorInterface
         private readonly Visibility $visibility,
         private readonly CatalogConfig $catalogConfig,
         private readonly StockHelper $stockHelper,
+        private readonly ProductResource $productResource,
     ) {}
 
     /**
@@ -71,6 +73,11 @@ class ProductList implements BlockHydratorInterface
             self::SOURCE_NEWEST => $this->createCollection(),
             default => null,
         };
+
+        // Chosen products that can't be shown are tagged too, so enabling or restocking them refreshes the page.
+        foreach ($skus ? $this->productResource->getProductsIdsBySkus($skus) : [] as $id) {
+            $blockInstance->addIdentities([Product::CACHE_TAG . '_' . $id]);
+        }
 
         if (!$collection) {
             return $blockInstance->setData('product_items', []);

@@ -15,7 +15,9 @@ $subscribe = $block->getLayout()->getBlock('form.subscribe');
 $recaptcha = $subscribe ? $subscribe->getData('viewModelRecaptcha') : null;
 ?>
 <script>
-    window.addEventListener('alpine:init', () => {
+    // Registered straight away once Alpine is running: a blok added in the Visual Editor brings this script after
+    // alpine:init has fired.
+    (register => window.Alpine ? register() : window.addEventListener('alpine:init', register, { once: true }))(() => {
         Alpine.data('initStoryblokNewsletter', () => ({
             // errors / hasCaptchaToken / setErrorMessages are the API Hyvä's reCAPTCHA snippet expects.
             errors: 0,
@@ -41,6 +43,6 @@ $recaptcha = $subscribe ? $subscribe->getData('viewModelRecaptcha') : null;
                 }
             },
         }));
-    }, { once: true });
+    });
 </script>
 <?php $hyvaCsp->registerInlineScript() ?>

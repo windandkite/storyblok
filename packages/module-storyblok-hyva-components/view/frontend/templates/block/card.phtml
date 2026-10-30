@@ -50,8 +50,9 @@ $horizontal = $block->getData('layout') === 'horizontal';
 
 $tag = in_array($block->getData('title_tag'), ['h2', 'h3', 'h4', 'p'], true) ? $block->getData('title_tag') : 'h3';
 
+// 0: no crop. Not null, which ?? would replace with the default.
 $ratio = [
-    'auto' => null,
+    'auto' => 0,
     'square' => 1,
     'landscape' => 3 / 4,
     'portrait' => 5 / 4,

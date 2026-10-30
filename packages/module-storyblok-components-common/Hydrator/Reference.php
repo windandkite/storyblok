@@ -6,8 +6,10 @@ namespace WindAndKite\StoryblokComponentsCommon\Hydrator;
 
 use Magento\Framework\Exception\NoSuchEntityException;
 use WindAndKite\Storyblok\Api\BlockHydratorInterface;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Api\StoryRepositoryInterface;
 use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\Storyblok\Service\StoryblokCacheService;
 use WindAndKite\Storyblok\Service\StoryRequestService;
 
 /**
@@ -39,10 +41,17 @@ class Reference implements BlockHydratorInterface
         }
 
         try {
-            // Same version (draft in the visual editor) and language as the page being rendered.
-            $story = $this->storyRepository->getByUuid($uuid, $this->storyRequestService->getStoryRequest([]));
+            // Same version (draft in the visual editor) and language as the story being rendered. Its own language
+            // first: Visual Editor updates don't carry the editor's language in the request.
+            $parent = $blockInstance->getData('story');
+            $story = $this->storyRepository->getByUuid($uuid, $this->storyRequestService->getStoryRequest(array_filter([
+                'language' => $parent instanceof StoryInterface ? $parent->getData('lang') : null,
+            ])));
         } catch (NoSuchEntityException) {
-            return $blockInstance->setData('referenced_story', null);
+            // Cleaned when any story is published, so the page picks up the story once it exists.
+            return $blockInstance
+                ->addIdentities([StoryblokCacheService::NOT_FOUND_TAG])
+                ->setData('referenced_story', null);
         }
 
         return $blockInstance
