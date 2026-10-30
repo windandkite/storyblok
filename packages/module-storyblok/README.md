@@ -52,3 +52,7 @@ Please refer to the [Wiki](https://github.com/windandkite/storyblok/wiki) for co
 ## Contributions
 
 We welcome contributions! Whether that be raising bugs, suggesting feature ideas or getting down and dirty with the code, head on over to the [Contributions Guide](https://github.com/windandkite/storyblok/wiki/Contribution-Guide) in the Wiki to see how you can get involved.
+
+## License
+
+[Mozilla Public License 2.0](LICENSE). Changes to these files must be shared under the same license when distributed; modules that only build on them can use any license. Provided without warranty.
