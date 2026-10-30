@@ -2,7 +2,7 @@
   "name": "windandkite/module-storyblok-schema",
   "description": "Generate, validate and import Storyblok component schemas from Magento blok templates",
   "type": "magento2-module",
-  "license": "GPL-3.0",
+  "license": "MPL-2.0",
   "authors": [
     {
       "name": "Wind and Kite",

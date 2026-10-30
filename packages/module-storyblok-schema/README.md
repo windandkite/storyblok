@@ -39,3 +39,7 @@ bin/magento storyblok:schema:import --dry-run
 The `@storyblok` format, the workflow and every option are documented in the wiki: [Generating the Component Schema](https://github.com/windandkite/storyblok/wiki/Generating-The-Component-Schema).
 
 Common options: `--store` / `-s` (store view ID or code, whose theme is used; defaults to the default store view), `--path` (Storyblok CLI base directory, default `.storyblok`) and `--space` (space ID). `generate` also has `--no-ide-helper` and `--force`. The commands work with Storyblok CLI v4.
+
+## License
+
+[Mozilla Public License 2.0](LICENSE). Changes to these files must be shared under the same license when distributed; modules that only build on them can use any license. Provided without warranty.
