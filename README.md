@@ -32,3 +32,7 @@ Every package shares one version. Tag `master` (e.g. `2.2.0`) and the tag is pus
 ## Documentation
 
 The [wiki](https://github.com/windandkite/storyblok/wiki) is written in [`docs/wiki`](docs/wiki) and published when it changes on `master`.
+
+## License
+
+[Mozilla Public License 2.0](LICENSE). Changes to files in this repo must be shared under the same license when distributed; modules that only build on them can use any license. Provided without warranty.
