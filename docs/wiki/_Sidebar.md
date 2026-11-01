@@ -12,6 +12,7 @@
 ## Developer Guides
 - [Content Routing](Content-Routing)
 - [Creating Custom Templates](Creating-Custom-Templates)
+- [Generating the Component Schema](Generating-The-Component-Schema)
 - [Hydrating Blocks](Block-Hydration)
 - [Accessing Storyblok Data](Accessing-Storyblok-Data)
 - [Working with Visual Editor](Working-With-Storyblok-Visual-editor)
