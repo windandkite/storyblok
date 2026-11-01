@@ -53,6 +53,8 @@ class Ajax extends Action implements CsrfAwareActionInterface, HttpPostActionInt
         $story->setData($storyData);
 
         $this->addLayoutHandles($story, $layout);
+        // Generate the layout so bloks can use its blocks (e.g. the product list item renderer, the newsletter form).
+        $this->_view->loadLayout(null, true, true, false);
 
         $block = $layout->createBlock(Story::class)->setStory($story);
 

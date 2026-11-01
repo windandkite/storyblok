@@ -38,6 +38,28 @@
                     <label>API Token</label>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                 </field>
+                <field id="asset_token"
+                       translate="label comment"
+                       type="obscure"
+                       sortOrder="12"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Asset Token</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment>Optional. Only needed to load private assets: create an access token with the "Asset" access level in Storyblok under Settings > Access Tokens.</comment>
+                </field>
+                <field id="region"
+                       translate="label comment"
+                       type="select"
+                       sortOrder="15"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="0">
+                    <label>Space Region</label>
+                    <source_model>WindAndKite\Storyblok\Config\OptionSource\Region</source_model>
+                    <comment>The region chosen when the space was created, shown in Storyblok under Settings > Space.</comment>
+                </field>
                 <field id="webhook_secret"
                        translate="label"
                        type="text"
@@ -46,6 +68,7 @@
                        showInWebsite="0"
                        showInStore="0">
                     <label>Webhook Secret</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                     <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\System\Config\Form\Field\WebhookSecret</frontend_model>
                     <comment>Used to verify incoming webhook requests from Storyblok. Click "Generate New Secret" to change it.</comment>
                 </field>

@@ -4,12 +4,14 @@
     <policies>
         <policy id="frame-ancestors">
             <values>
-                <value id="windandkite_storyblok" type="host">*.storyblok.com</value>
+                <!-- Only the Visual Editor: other subdomains, like a.storyblok.com, serve files anyone can upload. -->
+                <value id="windandkite_storyblok" type="host">app.storyblok.com</value>
             </values>
         </policy>
         <policy id="script-src">
             <values>
-                <value id="windandkite_storyblok" type="host">*.storyblok.com</value>
+                <!-- Only the Visual Editor: other subdomains, like a.storyblok.com, serve files anyone can upload. -->
+                <value id="windandkite_storyblok" type="host">app.storyblok.com</value>
             </values>
         </policy>
         <policy id="style-src">
