@@ -53,8 +53,9 @@ class Block extends AbstractStoryblok implements IdentityInterface
     public function getData(
         $key = '', $index = null
     ) {
-        // A blok field named "story" or "slug" (e.g. a reference blok) must not replace the block's story.
-        if (in_array($key, ['block', 'story', 'slug'], true)) {
+        // A blok field named "story" or "slug" (e.g. a reference blok) must not replace the block's story. A key set
+        // on the instance wins even when it's null, e.g. a hydrator's empty result, for indexed reads too.
+        if (in_array($key, ['block', 'story', 'slug'], true) || (is_string($key) && array_key_exists($key, $this->_data))) {
             return parent::getData($key, $index);
         }
 

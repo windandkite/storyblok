@@ -1,0 +1,22 @@
+name: Repo layout
+
+# Git doesn't move a file a branch adds in a new folder when the folders around it were moved, so a branch from
+# before the monorepo can leave module files at the root without a conflict. They'd never be published.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  layout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Only packages/, docs/ and repo files at the root
+        run: |
+          stray=$(git ls-files | grep -vE '^(packages/|docs/|\.github/|\.gitignore$|LICENSE$|README\.md$)' || true)
+          if [ -n "$stray" ]; then
+            echo "Files outside packages/ (move them into their package):"
+            echo "$stray"
+            exit 1
+          fi

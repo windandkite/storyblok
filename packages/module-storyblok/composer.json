@@ -2,7 +2,7 @@
     "name": "windandkite/module-storyblok",
     "description": "Magento 2 module for integrating with Storyblok Headless CMS",
     "type": "magento2-module",
-    "license": "GPL-3.0",
+    "license": "MPL-2.0",
     "authors": [
         {
             "name": "Wind and Kite",
