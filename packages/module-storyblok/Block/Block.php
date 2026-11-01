@@ -48,7 +48,8 @@ class Block extends AbstractStoryblok
     public function getData(
         $key = '', $index = null
     ) {
-        if ($key === 'block') {
+        // A key set on the instance wins even when it's null, e.g. a hydrator's empty result, for indexed reads too.
+        if ($key === 'block' || (is_string($key) && array_key_exists($key, $this->_data))) {
             return parent::getData($key, $index);
         }
 
