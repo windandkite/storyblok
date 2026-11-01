@@ -3,9 +3,9 @@
 namespace WindAndKite\Storyblok\Service;
 
 use Magento\Framework\App\CacheInterface;
-use Magento\Framework\App\RequestInterface;
+use Magento\Framework\DataObject\IdentityInterface;
+use Magento\Framework\Event\ManagerInterface as EventManager;
 use Magento\Framework\Serialize\SerializerInterface;
-use Magento\PageCache\Model\Cache\Type;
 use Magento\Store\Model\StoreManagerInterface;
 use Storyblok\Api\Domain\Value\Dto\Pagination;
 use Storyblok\Api\Domain\Value\Total;
@@ -13,8 +13,6 @@ use Storyblok\Api\Request\StoryRequest;
 use Storyblok\Api\Response\StoriesResponse;
 use Storyblok\Api\Response\StoryResponse;
 use WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface;
-use WindAndKite\Storyblok\Scope\Config;
-use Zend_Cache;
 
 class StoryblokCacheService
 {
@@ -24,15 +22,15 @@ class StoryblokCacheService
     private const NOT_FOUND_SUFFIX = '_404';
     private const NOT_FOUND_LIFETIME = 3600;
     public const NOT_FOUND_TAG = 'storyblok_not_found';
+    public const LISTS_TAG = 'storyblok_lists';
 
     public function __construct(
         private CacheInterface $cache,
         private SerializerInterface $serializer,
         private StoreManagerInterface $storeManager,
-        private RequestInterface $request,
-        private Config $scopeConfig,
-        private Type $fpc,
-        private SearchCriteriaConverter $searchCriteriaConverter
+        private SearchCriteriaConverter $searchCriteriaConverter,
+        private StoryblokSessionManager $storyblokSessionManager,
+        private EventManager $eventManager,
     ) {}
 
     private function getStoreId(): int
@@ -40,15 +38,27 @@ class StoryblokCacheService
         return $this->storeManager->getStore()->getId();
     }
 
+    /**
+     * Cache key for a single story response.
+     *
+     * @param string $identifier
+     * @param StoryRequest|null $storyRequest
+     * @param string $type What the identifier is (slug, id or uuid), so e.g. a slug "123" and story ID 123
+     *     never share a cache entry.
+     *
+     * @return string
+     */
     public function generateStoryCacheKey(
         string $identifier,
-        ?StoryRequest $storyRequest = null
+        ?StoryRequest $storyRequest = null,
+        string $type = 'slug',
     ): string {
         if ($storyRequest) {
             $identifier .= '-' . md5($this->serializer->serialize($storyRequest->toArray()));
         }
 
-        return self::CACHE_IDENTIFIER . self::STORY_CACHE_PREFIX . $identifier . '_' . $this->getStoreId();
+        return self::CACHE_IDENTIFIER . self::STORY_CACHE_PREFIX . $type . '_' . $identifier
+            . '_' . $this->getStoreId();
     }
 
     public function generateStoryListCacheKey(
@@ -96,10 +106,32 @@ class StoryblokCacheService
             $cacheKey,
             [
                 'storyblok_story_id_' . $storyResponse->story['id'],
-                'storyblok_story_slug_' . $storyResponse->story['slug'],
+                'storyblok_story_slug_' . $storyResponse->story['full_slug'],
                 'storyblok_cv_' . $storyResponse->cv,
+                ...self::getRelatedStoryTags($storyResponse->rels, $storyResponse->links),
             ]
         );
+    }
+
+    /**
+     * Tags for stories resolved into a response (relations and links), so publishing one of them refreshes it.
+     *
+     * @param array $rels
+     * @param array $links
+     *
+     * @return string[]
+     */
+    public static function getRelatedStoryTags(array $rels, array $links = []): array
+    {
+        $tags = [];
+
+        foreach ([...$rels, ...$links] as $story) {
+            if (is_array($story) && isset($story['id'])) {
+                $tags[] = 'storyblok_story_id_' . $story['id'];
+            }
+        }
+
+        return array_values(array_unique($tags));
     }
 
     /**
@@ -190,19 +222,16 @@ class StoryblokCacheService
             return;
         }
 
-        $cacheTags = ['storyblok_cv_' . $response->cv];
+        // Lists are cleared on every publish, as a new story may belong in them.
+        $cacheTags = [
+            self::LISTS_TAG,
+            'storyblok_cv_' . $response->cv,
+            ...self::getRelatedStoryTags($response->rels ?? [], $response->links ?? []),
+        ];
 
         foreach ($response->stories as $story) {
             $cacheTags[] = 'storyblok_story_id_' . $story['id'];
-            $cacheTags[] = 'storyblok_story_slug_' . $story['slug'];
-            $this->generateStoryCacheKey($story['slug']);
-            $storyResponse = new StoryResponse([
-                'story' => $story,
-                'cv' => $response->cv ?? 0,
-                'rels' => $response->rels ?? [],
-                'links' => $response->links ?? [],
-            ]);
-            $this->saveStoryResponse($cacheKey, $storyResponse);
+            $cacheTags[] = 'storyblok_story_slug_' . $story['full_slug'];
         }
 
         $this->cache->save(
@@ -217,18 +246,46 @@ class StoryblokCacheService
         $this->cache->remove($cacheKey);
     }
 
+    /**
+     * Drafts aren't cached: editors need their latest changes. Published content always is.
+     *
+     * @return bool
+     */
     public function isCacheEnabled(): bool
     {
-        return !$this->request->getParam('_storyblok') && !$this->scopeConfig->isDevModeEnabled();
+        return !$this->storyblokSessionManager->isDraftRequest();
     }
 
+    /**
+     * Clean Storyblok's cached API responses and the pages tagged with them.
+     *
+     * Pages are cleaned through the clean_cache_by_tags event, which purges by tag in both the built-in cache and
+     * Varnish. Cleaning the page cache type directly makes Magento flush all of Varnish.
+     *
+     * @param string[] $tags
+     *
+     * @return void
+     */
     public function cleanCacheByTags(
         array $tags = [],
     ): void {
-        $this->fpc->clean(Zend_Cache::CLEANING_MODE_MATCHING_ANY_TAG, $tags);
+        if (!$tags) {
+            return;
+        }
+
+        $this->eventManager->dispatch('clean_cache_by_tags', ['object' => new class ($tags) implements IdentityInterface {
+            public function __construct(private readonly array $tags)
+            {
+            }
+
+            public function getIdentities(): array
+            {
+                return $this->tags;
+            }
+        }]);
 
         foreach ($tags as $tag) {
-            $this->cache->clean($tag);
+            $this->cache->clean([$tag]);
         }
     }
 }

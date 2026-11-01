@@ -4,15 +4,22 @@ namespace WindAndKite\Storyblok\Scope;
 use InvalidArgumentException;
 use Magento\Framework\Api\SortOrder;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Store\Model\ScopeInterface;
 use WindAndKite\Storyblok\Config\OptionSource\DefaultSort;
+use WindAndKite\Storyblok\Config\OptionSource\Region;
 
 class Config
 {
     private const XML_PATH_ENABLED = 'storyblok/general/enabled';
     private const XML_PATH_API_TOKEN = 'storyblok/general/api_token';
-    private const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
+    private const XML_PATH_ASSET_TOKEN = 'storyblok/general/asset_token';
+    private const XML_PATH_REGION = 'storyblok/general/region';
+    // Magento's encrypted format, "<key version>:<cipher version>:<data>"; generated secrets are hex.
+    public const ENCRYPTED_VALUE_PATTERN = '/^\d+:\d+:/';
+    public const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
+    private const XML_PATH_SHARE_LINK_DAYS = 'storyblok/general/share_link_days';
     private const XML_PATH_DEV_MODE = 'storyblok/general/dev_mode';
     private const XML_PATH_PAGE_ROUTING_ENABLED = 'storyblok/page_routing/enabled';
     private const XML_PATH_RESTRICT_FOLDER = 'storyblok/page_routing/restrict_folder';
@@ -41,6 +48,7 @@ class Config
     public function __construct(
         private ScopeConfigInterface $scopeConfig,
         private SerializerInterface $serializer,
+        private EncryptorInterface $encryptor,
     ) {}
 
     public function isModuleEnabled(
@@ -65,15 +73,67 @@ class Config
         );
     }
 
-    public function getWebhookSecret(
+    /**
+     * One secret for the whole install: the webhook URL and the regenerate button only manage the default scope.
+     *
+     * @return string|null
+     */
+    /**
+     * Access token with the "Asset" access level, for private assets.
+     *
+     * @param string $scopeType
+     * @param int|string|null $scopeCode
+     *
+     * @return string|null
+     */
+    public function getAssetToken(
         string $scopeType = ScopeInterface::SCOPE_STORE,
         null|int|string $scopeCode = null,
     ): ?string {
-        return $this->scopeConfig->getValue(
-            self::XML_PATH_WEBHOOK_SECRET,
+        return $this->scopeConfig->getValue(self::XML_PATH_ASSET_TOKEN, $scopeType, $scopeCode);
+    }
+
+    /**
+     * The Content Delivery API host for the space's region.
+     *
+     * @param string $scopeType
+     * @param int|string|null $scopeCode
+     *
+     * @return string
+     */
+    public function getApiBaseUrl(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): string {
+        $region = (string)$this->scopeConfig->getValue(self::XML_PATH_REGION, $scopeType, $scopeCode);
+
+        return Region::BASE_URLS[$region] ?? Region::BASE_URLS['eu'];
+    }
+
+    public function getWebhookSecret(): ?string
+    {
+        $secret = (string)$this->scopeConfig->getValue(self::XML_PATH_WEBHOOK_SECRET);
+
+        // Saved encrypted from the admin, but a secret set in env.php or config.php may still be plain text.
+        if (preg_match(self::ENCRYPTED_VALUE_PATTERN, $secret)) {
+            $secret = $this->encryptor->decrypt($secret);
+        }
+
+        return $secret !== '' ? $secret : null;
+    }
+
+    /**
+     * How long a draft share link stays valid, in days.
+     */
+    public function getShareLinkDays(
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null,
+    ): int {
+        return max(1, (int)$this->scopeConfig->getValue(
+            self::XML_PATH_SHARE_LINK_DAYS,
             $scopeType,
             $scopeCode,
-        );
+        ));
     }
 
     public function isDevModeEnabled(
@@ -107,6 +167,30 @@ class Config
             $scopeType,
             $scopeCode
         );
+    }
+
+    /**
+     * The URL path for a story: its full slug, without the routing folder the router adds back.
+     *
+     * @param string $fullSlug
+     * @param string $scopeType
+     * @param int|string|null $scopeCode
+     *
+     * @return string
+     */
+    public function getStoryUrlPath(
+        string $fullSlug,
+        string $scopeType = ScopeInterface::SCOPE_STORE,
+        null|int|string $scopeCode = null
+    ): string {
+        $fullSlug = trim($fullSlug, '/');
+        $folder = $this->isRestrictFolderEnabled($scopeType, $scopeCode)
+            ? trim((string)$this->getFolderPath($scopeType, $scopeCode), '/')
+            : '';
+
+        return $folder !== '' && str_starts_with($fullSlug . '/', $folder . '/')
+            ? ltrim(substr($fullSlug, strlen($folder)), '/')
+            : $fullSlug;
     }
 
     public function getFolderPath(

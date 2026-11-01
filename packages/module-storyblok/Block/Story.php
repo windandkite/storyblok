@@ -7,6 +7,8 @@ namespace WindAndKite\Storyblok\Block;
 use Magento\Framework\App\ObjectManager;
 use Magento\Framework\DataObject\IdentityInterface;
 use Magento\Framework\View\Element\Template;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
+use WindAndKite\Storyblok\Service\StoryblokCacheService;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
@@ -90,14 +92,20 @@ class Story extends AbstractStoryblok implements IdentityInterface
     public function getIdentities(): array
     {
         if (!$this->getStory()) {
-            return [];
+            // Not published yet: refresh the page when it is.
+            return [StoryblokCacheService::NOT_FOUND_TAG];
         }
 
         return [
             'storyblok_story',
             'storyblok_cv_' . $this->getStory()->getCacheVersion(),
             'storyblok_story_id_' . $this->getStory()->getId(),
-            'storyblok_slug_' . $this->getStory()->getSlug(),
+            'storyblok_story_slug_' . $this->getStory()->getFullSlug(),
+            // Resolved relations and links, so publishing one of those stories refreshes this page too.
+            ...StoryblokCacheService::getRelatedStoryTags(
+                $this->getStory()->getData(StoryInterface::KEY_RELS) ?? [],
+                $this->getStory()->getData(StoryInterface::KEY_LINKS) ?? [],
+            ),
         ];
     }
 

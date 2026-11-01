@@ -20,7 +20,9 @@ $currentPage = $searchResults?->getSearchCriteria()->getCurrentPage();
 $totalCount = $searchResults?->getTotalCount();
 $totalPages = $totalCount ? ceil($totalCount / $pageSize) : 0;
 ?>
-<?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryblokTemplate())) ?>
+<?php if ($block->isDevMode()): ?>
+    <?= $escaper->escapeHtml(__('Missing Template: %1', $block->getStoryblokTemplate())) ?>
+<?php endif ?>
 <?php if (!$searchResults?->getTotalCount()): ?>
     <span>No Results Found</span>
     <?php return; ?>

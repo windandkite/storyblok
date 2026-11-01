@@ -49,6 +49,7 @@ class FieldRenderer implements FieldRendererInterface
     public function renderField(
         mixed $fieldValue,
         ?StoryInterface $story = null,
+        ?Block $parent = null,
     ): string {
         if (empty($fieldValue)) {
             return '';
@@ -59,17 +60,17 @@ class FieldRenderer implements FieldRendererInterface
         }
 
         if ($this->isRichText($fieldValue)) {
-            return $this->renderRichTextField($fieldValue, $story);
+            return $this->renderRichTextField($fieldValue, $story, $parent);
         }
 
         if ($this->isBlock($fieldValue)) {
-            return $this->renderBlockField($fieldValue, $story);
+            return $this->renderBlockField($fieldValue, $story, $parent);
         }
 
         $result = '';
 
         foreach ($fieldValue as $child) {
-            $result .= $this->renderField($child, $story);
+            $result .= $this->renderField($child, $story, $parent);
         }
 
         return $result;
@@ -112,6 +113,7 @@ class FieldRenderer implements FieldRendererInterface
     public function renderRichTextField(
         array $fieldValue,
         ?StoryInterface $story = null,
+        ?Block $parent = null,
     ): string {
         if ($fieldValue['type'] !== self::FIELD_TYPE_RICH_TEXT) {
             $this->logger->warning(
@@ -128,8 +130,8 @@ class FieldRenderer implements FieldRendererInterface
                     new StoryblokTipTapExtension([
                         'override_extensions' => $this->overrideExtensions,
                         'blokOptions' => [
-                            'renderer' => function (array $fieldValue) use ($story) {
-                                return $this->renderBlockField($fieldValue, $story);
+                            'renderer' => function (array $fieldValue) use ($story, $parent) {
+                                return $this->renderBlockField($fieldValue, $story, $parent);
                             },
                         ],
                     ]),
@@ -152,6 +154,7 @@ class FieldRenderer implements FieldRendererInterface
     public function renderBlockField(
         array $fieldValue,
         ?StoryInterface $story = null,
+        ?Block $parent = null,
     ): string {
         if (!$this->isBlock($fieldValue)) {
             $this->logger->warning(
@@ -162,7 +165,7 @@ class FieldRenderer implements FieldRendererInterface
             return '';
         }
 
-        return $this->createBlockInstance($fieldValue, $story)->toHtml();
+        return $this->createBlockInstance($fieldValue, $story, $parent)->toHtml();
     }
 
     /**
@@ -176,6 +179,7 @@ class FieldRenderer implements FieldRendererInterface
     public function createBlockInstance(
         array $fieldValue,
         ?StoryInterface $story = null,
+        ?Block $parent = null,
     ): Block {
         $storyblokBlock = $this->blockFactory->create();
         $storyblokBlock->setData($fieldValue);
@@ -183,7 +187,9 @@ class FieldRenderer implements FieldRendererInterface
 
         $blockInstance = $this->layout->createBlock(Block::class, $blockName)
             ->setData('block', $storyblokBlock)
-            ->setData('story', $story);
+            ->setData('story', $story)
+            // The blok whose field this is, so children can use its render context (see Block::isAboveTheFold()).
+            ->setData('parent_blok', $parent);
 
         $hydrators = $this->blockHydrationManager->getForComponent($storyblokBlock->getComponent());
 

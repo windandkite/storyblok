@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Block;
 
 use Exception;
+use Magento\Framework\DataObject\IdentityInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
 use Magento\Framework\Serialize\SerializerInterface;
 use WindAndKite\Storyblok\Api\Data\BlockInterface;
+use WindAndKite\Storyblok\Api\Data\StoryInterface;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
 use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\BlockFactory;
@@ -19,8 +21,10 @@ use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\Storyblok\Service\StoryblokSessionManager;
 use WindAndKite\Storyblok\ViewModel\Asset;
 
-class Block extends AbstractStoryblok
+class Block extends AbstractStoryblok implements IdentityInterface
 {
+    private const KEY_CACHE_IDENTITIES = 'cache_identities';
+
     protected const TEMPLATE_DIR = 'block';
 
     public function __construct(
@@ -41,15 +45,17 @@ class Block extends AbstractStoryblok
             $scopeConfig,
             $storyRequestService,
             $context,
-            $data
+            $data,
+            $storyblokSessionManager,
         );
     }
 
     public function getData(
         $key = '', $index = null
     ) {
-        // A key set on the instance wins even when it's null, e.g. a hydrator's empty result, for indexed reads too.
-        if ($key === 'block' || (is_string($key) && array_key_exists($key, $this->_data))) {
+        // A blok field named "story" or "slug" (e.g. a reference blok) must not replace the block's story. A key set
+        // on the instance wins even when it's null, e.g. a hydrator's empty result, for indexed reads too.
+        if (in_array($key, ['block', 'story', 'slug'], true) || (is_string($key) && array_key_exists($key, $this->_data))) {
             return parent::getData($key, $index);
         }
 
@@ -63,7 +69,7 @@ class Block extends AbstractStoryblok
 
     public function getBlokEditableAttributes(): string
     {
-        if (!$this->scopeConfig->isDevModeEnabled() && !$this->storyblokSessionManager->isValidEditorSession() && !$this->getStory()?->getForceBridge()) {
+        if (!$this->isEditorPreview()) {
             return '';
         }
 
@@ -90,9 +96,28 @@ class Block extends AbstractStoryblok
             return '';
         }
 
-        $dataBlokUid = $this->getStory()->getId() . '-' . $editableData['uid'];
+        // The _editable "id" is the story ID, for bloks rendered without their story.
+        $dataBlokUid = ($this->getStory()?->getId() ?? $editableData['id']) . '-' . $editableData['uid'];
 
-        return sprintf("data-blok-c='%s' data-blok-uid='%s'", $dataBlokC, $dataBlokUid);
+        return sprintf(
+            'data-blok-c="%s" data-blok-uid="%s"',
+            $this->_escaper->escapeHtmlAttr($dataBlokC),
+            $this->_escaper->escapeHtmlAttr($dataBlokUid)
+        );
+    }
+
+    /**
+     * Whether this blok or one it's nested in is marked "above_the_fold", e.g. the first section on the page. Templates
+     * use it to load images eagerly, which helps LCP.
+     *
+     * @return bool
+     */
+    public function isAboveTheFold(): bool
+    {
+        $parent = $this->getData('parent_blok');
+
+        return (bool)$this->getBlock()->getData('above_the_fold')
+            || ($parent instanceof self && $parent->isAboveTheFold());
     }
 
     public function renderField(string $fieldName): ?string
@@ -105,14 +130,47 @@ class Block extends AbstractStoryblok
 
         return $this->fieldRenderer->renderField(
             $this->getBlock()->getData($fieldName),
-            $story
+            $story,
+            $this
         );
+    }
+
+    /**
+     * Render a child blok (or a list of bloks, or rich text) with this block's story, e.g. to wrap each
+     * item of a blocks field in your own markup:
+     *
+     *     <?php foreach ((array)$block->getData('links') as $link): ?>
+     *         <li><?= $block->renderBlok($link) ?></li>
+     *     <?php endforeach ?>
+     *
+     * @param array $blok
+     * @param StoryInterface|null $story Defaults to this block's story (pass another, e.g. for referenced content).
+     *
+     * @return string
+     */
+    public function renderBlok(array $blok, ?StoryInterface $story = null): string
+    {
+        return $this->fieldRenderer->renderField($blok, $story ?? $this->getStory());
+    }
+
+    /**
+     * Create (and hydrate) the block for a child blok without rendering it, to read data a hydrator
+     * added before calling toHtml().
+     *
+     * @param array $blok
+     * @param StoryInterface|null $story Defaults to this block's story.
+     *
+     * @return Block
+     */
+    public function createBlokInstance(array $blok, ?StoryInterface $story = null): Block
+    {
+        return $this->fieldRenderer->createBlockInstance($blok, $story ?? $this->getStory());
     }
 
     public function renderRichTextField(
         string $fieldName,
     ): string {
-        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName));
+        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName), $this->getStory(), $this);
     }
 
     /**
@@ -145,28 +203,77 @@ class Block extends AbstractStoryblok
         return $this->getBlock()->getComponent() ?? $this->getData('component');
     }
 
+    /**
+     * Add cache tags for entities this blok renders (products, categories, referenced stories...),
+     * typically from a hydrator. They are collected into the page's X-Magento-Tags so the full page
+     * cache is purged when those entities change.
+     *
+     * @param string[] $identities
+     *
+     * @return $this
+     */
+    public function addIdentities(array $identities): static
+    {
+        return $this->setData(
+            self::KEY_CACHE_IDENTITIES,
+            array_values(array_unique([...$this->getIdentities(), ...$identities]))
+        );
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getIdentities(): array
+    {
+        return parent::getData(self::KEY_CACHE_IDENTITIES) ?? [];
+    }
+
     protected function _toHtml(): string
     {
         $html = parent::_toHtml();
         $editableAttributes = $this->getBlokEditableAttributes();
 
-        if (!empty($editableAttributes)) {
-            $excludedTags = ['script', 'style', 'link', 'meta', '!doctype', 'html', 'head', 'body'];
-
-            $pattern = '/<(?!(?:' . implode('|', $excludedTags) . ')[\s>\/])([a-zA-Z0-9]+)([^>]*)>/is';
-
-            $modifiedHtml = preg_replace_callback($pattern, function ($matches) use ($editableAttributes) {
-                $tagName = $matches[1];
-                $existingAttributes = $matches[2];
-
-                return "<{$tagName}{$existingAttributes} {$editableAttributes}>";
-            }, $html, 1);
-
-            if ($modifiedHtml !== null && $modifiedHtml !== $html) {
-                return $modifiedHtml;
-            }
+        if (empty($editableAttributes)) {
+            return $html;
         }
 
-        return $html;
+        return $this->addAttributesToFirstTag($html, $editableAttributes);
+    }
+
+    /**
+     * Append attributes to the first element tag in the HTML (skipping script/style/meta and document tags).
+     *
+     * Leading comments and script/style elements are skipped whole, so markup inside them (e.g. a "<div>" in a
+     * JavaScript string) is never mistaken for the root element.
+     *
+     * Attribute values are matched as quoted strings, so a ">" inside one (e.g. a utility-class variant like
+     * class="[&>*]:mt-4") doesn't end the tag early.
+     *
+     * @param string $html
+     * @param string $attributes
+     *
+     * @return string
+     */
+    private function addAttributesToFirstTag(
+        string $html,
+        string $attributes,
+    ): string {
+        $skip = '/\G(?:[^<]+|<!--.*?-->|<(script|style)(?=[\s>\/]).*?<\/\1\s*>'
+            . '|<(?:link|meta|!doctype|html|head|body)(?=[\s>\/])[^>]*>|<\/[^>]*>)/is';
+        $offset = 0;
+
+        while (preg_match($skip, $html, $matches, 0, $offset)) {
+            $offset += strlen($matches[0]);
+        }
+
+        $tag = '/\G<([a-zA-Z0-9]+)((?:"[^"]*"|\'[^\']*\'|[^\'">])*?)(\s*\/?)>/s';
+
+        if (!preg_match($tag, $html, $matches, 0, $offset)) {
+            return $html;
+        }
+
+        return substr($html, 0, $offset)
+            . '<' . $matches[1] . $matches[2] . ' ' . $attributes . $matches[3] . '>'
+            . substr($html, $offset + strlen($matches[0]));
     }
 }

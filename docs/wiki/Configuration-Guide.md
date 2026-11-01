@@ -16,16 +16,28 @@ These settings control the core functionality of the module.
     - Description: This is your Storyblok Preview API Key. It's absolutely essential for the module to fetch any content from your Storyblok space.
     - How to get it: Refer to the official Storyblok guide on retrieving access tokens. Ensure you copy the Preview token.
     - Input Type: This field is obscured for security, as it stores a sensitive API key.
+    - Scope: Can be set per website, so each website can use its own Storyblok space.
+- Asset Token
+    - Description: Optional. Only needed to load private assets through the asset repository (`AssetRepositoryInterface`). Public assets don't need it.
+    - How to get it: In Storyblok, go to Settings > Access Tokens and create a token with the "Asset" access level.
+    - Scope: Can be set per website, like the API Token.
+- Space Region
+    - Description: The region your Storyblok space was created in (Europe, United States, Canada, Australia or China). The module uses that region's API, so a wrong region makes every request fail.
+    - How to find it: In Storyblok, go to Settings > Space.
+    - Default: Europe
+    - Scope: Can be set per website, like the API Token.
 - Webhook Secret
-    - Description: Used to verify incoming webhook requests from Storyblok. This is critical for cache invalidation when content changes in Storyblok. The field provides a "Generate New Secret" button.
-    - Action: Copy the generated secret from this field and paste it into your Storyblok webhook configuration (usually under Settings > Webhooks in Storyblok).
-    - Recommendation: Use a strong, unique secret.
+    - Description: Verifies that webhook requests come from Storyblok. Webhooks clear the cache when content is published. A secret is generated when the module is installed, and the "Generate New Secret" button replaces it. Set at the default scope only.
+    - Action: The field shows the full webhook URL, with the secret as its `key` parameter. In Storyblok, go to Settings > Webhooks and add a webhook for "Story published" (and "Story unpublished" / "Story deleted" if you want those to clear the cache too) using that URL.
+    - If your Storyblok plan lets you set a webhook secret, you can also paste the secret into the webhook's "Secret" field. Storyblok then signs each request and the module checks the signature.
+    - If you generate a new secret, update the URL in Storyblok too, or webhooks will be rejected.
 - Developer Mode
-    - Description: Controls the default content version fetching behavior:
-      - When "Yes": Always fetches draft content, useful during active development.
-      - When "No": Fetches draft content only when using Storyblok's Visual Editor (with _storyblok parameter) or preview mode, otherwise fetches published content.
+    - Description: When "Yes", every visitor sees draft content and page caching is turned off.
     - Default: No
-    - Recommendation: Keep disabled in production. Draft content will still be available through the Visual Editor and preview functionality, while regular visitors see published content.
+    - Recommendation: **Never enable this in production.** Editors see drafts in the Visual Editor without it, and can share drafts with signed links (see below).
+- Draft Share Link Lifetime (days)
+    - Description: How long a draft share link works. Editors create share links with the "Copy share link" button in the Visual Editor. See [Sharing drafts](Working-With-Storyblok-Visual-Editor#-sharing-drafts).
+    - Default: 7
 ## 🗺️ Page Routing
 These settings control how Storyblok content is routed to specific URLs in your Magento store.
 - Enable Page Routing

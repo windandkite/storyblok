@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace WindAndKite\Storyblok\Block;
 
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\View\Element\Template;
 use WindAndKite\Storyblok\Model\Story as StoryblokStory;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Scope\Config;
+use WindAndKite\Storyblok\Service\StoryblokSessionManager;
 use WindAndKite\Storyblok\Service\StoryRequestService;
 use WindAndKite\Storyblok\ViewModel\Asset;
+use WindAndKite\Storyblok\ViewModel\Link;
 
 abstract class AbstractStoryblok extends Template
 {
     protected const TEMPLATE_DIR = '';
     protected const TEMPLATE_SUFFIX = '';
+
+    protected readonly StoryblokSessionManager $storyblokSession;
 
     /**
      * @param StoryRepository $storyRepository
@@ -23,6 +28,7 @@ abstract class AbstractStoryblok extends Template
      * @param StoryRequestService $storyRequestService
      * @param Template\Context $context
      * @param array $data
+     * @param StoryblokSessionManager|null $storyblokSession Optional, so subclasses' constructors keep working.
      */
     public function __construct(
         protected readonly StoryRepository $storyRepository,
@@ -31,8 +37,34 @@ abstract class AbstractStoryblok extends Template
         protected readonly StoryRequestService $storyRequestService,
         Template\Context $context,
         array $data = [],
+        ?StoryblokSessionManager $storyblokSession = null,
     ) {
+        $this->storyblokSession = $storyblokSession
+            ?? ObjectManager::getInstance()->get(StoryblokSessionManager::class);
         parent::__construct($context, $data);
+    }
+
+    /**
+     * Whether developer mode is on, for output only developers need, e.g. which template is missing.
+     *
+     * @return bool
+     */
+    public function isDevMode(): bool
+    {
+        return $this->scopeConfig->isDevModeEnabled();
+    }
+
+    /**
+     * Whether the page is being previewed by an editor or developer: the Visual Editor, its live preview, or dev mode.
+     * Used for output editors need, e.g. a blok whose template isn't deployed yet.
+     *
+     * @return bool
+     */
+    public function isEditorPreview(): bool
+    {
+        return $this->scopeConfig->isDevModeEnabled()
+            || $this->storyblokSession->isValidEditorSession()
+            || (bool)$this->getStory()?->getForceBridge();
     }
 
     /**
@@ -164,7 +196,7 @@ abstract class AbstractStoryblok extends Template
         }
 
         return $this->_urlBuilder->getDirectUrl(
-            $story->getFullSlug(),
+            $this->scopeConfig->getStoryUrlPath((string)$story->getFullSlug()),
             $params
         );
     }
@@ -176,14 +208,16 @@ abstract class AbstractStoryblok extends Template
      */
     public function getStory(): ?StoryblokStory
     {
-        if (!$this->getData('story')) {
+        if (!$this->getData('story') instanceof StoryblokStory) {
             $storyRequest = $this->storyRequestService->getStoryRequest($this->getData());
 
             try {
                 if ($slug = $this->getSlug()) {
                     $this->setData('story', $this->storyRepository->getBySlug($slug, $storyRequest));
-                } else if ($this->getRequest()->getParam('story')) {
-                    $this->setData('story', $this->getRequest()->getParam('story'));
+                } else {
+                    // Set by the router; a "story" query parameter is just a string.
+                    $story = $this->getRequest()->getParam('story');
+                    $this->setData('story', $story instanceof StoryblokStory ? $story : null);
                 }
             } catch (\Exception) {
                 $this->setData('story', null);
@@ -201,6 +235,22 @@ abstract class AbstractStoryblok extends Template
     public function getAssetViewModel(): Asset
     {
         return $this->assetViewModel;
+    }
+
+    /**
+     * Retrieve the view-model that resolves Storyblok link (multilink) fields into URLs and attributes.
+     *
+     * A "link_view_model" block argument (e.g. from layout XML) takes precedence. Otherwise the shared
+     * instance is used, so DI preferences and plugins on the Link view-model still apply. It's looked up
+     * here, not injected, so this class's constructor (extended by other modules) doesn't change.
+     *
+     * @return Link
+     */
+    public function getLinkViewModel(): Link
+    {
+        $linkViewModel = $this->getData('link_view_model');
+
+        return $linkViewModel instanceof Link ? $linkViewModel : ObjectManager::getInstance()->get(Link::class);
     }
 
     /**
