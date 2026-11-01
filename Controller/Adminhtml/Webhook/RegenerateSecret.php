@@ -4,25 +4,31 @@ namespace WindAndKite\Storyblok\Controller\Adminhtml\Webhook;
 
 use Magento\Backend\App\Action;
 use Magento\Backend\App\Action\Context;
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Cache\Type\Config as ConfigCache;
+use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\Framework\App\Config\Storage\WriterInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Psr\Log\LoggerInterface;
+use WindAndKite\Storyblok\Scope\Config;
 
-class RegenerateSecret extends Action
+class RegenerateSecret extends Action implements HttpPostActionInterface
 {
-    private const XML_PATH_WEBHOOK_SECRET = 'storyblok/general/webhook_secret';
+    public const ADMIN_RESOURCE = 'WindAndKite_Storyblok::config';
 
     /**
      * @param Context $context
      * @param JsonFactory $resultJsonFactory
      * @param WriterInterface $configWriter
      * @param LoggerInterface $logger
+     * @param TypeListInterface $cacheTypeList
      */
     public function __construct(
         Context $context,
         private JsonFactory $resultJsonFactory,
         private WriterInterface $configWriter,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private TypeListInterface $cacheTypeList,
     ) {
         parent::__construct($context);
     }
@@ -49,20 +55,12 @@ class RegenerateSecret extends Action
         return $resultJson;
     }
 
-    /**
-     * Check the permission to run it
-     *
-     * @return bool
-     */
-    protected function _isAllowed()
-    {
-        return $this->_authorization->isAllowed('WindAndKite_Storyblok::config');
-    }
-
     private function generateWebhookSecret(): string
     {
         $secret = bin2hex(random_bytes(32));
-        $this->configWriter->save(self::XML_PATH_WEBHOOK_SECRET, $secret);
+        $this->configWriter->save(Config::XML_PATH_WEBHOOK_SECRET, $secret);
+        // Webhooks read the cached config: without this they keep checking the old secret.
+        $this->cacheTypeList->cleanType(ConfigCache::TYPE_IDENTIFIER);
 
         return $secret;
     }

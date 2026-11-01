@@ -35,6 +35,26 @@ class StoryblokBridgeConfig implements ArgumentInterface
     }
 
     /**
+     * A link to this page's draft for people without a Storyblok account, only in the Visual Editor.
+     *
+     * @return string|null
+     */
+    public function getShareUrl(): ?string
+    {
+        if (!$this->storyblokSessionManager->isValidEditorSession()) {
+            return null;
+        }
+
+        $path = $this->storyblokSessionManager->getSharePath();
+        $expires = time() + $this->scopeConfig->getShareLinkDays() * 86400;
+
+        return $this->urlBuilder->getDirectUrl($path, ['_query' => array_filter([
+            StoryblokSessionManager::SHARE_PARAM => $this->storyblokSessionManager->createShareParam($path, $expires),
+            StoryblokSessionManager::STORYBLOK_LANGUAGE_PARAM => $this->storyblokSessionManager->getRequestedLanguage(),
+        ])]);
+    }
+
+    /**
      * Get the AJAX URL for Storyblok content updates.
      *
      * @return string

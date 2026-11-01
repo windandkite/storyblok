@@ -3,9 +3,9 @@
 namespace WindAndKite\Storyblok\Service;
 
 use Magento\Framework\App\CacheInterface;
-use Magento\Framework\App\RequestInterface;
+use Magento\Framework\DataObject\IdentityInterface;
+use Magento\Framework\Event\ManagerInterface as EventManager;
 use Magento\Framework\Serialize\SerializerInterface;
-use Magento\PageCache\Model\Cache\Type;
 use Magento\Store\Model\StoreManagerInterface;
 use Storyblok\Api\Domain\Value\Dto\Pagination;
 use Storyblok\Api\Domain\Value\Total;
@@ -13,8 +13,6 @@ use Storyblok\Api\Request\StoryRequest;
 use Storyblok\Api\Response\StoriesResponse;
 use Storyblok\Api\Response\StoryResponse;
 use WindAndKite\Storyblok\Api\StoriesSearchCriteriaInterface;
-use WindAndKite\Storyblok\Scope\Config;
-use Zend_Cache;
 
 class StoryblokCacheService
 {
@@ -24,15 +22,15 @@ class StoryblokCacheService
     private const NOT_FOUND_SUFFIX = '_404';
     private const NOT_FOUND_LIFETIME = 3600;
     public const NOT_FOUND_TAG = 'storyblok_not_found';
+    public const LISTS_TAG = 'storyblok_lists';
 
     public function __construct(
         private CacheInterface $cache,
         private SerializerInterface $serializer,
         private StoreManagerInterface $storeManager,
-        private RequestInterface $request,
-        private Config $scopeConfig,
-        private Type $fpc,
-        private SearchCriteriaConverter $searchCriteriaConverter
+        private SearchCriteriaConverter $searchCriteriaConverter,
+        private StoryblokSessionManager $storyblokSessionManager,
+        private EventManager $eventManager,
     ) {}
 
     private function getStoreId(): int
@@ -98,8 +96,30 @@ class StoryblokCacheService
                 'storyblok_story_id_' . $storyResponse->story['id'],
                 'storyblok_story_slug_' . $storyResponse->story['slug'],
                 'storyblok_cv_' . $storyResponse->cv,
+                ...self::getRelatedStoryTags($storyResponse->rels, $storyResponse->links),
             ]
         );
+    }
+
+    /**
+     * Tags for stories resolved into a response (relations and links), so publishing one of them refreshes it.
+     *
+     * @param array $rels
+     * @param array $links
+     *
+     * @return string[]
+     */
+    public static function getRelatedStoryTags(array $rels, array $links = []): array
+    {
+        $tags = [];
+
+        foreach ([...$rels, ...$links] as $story) {
+            if (is_array($story) && isset($story['id'])) {
+                $tags[] = 'storyblok_story_id_' . $story['id'];
+            }
+        }
+
+        return array_values(array_unique($tags));
     }
 
     /**
@@ -190,19 +210,16 @@ class StoryblokCacheService
             return;
         }
 
-        $cacheTags = ['storyblok_cv_' . $response->cv];
+        // Lists are cleared on every publish, as a new story may belong in them.
+        $cacheTags = [
+            self::LISTS_TAG,
+            'storyblok_cv_' . $response->cv,
+            ...self::getRelatedStoryTags($response->rels ?? [], $response->links ?? []),
+        ];
 
         foreach ($response->stories as $story) {
             $cacheTags[] = 'storyblok_story_id_' . $story['id'];
             $cacheTags[] = 'storyblok_story_slug_' . $story['slug'];
-            $this->generateStoryCacheKey($story['slug']);
-            $storyResponse = new StoryResponse([
-                'story' => $story,
-                'cv' => $response->cv ?? 0,
-                'rels' => $response->rels ?? [],
-                'links' => $response->links ?? [],
-            ]);
-            $this->saveStoryResponse($cacheKey, $storyResponse);
         }
 
         $this->cache->save(
@@ -217,18 +234,46 @@ class StoryblokCacheService
         $this->cache->remove($cacheKey);
     }
 
+    /**
+     * Drafts aren't cached: editors need their latest changes. Published content always is.
+     *
+     * @return bool
+     */
     public function isCacheEnabled(): bool
     {
-        return !$this->request->getParam('_storyblok') && !$this->scopeConfig->isDevModeEnabled();
+        return !$this->storyblokSessionManager->isDraftRequest();
     }
 
+    /**
+     * Clean Storyblok's cached API responses and the pages tagged with them.
+     *
+     * Pages are cleaned through the clean_cache_by_tags event, which purges by tag in both the built-in cache and
+     * Varnish. Cleaning the page cache type directly makes Magento flush all of Varnish.
+     *
+     * @param string[] $tags
+     *
+     * @return void
+     */
     public function cleanCacheByTags(
         array $tags = [],
     ): void {
-        $this->fpc->clean(Zend_Cache::CLEANING_MODE_MATCHING_ANY_TAG, $tags);
+        if (!$tags) {
+            return;
+        }
+
+        $this->eventManager->dispatch('clean_cache_by_tags', ['object' => new class ($tags) implements IdentityInterface {
+            public function __construct(private readonly array $tags)
+            {
+            }
+
+            public function getIdentities(): array
+            {
+                return $this->tags;
+            }
+        }]);
 
         foreach ($tags as $tag) {
-            $this->cache->clean($tag);
+            $this->cache->clean([$tag]);
         }
     }
 }

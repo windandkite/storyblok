@@ -6,6 +6,7 @@
             <general>
                 <enabled>1</enabled>
                 <dev_mode>0</dev_mode>
+                <share_link_days>7</share_link_days>
                 <api_token backend_model="Magento\Config\Model\Config\Backend\Encrypted"/>
             </general>
             <page_routing>
