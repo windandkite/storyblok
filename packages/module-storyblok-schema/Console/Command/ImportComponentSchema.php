@@ -175,7 +175,16 @@ class ImportComponentSchema extends AbstractSchemaCommand
             $name = (string)$name;
             $definition = $this->importer->toDefinition($component, $folders);
             $tag = $this->importer->formatTag($definition);
-            $template = ComponentSchemaGenerator::templateName($name) . '.phtml';
+            $base = ComponentSchemaGenerator::templateName($name);
+
+            // The name becomes a file name: one that could reach outside the block directory isn't imported.
+            if (!preg_match('/^[a-z0-9_]+$/', $base)) {
+                $output->writeln(sprintf('<comment>%s: skipped, not a valid component name for a template</comment>', $name));
+                $failed++;
+                continue;
+            }
+
+            $template = $base . '.phtml';
             $existing = $this->findTemplate($blockDirectories, $template);
 
             if ($existing !== null && !$input->getOption(self::OPTION_OVERWRITE)) {

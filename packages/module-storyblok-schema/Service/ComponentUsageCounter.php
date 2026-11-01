@@ -198,6 +198,6 @@ class ComponentUsageCounter
             || $value === []
             || (is_array($value) && ($value['type'] ?? null) === 'doc' && empty($value['content']))
             || (is_array($value) && ($value['fieldtype'] ?? null) === 'asset' && empty($value['filename']))
-            || (is_array($value) && ($value['fieldtype'] ?? null) === 'multilink' && empty($value['url']) && empty($value['cached_url']) && empty($value['email']));
+            || (is_array($value) && ($value['fieldtype'] ?? null) === 'multilink' && empty($value['id']) && empty($value['url']) && empty($value['cached_url']) && empty($value['email']));
     }
 }

@@ -122,6 +122,8 @@ class SchemaWorkflowTest extends TestCase
             'body' => ['type' => 'array'],
             'span_desktop' => ['type' => 'number', 'enum' => [6, 12], 'default' => 12],
             'above_the_fold' => ['type' => 'boolean', 'description' => 'LCP */ image'],
+            'dark' => ['storyblok' => ['type' => 'boolean']],
+            'picker' => ['storyblok' => ['type' => 'custom', 'field_type' => 'colour-picker']],
         ]]]]);
 
         $this->assertStringContainsString('namespace WindAndKite\\Storyblok\\Ide\\Block;', $source);
@@ -130,6 +132,8 @@ class SchemaWorkflowTest extends TestCase
         $this->assertStringContainsString('@method string getBodyHtml()', $source);
         $this->assertStringContainsString('@method string|null getSpanDesktop() Numeric string. "6" | "12". default 12', $source);
         $this->assertStringContainsString('@method bool|null getAboveTheFold() LCP * / image', $source, 'a "*/" in a description cannot close the docblock');
+        $this->assertStringContainsString('@method bool|null getDark()', $source, 'a verbatim field\'s native type');
+        $this->assertStringContainsString('@method mixed getPicker()', $source);
 
         // Throws \ParseError if the generated source isn't valid PHP.
         token_get_all($source, TOKEN_PARSE);
@@ -160,6 +164,14 @@ class SchemaWorkflowTest extends TestCase
         file_put_contents($this->root . '/storyblok.config.ts', "export default defineConfig({\n    space: \"285467077178149\",\n});\n");
         $this->assertSame(['id' => '285467077178149', 'source' => 'storyblok.config.ts'], $context->resolveSpace(null));
 
+        file_put_contents($this->root . '/storyblok.config.ts', "export default defineConfig({\n    // space: \"111\",\n    /* space: 333 */\n    space: \"222\", // https://app.storyblok.com\n});\n");
+        $this->assertSame(['id' => '222', 'source' => 'storyblok.config.ts'], $context->resolveSpace(null), 'commented-out values are ignored');
+
+        file_put_contents($this->root . '/storyblok.config.ts', "export default isProd ? { space: 1 } : { space: 2 };\n");
+        $this->assertSame(['id' => null, 'source' => null], $context->resolveSpace(null), 'more than one is ambiguous');
+
+        file_put_contents($this->root . '/storyblok.config.ts', "export default defineConfig({\n    space: \"285467077178149\",\n});\n");
+
         putenv(StoryblokCliContext::ENV_SPACE_ID . '=777');
         $this->assertSame(['id' => '777', 'source' => StoryblokCliContext::ENV_SPACE_ID], $context->resolveSpace(null));
         putenv(StoryblokCliContext::ENV_SPACE_ID);
@@ -173,8 +185,8 @@ class SchemaWorkflowTest extends TestCase
     {
         mkdir($this->root . '/stories');
         file_put_contents($this->root . '/stories/a.json', json_encode(['uuid' => 'a', 'content' => ['_uid' => '1', 'component' => 'page', 'body' => [
-            ['_uid' => '2', 'component' => 'section', 'padding' => 'xl', 'legacy' => 'x'],
-            ['_uid' => '3', 'component' => 'section', 'padding' => 'small', 'legacy' => '', 'sticky' => false],
+            ['_uid' => '2', 'component' => 'section', 'padding' => 'xl', 'legacy' => 'x', 'link' => ['fieldtype' => 'multilink', 'id' => '', 'url' => '', 'cached_url' => '']],
+            ['_uid' => '3', 'component' => 'section', 'padding' => 'small', 'legacy' => '', 'sticky' => false, 'link' => ['fieldtype' => 'multilink', 'linktype' => 'story', 'id' => 'uuid', 'url' => '', 'cached_url' => '']],
         ]]]));
         file_put_contents($this->root . '/stories/b.json', json_encode(['uuid' => 'b', 'content' => ['_uid' => '4', 'component' => 'section', 'padding' => 'xl', 'legacy__i18n__de' => 'y', 'legacy__i18n__fr' => 'z']]));
 
@@ -186,6 +198,7 @@ class SchemaWorkflowTest extends TestCase
             ['kind' => ComponentSchemaComparer::KIND_FIELD_SETTINGS, 'component' => 'section', 'field' => 'padding', 'values' => ['label']],
             ['kind' => ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED, 'component' => 'page', 'field' => 'body', 'values' => ['section']],
             ['kind' => ComponentSchemaComparer::KIND_WHITELIST_UNRESTRICTED, 'component' => 'page', 'field' => 'body', 'values' => ['hero']],
+            ['kind' => '', 'component' => 'section', 'field' => 'link', 'values' => []],
         ];
         $annotated = (new ComponentUsageCounter(new File()))->annotate($this->root . '/stories', $issues);
 
@@ -196,6 +209,7 @@ class SchemaWorkflowTest extends TestCase
         $this->assertSame(['stories' => 2, 'bloks' => 3], $annotated[4]['usage'], 'settings names aren\'t content values');
         $this->assertSame(['stories' => 0, 'bloks' => 0], $annotated[5]['usage'], 'every child is still allowed');
         $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[6]['usage'], 'children outside the new whitelist');
+        $this->assertSame(['stories' => 1, 'bloks' => 1], $annotated[7]['usage'], 'a story link has only an id');
         $this->assertNull((new ComponentUsageCounter(new File()))->annotate($this->root . '/missing', $issues));
 
         // Zero usage is only reported when stories were actually read.
@@ -374,6 +388,23 @@ class SchemaWorkflowTest extends TestCase
         $this->assertStringContainsString('getImage2x()', $helper);
         $this->assertStringNotContainsString('getFooBar()', $helper, 'Magento would read "foo_bar"');
         $this->assertStringContainsString("getData('fooBar')", $helper);
+    }
+
+    public function testAListChangedToAFolderRestriction(): void
+    {
+        $final = $this->build(['hero' => ['fields' => [
+            'kids' => ['storyblok' => ['type' => 'bloks', 'restrict_components' => true, 'restrict_type' => 'groups', 'component_group_whitelist' => ['g'], 'component_whitelist' => ['card']]],
+        ]], 'card' => ['fields' => []]]);
+        $space = [['name' => 'hero', 'schema' => [
+            'kids' => ['type' => 'bloks', 'restrict_components' => true, 'component_whitelist' => ['card']],
+        ]], ['name' => 'card', 'schema' => []]];
+
+        $issues = (new ComponentSchemaComparer())->compare($final, $space);
+        $this->assertSame([[ComponentSchemaComparer::KIND_WHITELIST_REMOVED, ['card']]], array_map(static fn ($issue) => [$issue['kind'], $issue['values']], $issues), 'every listed blok may lose its place');
+
+        $kids = $this->generator()->buildSafe($final, $space)['components'][0]['schema']['kids'];
+        $this->assertArrayNotHasKey('restrict_type', $kids, 'the safe push keeps the space\'s list');
+        $this->assertSame(['card'], $kids['component_whitelist']);
     }
 
     public function testEveryFieldTypeAndStoryblokSettings(): void

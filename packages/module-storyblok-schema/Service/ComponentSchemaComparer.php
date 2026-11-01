@@ -390,6 +390,12 @@ class ComponentSchemaComparer
                 : $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_LIFTED, $component, $field, 'Restricted in the space, but the template allows any blok: the next push lifts the restriction.')];
         }
 
+        // The template restricts by folder or tag, the space by a list: which of the listed bloks the folder or tag
+        // allows isn't in the pull, so every one counts as removed.
+        if ($actualAllowed !== null && $expectedAllowed !== null && in_array($expected['restrict_type'] ?? '', ['groups', 'tags'], true)) {
+            return [$this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_REMOVED, $component, $field, sprintf('Restricted to a list of bloks in the space: the next push replaces that with the template\'s %s restriction, which may not allow them all: %s', $expected['restrict_type'] === 'tags' ? 'tag' : 'folder', implode(', ', $actualAllowed)), $actualAllowed)];
+        }
+
         if ($actualAllowed !== null && $expectedAllowed === null) {
             $issues[] = $this->issue(self::LEVEL_WARNING, self::KIND_WHITELIST_LIFTED, $component, $field, 'Restricted in the space, but the template allows any blok: the next push lifts the restriction.');
         }

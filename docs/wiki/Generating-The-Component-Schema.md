@@ -207,7 +207,7 @@ Your IDE then completes `$block->getTitle()`, `$block->getBodyHtml()` and so on.
 |---|---|---|
 | `--store` / `-s` | all | The store view (ID or code) whose theme is used. Defaults to the default store view. |
 | `--path` | all | The Storyblok CLI base directory. Defaults to `.storyblok`. |
-| `--space` | all | The space ID. |
+| `--space` | all | The space ID. Without it, the commands use `STORYBLOK_SPACE_ID`, then the `space` in `storyblok.config.ts`, ignoring commented-out lines. A config with more than one `space` (e.g. per environment) needs `--space`. |
 | `--force` | `generate` | Write the final schema even if it would orphan stored content, without asking. |
 | `--changed-only` | `generate` | Also write `<store_code>-changes/`. |
 | `--no-ide-helper` | `generate` | Don't write the IDE helper. |

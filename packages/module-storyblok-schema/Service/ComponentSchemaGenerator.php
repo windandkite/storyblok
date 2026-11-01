@@ -604,8 +604,11 @@ class ComponentSchemaGenerator
                     }
                 }
 
-                // A folder or tag restriction can't be merged with a list: keep the space's as it is.
-                if (!empty($spaceField['restrict_components']) && in_array($spaceField['restrict_type'] ?? '', ['groups', 'tags'], true)) {
+                // A folder or tag restriction, on either side, can't be merged with a list: keep the space's as it is.
+                $byFolderOrTag = static fn (array $field) => !empty($field['restrict_components'])
+                    && in_array($field['restrict_type'] ?? '', ['groups', 'tags'], true);
+
+                if (!empty($spaceField['restrict_components']) && ($byFolderOrTag($spaceField) || $byFolderOrTag($field))) {
                     foreach (['restrict_components', 'restrict_type', 'component_whitelist', 'component_group_whitelist', 'component_tag_whitelist'] as $key) {
                         unset($component['schema'][$name][$key]);
 
@@ -709,6 +712,24 @@ class ComponentSchemaGenerator
      */
     private function ideType(array $field): array
     {
+        // A verbatim Storyblok field has no shorthand type: read its native one.
+        if (is_array($field['storyblok'] ?? null)) {
+            return match ($field['storyblok']['type'] ?? null) {
+                'bloks' => ['array', 'Child bloks'],
+                'boolean' => ['bool|null', null],
+                'richtext' => ['array|null', 'Rich text document'],
+                'asset' => ['array|null', 'Storyblok asset (filename, alt, focus, ...)'],
+                'multiasset' => ['array', 'Storyblok assets'],
+                'multilink' => ['array|null', 'Storyblok link (resolve with the Link view model)'],
+                'table' => ['array|null', 'Storyblok table (thead, tbody)'],
+                'options' => ['array', 'Selected values'],
+                'number' => ['string|null', 'Numeric string'],
+                'datetime' => ['string|null', '"Y-m-d H:i", UTC'],
+                'text', 'textarea', 'markdown', 'option' => ['string|null', null],
+                default => ['mixed', null],
+            };
+        }
+
         if (!empty($field['multiple'])) {
             return ['array', isset($field['enum']) || isset($field['source']) ? 'Selected values' : (($field['type'] ?? '') === 'asset' ? 'Storyblok assets' : 'Story UUIDs')];
         }

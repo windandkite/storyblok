@@ -67,11 +67,18 @@ class StoryblokCliContext
         foreach (self::CONFIG_FILES as $configFile) {
             $path = $this->getRoot() . $configFile;
 
-            // Only a literal value can be read here; process.env references are resolved by Node, not PHP.
-            if ($this->file->isFile($path)
-                && preg_match('/\bspace\s*:\s*[\'"]?(\d+)[\'"]?/', $this->file->fileGetContents($path), $matches)
-            ) {
-                return ['id' => $matches[1], 'source' => $configFile];
+            if (!$this->file->isFile($path)) {
+                continue;
+            }
+
+            // Only a literal value can be read here; process.env references are resolved by Node, not PHP. Comments
+            // are dropped, and more than one value (e.g. per environment) is ambiguous: then --space is needed.
+            $config = preg_replace(['#/\*.*?\*/#s', '#(?<![:\'"\w])//.*$#m'], '', $this->file->fileGetContents($path));
+
+            $found = preg_match_all('/\bspace\s*:\s*[\'"]?(\d+)[\'"]?/', (string)$config, $matches);
+
+            if ($found) {
+                return $found === 1 ? ['id' => $matches[1][0], 'source' => $configFile] : ['id' => null, 'source' => null];
             }
         }
 

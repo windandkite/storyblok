@@ -62,7 +62,7 @@ class ComponentMigrationBuilder
                 . "  if (typeof value === 'object') {\n"
                 . "    if (value.type === 'doc') return !value.content || value.content.length === 0;\n"
                 . "    if (value.fieldtype === 'asset') return !value.filename;\n"
-                . "    if (value.fieldtype === 'multilink') return !value.url && !value.cached_url && !value.email;\n"
+                . "    if (value.fieldtype === 'multilink') return !value.id && !value.url && !value.cached_url && !value.email;\n"
                 . "  }\n"
                 . "  return false;\n"
                 . "}\n";
