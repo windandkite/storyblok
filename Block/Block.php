@@ -45,14 +45,16 @@ class Block extends AbstractStoryblok implements IdentityInterface
             $scopeConfig,
             $storyRequestService,
             $context,
-            $data
+            $data,
+            $storyblokSessionManager,
         );
     }
 
     public function getData(
         $key = '', $index = null
     ) {
-        if ($key === 'block') {
+        // A blok field named "story" or "slug" (e.g. a reference blok) must not replace the block's story.
+        if (in_array($key, ['block', 'story', 'slug'], true)) {
             return parent::getData($key, $index);
         }
 
@@ -66,7 +68,7 @@ class Block extends AbstractStoryblok implements IdentityInterface
 
     public function getBlokEditableAttributes(): string
     {
-        if (!$this->scopeConfig->isDevModeEnabled() && !$this->storyblokSessionManager->isValidEditorSession() && !$this->getStory()?->getForceBridge()) {
+        if (!$this->isEditorPreview()) {
             return '';
         }
 
@@ -93,9 +95,28 @@ class Block extends AbstractStoryblok implements IdentityInterface
             return '';
         }
 
-        $dataBlokUid = $this->getStory()->getId() . '-' . $editableData['uid'];
+        // The _editable "id" is the story ID, for bloks rendered without their story.
+        $dataBlokUid = ($this->getStory()?->getId() ?? $editableData['id']) . '-' . $editableData['uid'];
 
-        return sprintf("data-blok-c='%s' data-blok-uid='%s'", $dataBlokC, $dataBlokUid);
+        return sprintf(
+            'data-blok-c="%s" data-blok-uid="%s"',
+            $this->_escaper->escapeHtmlAttr($dataBlokC),
+            $this->_escaper->escapeHtmlAttr($dataBlokUid)
+        );
+    }
+
+    /**
+     * Whether this blok or one it's nested in is marked "above_the_fold", e.g. the first section on the page. Templates
+     * use it to load images eagerly, which helps LCP.
+     *
+     * @return bool
+     */
+    public function isAboveTheFold(): bool
+    {
+        $parent = $this->getData('parent_blok');
+
+        return (bool)$this->getBlock()->getData('above_the_fold')
+            || ($parent instanceof self && $parent->isAboveTheFold());
     }
 
     public function renderField(string $fieldName): ?string
@@ -108,7 +129,8 @@ class Block extends AbstractStoryblok implements IdentityInterface
 
         return $this->fieldRenderer->renderField(
             $this->getBlock()->getData($fieldName),
-            $story
+            $story,
+            $this
         );
     }
 
@@ -147,7 +169,7 @@ class Block extends AbstractStoryblok implements IdentityInterface
     public function renderRichTextField(
         string $fieldName,
     ): string {
-        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName));
+        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName), $this->getStory(), $this);
     }
 
     /**

@@ -26,6 +26,7 @@
                 <item name="text" xsi:type="object">WindAndKite\Storyblok\TipTap\Text</item>
                 <item name="link" xsi:type="object">WindAndKite\Storyblok\TipTap\Link</item>
                 <item name="code_block" xsi:type="object">WindAndKite\Storyblok\TipTap\CodeBlock</item>
+                <item name="image" xsi:type="object">WindAndKite\Storyblok\TipTap\Image</item>
             </argument>
         </arguments>
     </type>
@@ -43,6 +44,9 @@
         <arguments>
             <argument name="sensitive" xsi:type="array">
                 <item name="storyblok/general/api_token" xsi:type="string">1</item>
+                <item name="storyblok/general/asset_token" xsi:type="string">1</item>
+                <item name="storyblok/general/webhook_secret" xsi:type="string">1</item>
+                <item name="storyblok/dev/webhook_secret" xsi:type="string">1</item>
             </argument>
         </arguments>
     </type>

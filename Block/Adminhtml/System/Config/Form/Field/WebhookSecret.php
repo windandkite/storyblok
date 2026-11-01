@@ -2,12 +2,29 @@
 
 namespace WindAndKite\Storyblok\Block\Adminhtml\System\Config\Form\Field;
 
+use Magento\Backend\Block\Template\Context;
 use Magento\Backend\Block\Widget\Button;
 use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\Data\Form\Element\AbstractElement;
+use Magento\Framework\UrlInterface;
+use WindAndKite\Storyblok\Controller\Webhook\Index as Webhook;
+use WindAndKite\Storyblok\Scope\Config;
 
 class WebhookSecret extends Field
 {
+    /**
+     * @param Context $context
+     * @param Config $config
+     * @param array $data
+     */
+    public function __construct(
+        Context $context,
+        private readonly Config $config,
+        array $data = [],
+    ) {
+        parent::__construct($context, $data);
+    }
+
     /**
      * @param AbstractElement $element
      * @return string
@@ -15,9 +32,31 @@ class WebhookSecret extends Field
     protected function _getElementHtml(AbstractElement $element)
     {
         $element->setDisabled('disabled');
+        // The secret as webhooks check it, whether it's stored encrypted or set in plain text in env.php.
+        $element->setValue($this->config->getWebhookSecret());
         $html = $element->getElementHtml();
         $html .= $this->getGenerateButtonHtml();
+        $html .= '<p class="note"><span>'
+            . $this->escapeHtml(__('Webhook URL for Storyblok (Settings > Webhooks). Plans that can sign webhooks can also set this secret there.'))
+            . '</span><br><code id="storyblok_webhook_url" style="word-break:break-all">'
+            . $this->escapeHtml($element->getValue() ? $this->getWebhookUrl((string)$element->getValue()) : (string)__('Generate a secret first.'))
+            . '</code></p>';
+
         return $html;
+    }
+
+    /**
+     * The frontend webhook endpoint with the secret as its key, for Storyblok plans that can't sign webhooks.
+     *
+     * @param string $secret
+     *
+     * @return string
+     */
+    private function getWebhookUrl(string $secret): string
+    {
+        $baseUrl = $this->_storeManager->getDefaultStoreView()?->getBaseUrl(UrlInterface::URL_TYPE_LINK, true) ?? '';
+
+        return $baseUrl . 'storyblok/webhook?' . http_build_query([Webhook::KEY_PARAM => $secret]);
     }
 
     /**
@@ -47,6 +86,7 @@ class WebhookSecret extends Field
     protected function getGenerateSecretJs()
     {
         $generateUrl = $this->getUrl('storyblok/webhook/regenerateSecret');
+        $webhookUrl = $this->escapeJs($this->getWebhookUrl(''));
         return <<<JS
         <script>
         require(['jquery', 'Magento_Ui/js/modal/alert'], function ($, alert) {
@@ -68,6 +108,7 @@ class WebhookSecret extends Field
                             });
                             // Update the secret field
                             $('input#storyblok_general_webhook_secret').val(response.secret);
+                            $('#storyblok_webhook_url').text('{$webhookUrl}' + encodeURIComponent(response.secret));
                         } else {
                             alert({
                                 title: 'Error',

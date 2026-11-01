@@ -12,11 +12,13 @@ use Storyblok\Api\Response\StoryResponse;
 use Storyblok\Api\StoriesApi;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use WindAndKite\Storyblok\Exception\StoryblokUnavailableException;
 use WindAndKite\Storyblok\Model\Story;
 use WindAndKite\Storyblok\Model\StoryblokClientWrapper;
 use WindAndKite\Storyblok\Model\StoryFactory;
 use WindAndKite\Storyblok\Model\StoryRepository;
 use WindAndKite\Storyblok\Service\SearchCriteriaConverter;
+use WindAndKite\Storyblok\Service\PageCacheability;
 use WindAndKite\Storyblok\Service\StoryblokCacheService;
 
 class StoryRepositoryTest extends TestCase
@@ -75,16 +77,19 @@ class StoryRepositoryTest extends TestCase
         $this->repository($cache, $client, $this->createStub(LoggerInterface::class))->getById(5);
     }
 
-    public function testOtherErrorsAreLoggedAndNotCached(): void
+    public function testApiFailuresAreAnOutageNotA404(): void
     {
         $cache = $this->cache(false);
         $cache->expects($this->never())->method('saveStoryNotFound');
 
         $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->once())->method('warning');
+        $logger->expects($this->once())->method('error');
 
-        $this->expectException(NoSuchEntityException::class);
-        $this->repository($cache, $this->apiThrowing(500), $logger)->getBySlug('broken');
+        $pageCacheability = $this->createMock(PageCacheability::class);
+        $pageCacheability->expects($this->once())->method('markUncacheable');
+
+        $this->expectException(StoryblokUnavailableException::class);
+        $this->repository($cache, $this->apiThrowing(500), $logger, pageCacheability: $pageCacheability)->getBySlug('broken');
     }
 
     public function testCacheErrorsAreLoggedAndStillReportNotFound(): void
@@ -128,6 +133,7 @@ class StoryRepositoryTest extends TestCase
         StoryblokClientWrapper $client,
         LoggerInterface $logger,
         ?StoryFactory $storyFactory = null,
+        ?PageCacheability $pageCacheability = null,
     ): StoryRepository {
         return new StoryRepository(
             $client,
@@ -136,6 +142,7 @@ class StoryRepositoryTest extends TestCase
             $this->createStub(SearchResultsInterfaceFactory::class),
             $this->createStub(SearchCriteriaConverter::class),
             $cache,
+            $pageCacheability ?? $this->createStub(PageCacheability::class),
         );
     }
 }

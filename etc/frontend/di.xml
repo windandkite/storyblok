@@ -19,6 +19,16 @@
                 type="WindAndKite\Storyblok\Plugin\ForceBuiltInCachePlugin"/>
     </type>
 
+    <type name="Magento\Framework\App\Response\HeaderProvider\XFrameOptions">
+        <plugin name="WindAndKite_Storyblok::allow_visual_editor_frame"
+                type="WindAndKite\Storyblok\Plugin\AllowVisualEditorFramePlugin"/>
+    </type>
+
+    <type name="Magento\Framework\View\Layout">
+        <plugin name="WindAndKite_Storyblok::uncacheable_page"
+                type="WindAndKite\Storyblok\Plugin\UncacheablePagePlugin"/>
+    </type>
+
     <type name="Magento\Framework\View\Design\Fallback\Rule\ModularSwitch">
         <plugin name="storyblok_compat_module_fallback"
                 type="WindAndKite\Storyblok\Plugin\ViewFileOverride"/>

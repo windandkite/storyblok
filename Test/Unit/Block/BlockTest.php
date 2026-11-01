@@ -10,6 +10,7 @@ use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Framework\View\Element\Template\Context;
 use WindAndKite\Storyblok\Api\FieldRendererInterface;
 use WindAndKite\Storyblok\Block\Block;
+use WindAndKite\Storyblok\Model\Block as StoryblokBlock;
 use WindAndKite\Storyblok\Model\BlockFactory;
 use WindAndKite\Storyblok\Model\Story;
 use WindAndKite\Storyblok\Model\StoryRepository;
@@ -109,5 +110,40 @@ class BlockTest extends TestCase
             $this->createStub(Context::class),
             $this->createStub(StoryRequestService::class),
         );
+    }
+
+    public function testBlokFieldsNamedStoryOrSlugDontReplaceTheStory(): void
+    {
+        // A reference blok: its "story" field is the UUID of another story.
+        $blok = (new \ReflectionClass(StoryblokBlock::class))->newInstanceWithoutConstructor();
+        $blok->setData(['story' => 'uuid-of-another-story', 'slug' => 'other', 'title' => 'Hello']);
+
+        $block = (new \ReflectionClass(Block::class))->newInstanceWithoutConstructor();
+        $block->setData('block', $blok);
+
+        $this->assertNull($block->getData('story'));
+        $this->assertNull($block->getData('slug'));
+        $this->assertSame('Hello', $block->getData('title'));
+    }
+
+    public function testAboveTheFoldIsInheritedFromParentBloks(): void
+    {
+        $section = $this->nestedBlock(['above_the_fold' => true]);
+        $card = $this->nestedBlock([], $section);
+        $image = $this->nestedBlock([], $card);
+
+        $this->assertTrue($image->isAboveTheFold());
+        $this->assertFalse($this->nestedBlock([], $this->nestedBlock([]))->isAboveTheFold());
+    }
+
+    private function nestedBlock(array $fields, ?Block $parent = null): Block
+    {
+        $blok = (new \ReflectionClass(StoryblokBlock::class))->newInstanceWithoutConstructor();
+        $blok->setData($fields);
+
+        $block = (new \ReflectionClass(Block::class))->newInstanceWithoutConstructor();
+        $block->setData(['block' => $blok, 'parent_blok' => $parent]);
+
+        return $block;
     }
 }
