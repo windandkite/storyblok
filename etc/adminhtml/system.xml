@@ -68,6 +68,7 @@
                        showInWebsite="0"
                        showInStore="0">
                     <label>Webhook Secret</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                     <frontend_model>WindAndKite\Storyblok\Block\Adminhtml\System\Config\Form\Field\WebhookSecret</frontend_model>
                     <comment>Used to verify incoming webhook requests from Storyblok. Click "Generate New Secret" to change it.</comment>
                 </field>

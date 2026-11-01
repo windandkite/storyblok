@@ -26,6 +26,7 @@
                 <item name="text" xsi:type="object">WindAndKite\Storyblok\TipTap\Text</item>
                 <item name="link" xsi:type="object">WindAndKite\Storyblok\TipTap\Link</item>
                 <item name="code_block" xsi:type="object">WindAndKite\Storyblok\TipTap\CodeBlock</item>
+                <item name="image" xsi:type="object">WindAndKite\Storyblok\TipTap\Image</item>
             </argument>
         </arguments>
     </type>

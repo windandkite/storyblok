@@ -2,14 +2,29 @@
 
 namespace WindAndKite\Storyblok\Block\Adminhtml\System\Config\Form\Field;
 
+use Magento\Backend\Block\Template\Context;
 use Magento\Backend\Block\Widget\Button;
 use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\Data\Form\Element\AbstractElement;
 use Magento\Framework\UrlInterface;
 use WindAndKite\Storyblok\Controller\Webhook\Index as Webhook;
+use WindAndKite\Storyblok\Scope\Config;
 
 class WebhookSecret extends Field
 {
+    /**
+     * @param Context $context
+     * @param Config $config
+     * @param array $data
+     */
+    public function __construct(
+        Context $context,
+        private readonly Config $config,
+        array $data = [],
+    ) {
+        parent::__construct($context, $data);
+    }
+
     /**
      * @param AbstractElement $element
      * @return string
@@ -17,6 +32,8 @@ class WebhookSecret extends Field
     protected function _getElementHtml(AbstractElement $element)
     {
         $element->setDisabled('disabled');
+        // The secret as webhooks check it, whether it's stored encrypted or set in plain text in env.php.
+        $element->setValue($this->config->getWebhookSecret());
         $html = $element->getElementHtml();
         $html .= $this->getGenerateButtonHtml();
         $html .= '<p class="note"><span>'

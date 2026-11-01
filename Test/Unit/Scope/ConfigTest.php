@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WindAndKite\Storyblok\Test\Unit\Scope;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -19,7 +20,7 @@ class ConfigTest extends TestCase
         $scopeConfig->method('isSetFlag')->willReturn($restrict);
         $scopeConfig->method('getValue')->willReturn($folder);
 
-        $config = new Config($scopeConfig, $this->createStub(SerializerInterface::class));
+        $config = new Config($scopeConfig, $this->createStub(SerializerInterface::class), $this->createStub(EncryptorInterface::class));
 
         $this->assertSame($expected, $config->getStoryUrlPath($fullSlug));
     }
@@ -33,6 +34,28 @@ class ConfigTest extends TestCase
             'the folder itself' => [true, 'pages', 'pages/', ''],
             'only a name prefix' => [true, 'pages', 'pages-old/about', 'pages-old/about'],
             'outside the folder' => [true, 'pages', 'blog/post', 'blog/post'],
+        ];
+    }
+
+    #[DataProvider('webhookSecretProvider')]
+    public function testWebhookSecretIsDecryptedOnlyWhenEncrypted(?string $stored, ?string $expected): void
+    {
+        $scopeConfig = $this->createStub(ScopeConfigInterface::class);
+        $scopeConfig->method('getValue')->willReturn($stored);
+        $encryptor = $this->createStub(EncryptorInterface::class);
+        $encryptor->method('decrypt')->willReturnCallback(static fn (string $value) => 'decrypted ' . $value);
+
+        $config = new Config($scopeConfig, $this->createStub(SerializerInterface::class), $encryptor);
+
+        $this->assertSame($expected, $config->getWebhookSecret());
+    }
+
+    public static function webhookSecretProvider(): array
+    {
+        return [
+            'saved from the admin' => ['0:3:abc', 'decrypted 0:3:abc'],
+            'plain text in env.php' => ['d53cb01c', 'd53cb01c'],
+            'not set' => [null, null],
         ];
     }
 }
