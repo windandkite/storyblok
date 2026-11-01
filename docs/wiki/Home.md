@@ -42,6 +42,7 @@ Ready to bring the power of Storyblok to your Magento 2 store? Follow these simp
 ### Developer Guides
 - [Content Routing](Content-Routing)
 - [Creating Custom Templates](Creating-Custom-Templates)
+- [Generating the Component Schema](Generating-The-Component-Schema)
 - [Accessing Storyblok Data](Accessing-Storyblok-Data)
 - [Working with Visual Editor](Working-With-Storyblok-Visual_editor)
 - [Displaying Story Lists](Displaying-Story-Lists)
