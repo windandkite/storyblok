@@ -13,7 +13,7 @@
     "php": "^8.1",
     "magento/framework": "*",
     "magento/module-store": "*",
-    "windandkite/module-storyblok": "^2.1"
+    "windandkite/module-storyblok": "^3.0"
   },
   "autoload": {
     "files": [

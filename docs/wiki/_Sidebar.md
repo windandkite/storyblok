@@ -6,6 +6,7 @@
 ## User Guides
 - [Quick Start](Quick-Start)
 - [Installation Guide](Installation-Guide)
+- [Upgrading to 3.0](Upgrading-To-3.0)
 - [Configuration Guide](Configuration-Guide)
 - [SEO App Integration](SEO-App-Integration)
 
