@@ -48,7 +48,8 @@ class Block extends AbstractStoryblok
     public function getData(
         $key = '', $index = null
     ) {
-        if ($key === 'block') {
+        // A blok field named "story" or "slug" (e.g. a reference blok) must not replace the block's story.
+        if (in_array($key, ['block', 'story', 'slug'], true)) {
             return parent::getData($key, $index);
         }
 
@@ -89,7 +90,8 @@ class Block extends AbstractStoryblok
             return '';
         }
 
-        $dataBlokUid = $this->getStory()->getId() . '-' . $editableData['uid'];
+        // The _editable "id" is the story ID, for bloks rendered without their story.
+        $dataBlokUid = ($this->getStory()?->getId() ?? $editableData['id']) . '-' . $editableData['uid'];
 
         return sprintf("data-blok-c='%s' data-blok-uid='%s'", $dataBlokC, $dataBlokUid);
     }
@@ -111,7 +113,7 @@ class Block extends AbstractStoryblok
     public function renderRichTextField(
         string $fieldName,
     ): string {
-        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName));
+        return $this->fieldRenderer->renderRichTextField($this->getBlock()->getData($fieldName), $this->getStory());
     }
 
     /**

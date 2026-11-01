@@ -43,6 +43,9 @@
         <arguments>
             <argument name="sensitive" xsi:type="array">
                 <item name="storyblok/general/api_token" xsi:type="string">1</item>
+                <item name="storyblok/general/asset_token" xsi:type="string">1</item>
+                <item name="storyblok/general/webhook_secret" xsi:type="string">1</item>
+                <item name="storyblok/dev/webhook_secret" xsi:type="string">1</item>
             </argument>
         </arguments>
     </type>

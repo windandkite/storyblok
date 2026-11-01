@@ -19,7 +19,7 @@ class AssetRepository implements AssetRepositoryInterface
         string $filename,
     ): AssetInterface {
         try {
-            $assetResponse = $this->storyBlockClientWrapper->getAssetByFilename($filename);
+            $assetResponse = $this->storyBlockClientWrapper->getAssetsApi()->get($filename);
             $asset = $this->assetFactory->create();
             $asset->setData($this->convertAssetResponseToArray($assetResponse->asset));
 
@@ -34,21 +34,14 @@ class AssetRepository implements AssetRepositoryInterface
     private function convertAssetResponseToArray(
         \Storyblok\Api\Domain\Value\Asset $asset,
     ): array {
-        $resultArray = [];
-        $reflection = new \ReflectionClass($asset);
-        $properties = $reflection->getProperties(\ReflectionProperty::IS_PUBLIC);
-
-        foreach ($properties as $property) {
-            $propertyName = $property->getName();
-            $propertyValue = $property->getValue($asset);
-
-            if ($propertyValue instanceof \DateTimeImmutable) {
-                $resultArray[$propertyName] = $propertyValue->format('Y-m-d H:i:s');
-            } else {
-                $resultArray[$propertyName] = $propertyValue;
-            }
-        }
-
-        return $resultArray;
+        return [
+            AssetInterface::KEY_FILENAME => $asset->filename,
+            AssetInterface::KEY_CREATED_AT => $asset->createdAt->format('Y-m-d H:i:s'),
+            AssetInterface::KEY_UPDATED_AT => $asset->updatedAt->format('Y-m-d H:i:s'),
+            AssetInterface::KEY_EXPIRE_AT => $asset->expiresAt?->format('Y-m-d H:i:s'),
+            AssetInterface::KEY_CONTENT_LENGTH => $asset->contentLength,
+            AssetInterface::KEY_SIGNED_URL => $asset->signedUrl,
+            AssetInterface::KEY_CONTENT_TYPE => $asset->contentType,
+        ];
     }
 }

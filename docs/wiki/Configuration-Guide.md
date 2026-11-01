@@ -16,6 +16,16 @@ These settings control the core functionality of the module.
     - Description: This is your Storyblok Preview API Key. It's absolutely essential for the module to fetch any content from your Storyblok space.
     - How to get it: Refer to the official Storyblok guide on retrieving access tokens. Ensure you copy the Preview token.
     - Input Type: This field is obscured for security, as it stores a sensitive API key.
+    - Scope: Can be set per website, so each website can use its own Storyblok space.
+- Asset Token
+    - Description: Optional. Only needed to load private assets through the asset repository (`AssetRepositoryInterface`). Public assets don't need it.
+    - How to get it: In Storyblok, go to Settings > Access Tokens and create a token with the "Asset" access level.
+    - Scope: Can be set per website, like the API Token.
+- Space Region
+    - Description: The region your Storyblok space was created in (Europe, United States, Canada, Australia or China). The module uses that region's API, so a wrong region makes every request fail.
+    - How to find it: In Storyblok, go to Settings > Space.
+    - Default: Europe
+    - Scope: Can be set per website, like the API Token.
 - Webhook Secret
     - Description: Verifies that webhook requests come from Storyblok. Webhooks clear the cache when content is published. A secret is generated when the module is installed, and the "Generate New Secret" button replaces it. Set at the default scope only.
     - Action: The field shows the full webhook URL, with the secret as its `key` parameter. In Storyblok, go to Settings > Webhooks and add a webhook for "Story published" (and "Story unpublished" / "Story deleted" if you want those to clear the cache too) using that URL.

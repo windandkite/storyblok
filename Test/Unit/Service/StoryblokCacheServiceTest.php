@@ -40,11 +40,13 @@ class StoryblokCacheServiceTest extends TestCase
                 'storyblok_story_id_1',
                 'storyblok_story_id_9',
                 'storyblok_story_id_7',
+                // The full slug, as the webhook sends.
+                'storyblok_story_slug_blog/a',
             ], $tags))
         );
 
         $this->service($cache)->saveStoriesResponse('list-key', new StoriesResponse(new Total(1), new Pagination(), [
-            'stories' => [['id' => 1, 'slug' => 'a']],
+            'stories' => [['id' => 1, 'slug' => 'a', 'full_slug' => 'blog/a']],
             'cv' => 5,
             'rels' => [['id' => 9]],
             'links' => [['id' => 7]],

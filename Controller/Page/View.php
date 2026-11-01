@@ -12,6 +12,7 @@ use Magento\Framework\UrlInterface;
 use Magento\Framework\View\Result\Page;
 use Magento\Framework\View\Result\PageFactory;
 use WindAndKite\Storyblok\Api\Data\StoryInterface;
+use WindAndKite\Storyblok\Scope\Config;
 
 /**
  * Controller for the 'storyblok/page/view' URL route.
@@ -25,6 +26,7 @@ class View implements HttpGetActionInterface
         private PageFactory $pageFactory,
         private RequestInterface $request,
         private UrlInterface $urlBuilder,
+        private Config $config,
     ) {}
 
     /**
@@ -101,8 +103,7 @@ class View implements HttpGetActionInterface
         Page $page,
         StoryInterface $story,
     ): void {
-        $slug = rtrim($story->getFullSlug(), '/');
-        $paths = explode('/', $slug);
+        $paths = explode('/', $this->config->getStoryUrlPath((string)$story->getFullSlug()));
 
         $breadcrumbsBlock = $page->getLayout()->getBlock('breadcrumbs');
 
