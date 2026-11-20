@@ -7,6 +7,7 @@ use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Event\ManagerInterface as EventManager;
 use Magento\Framework\Webapi\Exception as WebapiException;
 use Psr\Log\LoggerInterface;
 use Magento\Framework\Serialize\SerializerInterface;
@@ -16,6 +17,12 @@ use WindAndKite\Storyblok\Service\StoryblokCacheService;
 
 class Index implements CsrfAwareActionInterface, HttpPostActionInterface
 {
+    /**
+     * Dispatched after a valid webhook has cleaned the cache, with `story_id`, `action`, `full_slug` and `space_id`
+     * (null when absent) and the whole decoded `payload`.
+     */
+    public const EVENT_PROCESSED = 'windandkite_storyblok_webhook_processed';
+
     // Lower Storyblok plans can't sign webhooks, so the secret can also be passed in the webhook URL.
     public const KEY_PARAM = 'key';
 
@@ -26,6 +33,7 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
      * @param SerializerInterface $serializer
      * @param Config $config
      * @param Request $request
+     * @param EventManager $eventManager
      */
     public function __construct(
         private JsonFactory $resultJsonFactory,
@@ -34,6 +42,7 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
         private SerializerInterface $serializer,
         private Config $config,
         private Request $request,
+        private EventManager $eventManager,
     ) {}
 
     /**
@@ -167,6 +176,20 @@ class Index implements CsrfAwareActionInterface, HttpPostActionInterface
 
         } catch (\Exception $e) {
             $this->logger->error('Error processing webhook: ' . $e->getMessage());
+        }
+
+        // Separate from the cache clean: an observer failing (e.g. a search service being down) mustn't stop the
+        // cache being cleaned, nor make Storyblok retry a webhook that has already cleaned it.
+        try {
+            $this->eventManager->dispatch(self::EVENT_PROCESSED, [
+                'story_id' => $storyId,
+                'action' => is_string($data['action'] ?? null) ? $data['action'] : null,
+                'full_slug' => is_string($slug) ? $slug : null,
+                'space_id' => $data['space_id'] ?? null,
+                'payload' => $data,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Error in a webhook observer: ' . $e->getMessage());
         }
     }
 

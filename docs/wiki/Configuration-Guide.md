@@ -31,6 +31,7 @@ These settings control the core functionality of the module.
     - Action: The field shows the full webhook URL, with the secret as its `key` parameter. In Storyblok, go to Settings > Webhooks and add a webhook for "Story published" (and "Story unpublished" / "Story deleted" if you want those to clear the cache too) using that URL.
     - If your Storyblok plan lets you set a webhook secret, you can also paste the secret into the webhook's "Secret" field. Storyblok then signs each request and the module checks the signature.
     - If you generate a new secret, update the URL in Storyblok too, or webhooks will be rejected.
+    - For developers: after a valid webhook has cleaned the cache, the `windandkite_storyblok_webhook_processed` event is dispatched with `story_id`, `action` (e.g. `published`, `unpublished`, `deleted`), `full_slug`, `space_id` and the whole decoded `payload`. Observe it to sync stories elsewhere, such as a search index. An exception in an observer is logged and doesn't fail the webhook.
 - Developer Mode
     - Description: When "Yes", every visitor sees draft content and page caching is turned off.
     - Default: No
